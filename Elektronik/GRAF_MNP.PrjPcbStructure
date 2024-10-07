@@ -1,2 +1,3 @@
 Record=TopLevelDocument|FileName=Top.SchDoc|SheetNumber=1
 Record=SheetSymbol|SourceDocument=Top.SchDoc|Designator=U_Controller|SchDesignator=U_Controller|FileName=Controller.SchDoc|SheetNumber=2|SymbolType=Normal|RawFileName=Controller.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Top.SchDoc|Designator=U_ControllerSupply|SchDesignator=U_ControllerSupply|FileName=ControllerSupply.SchDoc|SheetNumber=3|SymbolType=Normal|RawFileName=ControllerSupply.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
