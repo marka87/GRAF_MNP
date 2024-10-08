@@ -63,6 +63,12 @@ void Error_Handler(void);
 #define EN_G_GPIO_Port GPIOF
 #define EN_B_Pin GPIO_PIN_2
 #define EN_B_GPIO_Port GPIOF
+#define DISP_A0_Pin GPIO_PIN_3
+#define DISP_A0_GPIO_Port GPIOF
+#define RST_DISPLAY_Pin GPIO_PIN_4
+#define RST_DISPLAY_GPIO_Port GPIOF
+#define EN_5V_Pin GPIO_PIN_5
+#define EN_5V_GPIO_Port GPIOF
 
 /* USER CODE BEGIN Private defines */
 
