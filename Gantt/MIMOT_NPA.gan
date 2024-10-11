@@ -1,15 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-09-01" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3311" locale="de_DE">
+<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-09-09" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3311" locale="de_DE">
     <description/>
-    <view zooming-state="default:8" id="gantt-chart">
+    <view zooming-state="default:7" id="gantt-chart">
         <field id="tpd3" name="Vorgang" width="200" order="0"/>
         <field id="tpd4" name="Anfang" width="75" order="1"/>
         <field id="tpd5" name="Ende" width="75" order="2"/>
         <field id="tpd15" name="Notizen" width="20" order="3"/>
+        <option id="taskLabelUp" value=""/>
+        <option id="taskLabelDown" value=""/>
         <option id="filter.completedTasks" value="false"/>
         <option id="filter.dueTodayTasks" value="false"/>
         <option id="filter.overdueTasks" value="false"/>
         <option id="filter.inProgressTodayTasks" value="false"/>
-        <option id="color.recent"><![CDATA[#cc0033]]></option>
+        <option id="color.recent"><![CDATA[#cc0033 #cccccc #99ff00]]></option>
     </view>
     <view id="resource-table">
         <field id="0" name="Ressource" width="210" order="0"/>
@@ -39,41 +41,40 @@
             <taskproperty id="tpd8" name="coordinator" type="default" valuetype="text"/>
             <taskproperty id="tpd9" name="predecessorsr" type="default" valuetype="text"/>
         </taskproperties>
-        <task id="0" uid="d125685a26a04cbeb940cf71e001371b" name="Kickoff-Sitzung" meeting="false" start="2024-08-29" duration="1" complete="0" expand="true"/>
-        <task id="11" uid="65f53a1db12d4d6fbf26c8285e93e9eb" name="Mechanik" meeting="false" start="2024-10-04" duration="1" complete="0" expand="true">
-            <task id="28" uid="56a149e87f474825a125f0701dca734a" name="Rack Bestellen" meeting="false" start="2024-10-04" duration="1" complete="0" expand="true"/>
+        <task id="0" uid="d125685a26a04cbeb940cf71e001371b" name="Kickoff-Sitzung" meeting="false" start="2024-09-02" duration="2" complete="0" expand="true"/>
+        <task id="22" uid="9cdd2b23c99945b5a0a6233ea62f0345" name="PM" meeting="false" start="2024-09-11" duration="98" complete="0" expand="true">
+            <task id="31" uid="da214746135a4847b13b2eab1d926ba7" name="Dokumentation" color="#99ff00" meeting="false" start="2024-09-13" duration="96" complete="0" expand="true"/>
+            <task id="1" uid="2312ca86cfd247c7aef56d81f0ad6e00" name="Lastenheft" meeting="false" start="2024-09-11" duration="2" complete="0" expand="true"/>
+            <task id="2" uid="eb482cf41c4741f49b9ddb1e5c4d44ad" name="Lastenheft abgabe" color="#cc0033" meeting="true" start="2024-09-13" duration="0" complete="0" expand="true"/>
+            <task id="3" uid="25dff92697384e59a75466fdc1d01fc5" name="Blockschaltbild" meeting="false" start="2024-10-01" duration="4" complete="0" expand="true"/>
+            <task id="24" uid="9f04a2317af44cd28691fc73e941df27" name="Technologieschema" meeting="false" start="2024-10-04" duration="5" complete="0" expand="true"/>
+            <task id="38" uid="44f4745daf794f14924505da5f08aef7" name="Pflichtenheft" meeting="false" start="2024-10-07" duration="4" complete="0" expand="true"/>
+            <task id="30" uid="1efecd25f71247c1bb1910163c58f9f0" name="PM - Abgabe" color="#cc0033" meeting="true" start="2024-10-11" duration="0" complete="0" expand="true"/>
         </task>
-        <task id="29" uid="03084880404d48e497b762f54e19d3f0" name="Rack z.bau" meeting="false" start="2024-10-07" duration="1" complete="0" expand="true"/>
-        <task id="4" uid="67aa5055a5c843c39be43de3eeeb382f" name="Besprechung in Firma" meeting="false" start="2024-08-29" duration="1" complete="0" expand="true">
-            <task id="5" uid="e913ec75e590471a827b08b2fd67d0cb" name="Erste, Idee" meeting="false" start="2024-08-29" duration="1" complete="0" expand="true"/>
+        <task id="11" uid="65f53a1db12d4d6fbf26c8285e93e9eb" name="Mechanik" meeting="false" start="2024-10-02" duration="4" complete="0" expand="true">
+            <task id="28" uid="56a149e87f474825a125f0701dca734a" name="Rack Bestellen" meeting="false" start="2024-10-02" duration="3" complete="0" expand="true"/>
+            <task id="29" uid="03084880404d48e497b762f54e19d3f0" name="Rack Aufbau" meeting="false" start="2024-10-07" duration="1" complete="0" expand="true"/>
         </task>
-        <task id="7" uid="b5e5f899973543e1b5cb475d4ed99f1c" name="Aufbau" meeting="false" start="2024-08-26" duration="110" complete="0" expand="true">
-            <task id="8" uid="ad7b7d4fead14484b8897eb0f2590048" name="Aufbau Fliegend" meeting="false" start="2024-09-13" duration="96" complete="0" expand="true"/>
-            <task id="27" uid="35da821975b245b78fbb54090ac390fb" name="Layout Bestellen" meeting="false" start="2024-10-29" duration="5" complete="0" expand="true"/>
-            <task id="9" uid="c56d8b13ed9840b0aca027695a5fcaa7" name="Bestücken" meeting="false" start="2024-10-29" duration="5" complete="0" expand="true"/>
-            <task id="10" uid="0dbb79771da742d79f46507f897b4255" name="HW_ Test" meeting="false" start="2024-08-26" duration="1" complete="0" expand="true"/>
+        <task id="7" uid="b5e5f899973543e1b5cb475d4ed99f1c" name="Aufbau" meeting="false" start="2024-10-07" duration="30" complete="0" expand="true">
+            <task id="32" uid="fa2437483ed04b21b06a39e4fa288138" name="SCH, Layout Erstellen" meeting="false" start="2024-10-07" duration="20" complete="0" expand="true"/>
+            <task id="33" uid="13623cb53ecd454bbb1a5fa45c4fbb20" name="SCH, Layout fertig" color="#cc0033" meeting="true" start="2024-10-28" duration="0" complete="0" expand="true"/>
+            <task id="27" uid="35da821975b245b78fbb54090ac390fb" name="LK Bestellen" meeting="false" start="2024-10-29" duration="5" complete="0" expand="true"/>
+            <task id="9" uid="c56d8b13ed9840b0aca027695a5fcaa7" name="Bestücken" meeting="false" start="2024-10-29" duration="10" complete="0" expand="true"/>
+            <task id="10" uid="0dbb79771da742d79f46507f897b4255" name="HW_ Test" meeting="false" start="2024-11-11" duration="5" complete="0" expand="true"/>
+            <task id="37" uid="930b59625c44423fa174fcc54109f210" name="LK- Fertig" color="#cc0033" meeting="true" start="2024-11-18" duration="0" complete="0" expand="true"/>
         </task>
-        <task id="12" uid="7618844f71ce492b95bdca8038655c96" name="DUT" meeting="false" start="2024-09-18" duration="16" complete="0" expand="true">
-            <task id="13" uid="e660018d02e841cba45ee43ffcba88fc" name="DUT Test OSZI" meeting="false" start="2024-10-09" duration="1" complete="0" expand="true"/>
-            <task id="14" uid="ce3bec43bc144f3fbfc5652e665800dc" name="DUT" meeting="false" start="2024-09-18" duration="1" complete="0" expand="true"/>
-        </task>
-        <task id="15" uid="ad3437b2993e4038ad20a0edbc305335" name="Programm, SW" meeting="false" start="2024-09-23" duration="9" complete="0" expand="true">
-            <task id="16" uid="9f3d531898944cfdbbef0879912dc3c1" name="PAP main" meeting="false" start="2024-09-23" duration="9" complete="0" expand="true"/>
-            <task id="17" uid="c5f05d566d3540b9af98a724cc3cf376" name="PAP funktion" meeting="false" start="2024-09-23" duration="1" complete="0" expand="true"/>
-            <task id="18" uid="718be433f00a48cb8d6bacb47a9a70a3" name="Software" meeting="false" start="2024-09-23" duration="1" complete="0" expand="false">
-                <task id="20" uid="c3b43d9115f84e9c93d7ec0d6ed1d0d4" name="labview" meeting="false" start="2024-09-23" duration="1" complete="0" expand="true"/>
-                <task id="19" uid="e96208a4fd29468bb9498b713824c668" name="C-programm" meeting="false" start="2024-09-23" duration="1" complete="0" expand="true"/>
+        <task id="15" uid="ad3437b2993e4038ad20a0edbc305335" name="Programm, SW" meeting="false" start="2024-11-04" duration="30" complete="0" expand="true">
+            <task id="16" uid="9f3d531898944cfdbbef0879912dc3c1" name="PAP main" meeting="false" start="2024-11-04" duration="6" complete="0" expand="true"/>
+            <task id="17" uid="c5f05d566d3540b9af98a724cc3cf376" name="PAP funktion" meeting="false" start="2024-11-04" duration="6" complete="0" expand="true"/>
+            <task id="18" uid="718be433f00a48cb8d6bacb47a9a70a3" name="Software" meeting="false" start="2024-11-11" duration="25" complete="0" expand="true">
+                <task id="19" uid="e96208a4fd29468bb9498b713824c668" name="C-programm µC" meeting="false" start="2024-11-11" duration="25" complete="0" expand="true"/>
+                <task id="20" uid="c3b43d9115f84e9c93d7ec0d6ed1d0d4" name="C# PC" meeting="false" start="2024-11-11" duration="25" complete="0" expand="true"/>
             </task>
         </task>
-        <task id="21" uid="57b8e7a152144d629862bcf1eb1fc64e" name="Fehlersuche SW/HW" meeting="false" start="2024-09-13" duration="86" complete="0" expand="true"/>
-        <task id="25" uid="9e112538472c4a9fbb3591e7ff01da4b" name="Schaltplan" meeting="false" start="2024-10-07" duration="16" complete="0" expand="true"/>
-        <task id="26" uid="b6022bd5721e4ae7ba8546fc8e00d293" name="Schaltplan fertig" color="#cc0033" meeting="true" start="2024-10-28" duration="0" complete="0" expand="true"/>
-        <task id="22" uid="9cdd2b23c99945b5a0a6233ea62f0345" name="DOKU" meeting="false" start="2024-09-11" duration="23" complete="0" expand="true">
-            <task id="6" uid="fc1a1cb6a2da48abaeac610b4e570dde" name="2. LH" meeting="false" start="2024-09-11" duration="1" complete="0" expand="true"/>
-            <task id="1" uid="2312ca86cfd247c7aef56d81f0ad6e00" name="Lastenheft" meeting="false" start="2024-09-11" duration="2" complete="0" expand="true"/>
-            <task id="2" uid="eb482cf41c4741f49b9ddb1e5c4d44ad" name="Lastenheft abgabe" meeting="false" start="2024-09-13" duration="1" complete="0" expand="true"/>
-            <task id="3" uid="25dff92697384e59a75466fdc1d01fc5" name="Blockschaltbild" meeting="false" start="2024-09-13" duration="21" complete="0" expand="true"/>
-            <task id="24" uid="9f04a2317af44cd28691fc73e941df27" name="Technologieschema" meeting="false" start="2024-10-03" duration="7" complete="0" expand="true"/>
+        <task id="21" uid="57b8e7a152144d629862bcf1eb1fc64e" name="TEST" meeting="false" start="2024-10-01" duration="67" complete="0" expand="true">
+            <task id="35" uid="8272b0047d0349db804ec5f707bc6474" name="Bestückungsmaschine" color="#8cb6ce" meeting="false" start="2024-10-01" duration="23" complete="0" expand="true"/>
+            <task id="34" uid="8d9130a7094b409d95035286a02f591c" name="HW" meeting="false" start="2024-10-28" duration="48" complete="0" expand="true"/>
+            <task id="36" uid="edf70094b65645818ae0e14aa618f436" name="SW" color="#8cb6ce" meeting="false" start="2024-10-31" duration="45" complete="0" expand="true"/>
         </task>
         <task id="23" uid="9d8521e954034d0c84e0de9d555749ac" name="ABGABE, Presentation" color="#cc0033" meeting="true" start="2025-01-24" duration="0" complete="0" expand="true"/>
     </tasks>
