@@ -5,7 +5,7 @@
         <field id="tpd4" name="Anfang" width="75" order="1"/>
         <field id="tpd5" name="Ende" width="75" order="2"/>
         <field id="tpd15" name="Notizen" width="20" order="3"/>
-        <option id="taskLabelUp" value=""/>
+        <option id="taskLabelUp" value="name"/>
         <option id="taskLabelDown" value=""/>
         <option id="filter.completedTasks" value="false"/>
         <option id="filter.dueTodayTasks" value="false"/>
