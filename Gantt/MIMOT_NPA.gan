@@ -1,12 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-09-09" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3311" locale="de_DE">
+<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-08-01" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3312" locale="de_DE">
     <description/>
-    <view zooming-state="default:7" id="gantt-chart">
+    <view zooming-state="default:8" id="gantt-chart">
         <field id="tpd3" name="Vorgang" width="200" order="0"/>
         <field id="tpd4" name="Anfang" width="75" order="1"/>
         <field id="tpd5" name="Ende" width="75" order="2"/>
         <field id="tpd15" name="Notizen" width="20" order="3"/>
         <option id="taskLabelUp" value="name"/>
-        <option id="taskLabelDown" value=""/>
         <option id="filter.completedTasks" value="false"/>
         <option id="filter.dueTodayTasks" value="false"/>
         <option id="filter.overdueTasks" value="false"/>
@@ -76,6 +75,7 @@
             <task id="34" uid="8d9130a7094b409d95035286a02f591c" name="HW" meeting="false" start="2024-10-28" duration="48" complete="0" expand="true"/>
             <task id="36" uid="edf70094b65645818ae0e14aa618f436" name="SW" color="#8cb6ce" meeting="false" start="2024-10-31" duration="45" complete="0" expand="true"/>
         </task>
+        <task id="39" uid="75254117a39f419f943be46563961580" name="Presentation" meeting="false" start="2025-01-17" duration="6" complete="0" expand="true"/>
         <task id="23" uid="9d8521e954034d0c84e0de9d555749ac" name="ABGABE, Presentation" color="#cc0033" meeting="true" start="2025-01-24" duration="0" complete="0" expand="true"/>
     </tasks>
     <resources>
