@@ -44,6 +44,7 @@ CrossRefPorts=3
 CrossRefCrossSheets=1
 CrossRefSheetEntries=0
 CrossRefFollowFromMainSettings=1
+CurrentVariant=Standard
 
 [Preferences]
 PrefsVaultGUID=
@@ -201,6 +202,15 @@ ClassGenNCAutoScope=None
 DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=
+
+[ProjectVariant1]
+UniqueId=3bec74e4-5872-4dd2-abd3-7683c3dbeaa4
+Description=Standard
+AllowFabrication=0
+ParameterCount=0
+VariationCount=1
+Variation1=Designator=R12|UniqueId=\SDTSWDZS\ZUIKENPB|Kind=0|AlternatePart=
+ParamVariationCount=0
 
 [Configuration1]
 Name=Sources
