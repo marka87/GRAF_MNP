@@ -67,8 +67,16 @@ void Error_Handler(void);
 #define DISP_A0_GPIO_Port GPIOF
 #define RST_DISPLAY_Pin GPIO_PIN_4
 #define RST_DISPLAY_GPIO_Port GPIOF
+#define Z_AX_REL_EN_Pin GPIO_PIN_3
+#define Z_AX_REL_EN_GPIO_Port GPIOH
 #define EN_5V_Pin GPIO_PIN_5
 #define EN_5V_GPIO_Port GPIOF
+#define A_AX_REL_EN_Pin GPIO_PIN_2
+#define A_AX_REL_EN_GPIO_Port GPIOH
+#define ADC_NOS_Pin GPIO_PIN_2
+#define ADC_NOS_GPIO_Port GPIOA
+#define ADC_DS_Pin GPIO_PIN_3
+#define ADC_DS_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
