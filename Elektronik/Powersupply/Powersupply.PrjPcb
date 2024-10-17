@@ -83,6 +83,23 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=LCICAFVM
 
+[Document3]
+DocumentPath=A:\libs_ad\SCH\Semiconductors\Specific\VNH5019.SchLib
+AnnotationEnabled=1
+AnnotateStartValue=1
+AnnotationIndexControlEnabled=0
+AnnotateSuffix=
+AnnotateScope=All
+AnnotateOrder=-1
+DoLibraryUpdate=1
+DoDatabaseUpdate=1
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
+DItemRevisionGUID=
+GenerateClassCluster=0
+DocumentUniqueId=JPDCUYZB
+
 [GeneratedDocument1]
 DocumentPath=Project Outputs for Powersupply\Design Rule Check - Powersupply.html
 DItemRevisionGUID=
