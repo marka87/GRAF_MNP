@@ -227,7 +227,7 @@ AnnotateStartValue=1
 AnnotationIndexControlEnabled=0
 AnnotateSuffix=
 AnnotateScope=All
-AnnotateOrder=-1
+AnnotateOrder=6
 DoLibraryUpdate=1
 DoDatabaseUpdate=1
 ClassGenCCAutoEnabled=1
@@ -259,11 +259,12 @@ UniqueId=3bec74e4-5872-4dd2-abd3-7683c3dbeaa4
 Description=Standard
 AllowFabrication=0
 ParameterCount=0
-VariationCount=4
+VariationCount=5
 Variation1=Designator=R?|UniqueId=\SDTSWDZS\DGWMBRVX|Kind=1|AlternatePart=
 Variation2=Designator=R12|UniqueId=\SDTSWDZS\ZUIKENPB|Kind=1|AlternatePart=
 Variation3=Designator=X2|UniqueId=\SDTSWDZS\DWNFNGCC|Kind=1|AlternatePart=
 Variation4=Designator=X3|UniqueId=\SDTSWDZS\YFTZEJFF|Kind=1|AlternatePart=
+Variation5=Designator=R13|UniqueId=\ZKIUYXLA\HQHJLWCQ|Kind=1|AlternatePart=
 ParamVariationCount=0
 
 [Configuration1]
