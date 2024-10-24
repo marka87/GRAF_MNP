@@ -44,6 +44,7 @@ CrossRefPorts=3
 CrossRefCrossSheets=1
 CrossRefSheetEntries=0
 CrossRefFollowFromMainSettings=1
+CurrentVariant=Standard
 
 [Preferences]
 PrefsVaultGUID=
@@ -258,7 +259,16 @@ UniqueId=3c9fef88-3544-45e2-bfbf-bb86aac2ec76
 Description=Standard
 AllowFabrication=0
 ParameterCount=0
-VariationCount=0
+VariationCount=9
+Variation1=Designator=R201|UniqueId=\SDTSWDZS\ZUIKENPB|Kind=1|AlternatePart=
+Variation2=Designator=X200|UniqueId=\SDTSWDZS\DWNFNGCC|Kind=1|AlternatePart=
+Variation3=Designator=X201|UniqueId=\SDTSWDZS\YFTZEJFF|Kind=1|AlternatePart=
+Variation4=Designator=R203|UniqueId=\SDTSWDZS\DGWMBRVX|Kind=1|AlternatePart=
+Variation5=Designator=R214|UniqueId=\SDTSWDZS\AMAUQXMU|Kind=1|AlternatePart=
+Variation6=Designator=R300|UniqueId=\ZTGNWXZZ\HQHJLWCQ|Kind=1|AlternatePart=
+Variation7=Designator=R302|UniqueId=\ZTGNWXZZ\EXJIRWAB|Kind=1|AlternatePart=
+Variation8=Designator=R511|UniqueId=\WOXSZUCW\NLJKQFLQ|Kind=1|AlternatePart=
+Variation9=Designator=R216|UniqueId=\SDTSWDZS\PCJSQLTS|Kind=1|AlternatePart=
 ParamVariationCount=0
 
 [SearchPath1]
@@ -266,128 +276,124 @@ Path=A:\libs_ad\*.*
 IncludeSubFolders=1
 
 [Parameter1]
-Name=Revision
-Value=1.0
-
-[Parameter2]
-Name=ProjectTitle
-Value=MNP
-
-[Parameter3]
-Name=PluggedVias
-Value=No Plugged Vias
-
-[Parameter4]
-Name=PcbThickness
-Value=1.6 mm
-
-[Parameter5]
-Name=PcbTG
-Value=145+
-
-[Parameter6]
-Name=PcbTAGPosition
-Value=Bottom Soldermask
-
-[Parameter7]
-Name=PcbSurfaceMaterial
-Value=chem. Ni/Au
-
-[Parameter8]
-Name=PcbSoldermaskMaterial
-Value=-
-
-[Parameter9]
-Name=PcbSoldermaskInfo
-Value=Top & Bottom
-
-[Parameter10]
-Name=PcbSoldermaskColor
-Value=Green
-
-[Parameter11]
-Name=PcbMultilayerInfo
-Value=6-ML
-
-[Parameter12]
-Name=PcbMaterial
-Value=FR4
-
-[Parameter13]
-Name=PcbMarkingprintInfo
-Value=None
-
-[Parameter14]
-Name=PcbMarkingprintColor
-Value=-
-
-[Parameter15]
-Name=PcbIPCStandard
-Value=IPC-A600 Class 2
-
-[Parameter16]
-Name=PcbImpedanceTestReport
-Value=No
-
-[Parameter17]
-Name=PcbImpedanceControlled
-Value=No
-
-[Parameter18]
-Name=PcbFlammability
-Value=UL 94 V-0
-
-[Parameter19]
-Name=PcbDesigner
-Value=AnMa
-
-[Parameter20]
-Name=PcbCopperThickness
-Value=35 um
-
-[Parameter21]
-Name=PcbApprovedBy
-Value=
-
-[Parameter22]
-Name=PcbAdditionalInfo2
-Value=-
-
-[Parameter23]
-Name=PcbAdditionalInfo1
-Value=-
-
-[Parameter24]
-Name=LKARTICLENUMBER
-Value=
-
-[Parameter25]
-Name=DrawnBy
-Value=AnMa
-
-[Parameter26]
-Name=CustomerCode
-Value=GRAF
-
-[Parameter27]
-Name=CopyrightYear
-Value=2024
-
-[Parameter28]
-Name=CompanyName
-Value=Graf Elektronik GmbH
-
-[Parameter29]
-Name=CheckedBy
-Value=
-
-[Parameter30]
 Name=ApprovedBy
 Value=
 
-[Parameter31]
-Name=
+[Parameter2]
+Name=CheckedBy
 Value=
+
+[Parameter3]
+Name=CompanyName
+Value=Graf Elektronik GmbH
+
+[Parameter4]
+Name=CopyrightYear
+Value=2024
+
+[Parameter5]
+Name=CustomerCode
+Value=GRAF
+
+[Parameter6]
+Name=DrawnBy
+Value=AnMa
+
+[Parameter7]
+Name=LKARTICLENUMBER
+Value=
+
+[Parameter8]
+Name=PcbAdditionalInfo1
+Value=-
+
+[Parameter9]
+Name=PcbAdditionalInfo2
+Value=-
+
+[Parameter10]
+Name=PcbApprovedBy
+Value=
+
+[Parameter11]
+Name=PcbCopperThickness
+Value=35 um
+
+[Parameter12]
+Name=PcbDesigner
+Value=AnMa
+
+[Parameter13]
+Name=PcbFlammability
+Value=UL 94 V-0
+
+[Parameter14]
+Name=PcbImpedanceControlled
+Value=No
+
+[Parameter15]
+Name=PcbImpedanceTestReport
+Value=No
+
+[Parameter16]
+Name=PcbIPCStandard
+Value=IPC-A600 Class 2
+
+[Parameter17]
+Name=PcbMarkingprintColor
+Value=-
+
+[Parameter18]
+Name=PcbMarkingprintInfo
+Value=None
+
+[Parameter19]
+Name=PcbMaterial
+Value=FR4
+
+[Parameter20]
+Name=PcbMultilayerInfo
+Value=6-ML
+
+[Parameter21]
+Name=PcbSoldermaskColor
+Value=Green
+
+[Parameter22]
+Name=PcbSoldermaskInfo
+Value=Top & Bottom
+
+[Parameter23]
+Name=PcbSoldermaskMaterial
+Value=-
+
+[Parameter24]
+Name=PcbSurfaceMaterial
+Value=chem. Ni/Au
+
+[Parameter25]
+Name=PcbTAGPosition
+Value=Bottom Soldermask
+
+[Parameter26]
+Name=PcbTG
+Value=145+
+
+[Parameter27]
+Name=PcbThickness
+Value=1.6 mm
+
+[Parameter28]
+Name=PluggedVias
+Value=No Plugged Vias
+
+[Parameter29]
+Name=ProjectTitle
+Value=MNP
+
+[Parameter30]
+Name=Revision
+Value=1.0
 
 [Configuration1]
 Name=Default Configuration
@@ -507,12 +513,22 @@ OutputName20=WireList Netlist
 OutputDocumentPath20=
 OutputVariantName20=
 OutputDefault20=0
+OutputType21=XSpiceNetlist
+OutputName21=Mixed Sim Netlist
+OutputDocumentPath21=
+OutputVariantName21=
+OutputDefault21=0
 
 [OutputGroup2]
 Name=Simulator Outputs
 Description=
 TargetPrinter=\\svr-el-prt\Sharp MX-2614N (empfang)
 PrinterOptions=Record=PrinterOptions|Copies=1|Duplex=1|TrueTypeOptions=3|Collate=1|PrintJobKind=1|PrintWhat=1
+OutputType1=AdvSimNetlist
+OutputName1=Mixed Sim
+OutputDocumentPath1=
+OutputVariantName1=
+OutputDefault1=0
 
 [OutputGroup3]
 Name=Documentation Outputs
