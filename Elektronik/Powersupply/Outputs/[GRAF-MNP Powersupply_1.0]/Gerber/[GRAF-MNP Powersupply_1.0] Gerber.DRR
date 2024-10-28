@@ -1,0 +1,20 @@
+----------------------------------------------------------------------------------------------------------------------------------
+NCDrill File Report For: Powersupply.PcbDoc   28.10.2024  14:15:20
+----------------------------------------------------------------------------------------------------------------------------------
+
+Layer Pair : Top Layer to Bottom Layer
+ASCII RoundHoles File : [GRAF-MNP Powersupply_1.0] Gerber.TXT
+
+Tool       Hole Size               Hole Tolerance               Hole Type       Hole Count   Plated         Tool Travel
+----------------------------------------------------------------------------------------------------------------------------------
+T1      0.8mm (31mil)                                             Round             8         PTH        47.72mm (1.88inch)
+T2      1mm (39mil)                                               Round             30        PTH        114.81mm (4.52inch)
+T3      1.4mm (55mil)                                             Round             2         PTH        5.08mm (0.20inch)
+T4      1.65mm (65mil)                                            Round             4         PTH        11.88mm (0.47inch)
+T5      3.4mm (134mil)                                            Round             8         PTH        440.38mm (17.34inch)
+T6      2.8mm (110mil)                                            Round             2         NPTH       88.90mm (3.50inch)
+T7      4.3mm (169mil)                                            Round             8         NPTH       272.75mm (10.74inch)
+----------------------------------------------------------------------------------------------------------------------------------
+Totals                                                                              62
+
+Total Processing Time (hh:mm:ss) : 00:00:00
