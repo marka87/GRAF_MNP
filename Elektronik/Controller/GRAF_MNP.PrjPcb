@@ -271,6 +271,10 @@ Variation8=Designator=R511|UniqueId=\WOXSZUCW\NLJKQFLQ|Kind=1|AlternatePart=
 Variation9=Designator=R216|UniqueId=\SDTSWDZS\PCJSQLTS|Kind=1|AlternatePart=
 ParamVariationCount=0
 
+[GeneratedDocument1]
+DocumentPath=Outputs\Design Rule Check - GRAF_MNP.html
+DItemRevisionGUID=
+
 [SearchPath1]
 Path=A:\libs_ad\*.*
 IncludeSubFolders=1
@@ -513,22 +517,12 @@ OutputName20=WireList Netlist
 OutputDocumentPath20=
 OutputVariantName20=
 OutputDefault20=0
-OutputType21=XSpiceNetlist
-OutputName21=Mixed Sim Netlist
-OutputDocumentPath21=
-OutputVariantName21=
-OutputDefault21=0
 
 [OutputGroup2]
 Name=Simulator Outputs
 Description=
 TargetPrinter=\\svr-el-prt\Sharp MX-2614N (empfang)
 PrinterOptions=Record=PrinterOptions|Copies=1|Duplex=1|TrueTypeOptions=3|Collate=1|PrintJobKind=1|PrintWhat=1
-OutputType1=AdvSimNetlist
-OutputName1=Mixed Sim
-OutputDocumentPath1=
-OutputVariantName1=
-OutputDefault1=0
 
 [OutputGroup3]
 Name=Documentation Outputs
