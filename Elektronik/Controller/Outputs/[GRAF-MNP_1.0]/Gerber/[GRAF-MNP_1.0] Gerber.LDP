@@ -1,0 +1,3 @@
+Layer Pairs Export File for PCB: I:\lehrling_ausbildung\Projektpraktikum\GRAF_MNP\Elektronik\Controller\GRAF_MNP.PcbDoc
+LayersSetName=Top_Bot_Thru_Holes|DrillFile=[graf-mnp_1.0] gerber-roundholes.txt|DrillLayers=gtl,g1,g2,gbl
+LayersSetName=Top_Bot_Slot_Holes|DrillFile=[graf-mnp_1.0] gerber-slotholes.txt|DrillLayers=gtl,g1,g2,gbl

@@ -1,0 +1,12 @@
+DRC Rules Export File for PCB: I:\lehrling_ausbildung\Projektpraktikum\GRAF_MNP\Elektronik\Controller\GRAF_MNP.PcbDoc
+RuleKind=SolderMaskExpansion|RuleName=SolderMaskExpansion_Via|Scope=Board|Minimum=4.00
+RuleKind=Clearance|RuleName=ClearanceDiffPair|Scope=Board|Minimum=5.71
+RuleKind=Width|RuleName=Width_50R|Scope=Board|Minimum=10.00
+RuleKind=Clearance|RuleName=Clearance_ViaTentingBottom|Scope=Board|Minimum=0.39
+RuleKind=Clearance|RuleName=Clearance_ViaTentingTop|Scope=Board|Minimum=0.39
+RuleKind=Clearance|RuleName=Clearance_NPTH|Scope=Board|Minimum=11.81
+RuleKind=MinimumAnnularRing|RuleName=MinimumAnnularRing|Scope=Board|Minimum=4.88
+RuleKind=SolderMaskExpansion|RuleName=SolderMaskExpansion|Scope=Board|Minimum=0.00
+RuleKind=Width|RuleName=Width|Scope=Board|Minimum=5.91
+RuleKind=Clearance|RuleName=Clearance|Scope=Board|Minimum=5.71
+RuleKind=ShortCircuit|RuleName=ShortCircuit|Scope=Board|Allowed=0
