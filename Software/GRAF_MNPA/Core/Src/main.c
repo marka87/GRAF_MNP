@@ -6,6 +6,8 @@
   ******************************************************************************
   * @attention
   *
+  * Mark Angyal, E4, 2024. GRAF MNP
+  *
   * Copyright (c) 2024 STMicroelectronics.
   * All rights reserved.
   *
@@ -21,6 +23,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
+#include "display.h"
+#include <math.h>
+#include <stdbool.h>
 
 /* USER CODE END Includes */
 
@@ -118,7 +125,16 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
-
+  //GPIO//
+  HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);	//Enables 5V
+  HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
+  //Display//
+	display_info_t display1 = {	//The Display init
+			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
+					.lcd_ram_pages = 8, };
+	display_jazz_init(&display1);
+	HAL_Delay(50);
+	display_jazz_write_string_5x7(&display1, 7, "MENU-  OK  MENU+"); //The last row for buttons
   /* USER CODE END 2 */
 
   /* Infinite loop */
