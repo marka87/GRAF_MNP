@@ -25,9 +25,9 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
-#include "display.h"
 #include <math.h>
 #include <stdbool.h>
+#include "display.h"
 #include "AD5684RARUZ.h"
 
 /* USER CODE END Includes */
