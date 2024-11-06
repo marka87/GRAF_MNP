@@ -2,16 +2,14 @@
 FileName = [GRAF-MNP_1.0] Gerber.GBR
 AutoAperture = True
 *************************************************************
-Generating : Bottom Paste
-      File : [GRAF-MNP_1.0] Gerber.GBP
+Generating : Top Layer
+      File : [GRAF-MNP_1.0] Gerber.GTL
 
-    Adding Layer      : Bottom Paste
+    Adding Layer      : Top Layer
 
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
-
-    Adding Layer      : Bottom Layer
 
     Adding Layer      : Multi-Layer
 
@@ -24,48 +22,207 @@ Used DCodes :
     D54
     D55
     D56
-    D119
-    D120
+    D57
+    D58
+    D59
+    D60
+    D61
+    D62
+    D63
+    D64
+    D65
+    D66
+    D67
+    D68
+    D69
+    D70
+    D71
+    D72
+    D73
+    D74
+    D75
+    D76
+    D77
+    D78
+    D79
+    D80
+    D81
+    D82
+    D83
+    D84
+    D85
+    D86
+    D87
+    D88
+    D90
+    D91
+    D92
+    D93
+    D94
+    D95
+    D96
+    D97
+    D98
+    D99
+    D100
+    D101
+    D102
+    D103
+    D104
+    D105
+    D106
+    D107
+    D108
+    D109
+    D110
+    D111
+    D112
+    D113
+    D114
+    D115
+    D116
 *************************************************************
 
 *************************************************************
-Generating : Bottom Solder
-      File : [GRAF-MNP_1.0] Gerber.GBS
+Generating : GND
+      File : [GRAF-MNP_1.0] Gerber.G1
 
-    Adding Layer      : Bottom Solder
+    Adding Layer      : GND
 
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D51
+    D52
+    D53
+    D54
+    D55
+    D56
+    D98
+    D99
+    D100
+    D101
+    D102
+    D103
+    D104
+    D105
+    D106
+    D107
+    D115
+    D116
+*************************************************************
+
+*************************************************************
+Generating : VCC
+      File : [GRAF-MNP_1.0] Gerber.G2
+
+    Adding Layer      : VCC
+
+    Adding Layer      : Title Top
+
+    Adding Layer      : Layer Stack
+
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D51
+    D52
+    D53
+    D54
+    D55
+    D56
+    D98
+    D99
+    D100
+    D101
+    D102
+    D103
+    D104
+    D105
+    D106
+    D107
+    D115
+    D116
+*************************************************************
+
+*************************************************************
+Generating : Bottom Layer
+      File : [GRAF-MNP_1.0] Gerber.GBL
 
     Adding Layer      : Bottom Layer
 
+    Adding Layer      : Title Top
+
+    Adding Layer      : Layer Stack
+
     Adding Layer      : Multi-Layer
 
 
 Used DCodes :
+    D43
     D51
     D52
     D53
     D54
     D55
     D56
-    D57
+    D98
+    D99
+    D100
+    D101
+    D102
+    D103
+    D104
+    D105
+    D106
+    D107
+    D108
+    D109
+    D110
+    D111
+    D112
+    D114
+    D115
+    D116
+    D117
+    D118
 *************************************************************
 
 *************************************************************
-Generating : Top Solder
-      File : [GRAF-MNP_1.0] Gerber.GTS
+Generating : Outline
+      File : [GRAF-MNP_1.0] Gerber.GM1
 
-    Adding Layer      : Top Solder
+    Adding Layer      : Outline
 
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
 
-    Adding Layer      : Top Layer
 
-    Adding Layer      : Multi-Layer
+Used DCodes :
+    D51
+    D52
+    D53
+    D54
+    D55
+    D56
+*************************************************************
+
+*************************************************************
+Generating : PCB Info
+      File : [GRAF-MNP_1.0] Gerber.GM10
+
+    Adding Layer      : PCB Info
+
+    Adding Layer      : Title Top
+
+    Adding Layer      : Layer Stack
 
 
 Used DCodes :
@@ -75,8 +232,6 @@ Used DCodes :
     D54
     D55
     D56
-    D57
-    D58
 *************************************************************
 
 *************************************************************
@@ -145,60 +300,28 @@ Used DCodes :
 *************************************************************
 
 *************************************************************
-Generating : GND
-      File : [GRAF-MNP_1.0] Gerber.G1
+Generating : Top Solder
+      File : [GRAF-MNP_1.0] Gerber.GTS
 
-    Adding Layer      : GND
+    Adding Layer      : Top Solder
 
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
-
-    Adding Layer      : Multi-Layer
-
-
-Used DCodes :
-    D51
-    D52
-    D53
-    D54
-    D55
-    D56
-    D105
-    D106
-    D107
-    D108
-    D109
-    D110
-    D111
-    D112
-    D113
-    D114
-    D115
-    D116
-*************************************************************
-
-*************************************************************
-Generating : Top Layer
-      File : [GRAF-MNP_1.0] Gerber.GTL
 
     Adding Layer      : Top Layer
 
-    Adding Layer      : Title Top
-
-    Adding Layer      : Layer Stack
-
     Adding Layer      : Multi-Layer
 
 
 Used DCodes :
-    D43
     D51
     D52
     D53
     D54
     D55
     D56
+    D57
     D58
     D59
     D60
@@ -249,66 +372,56 @@ Used DCodes :
     D105
     D106
     D107
-    D108
-    D109
-    D110
-    D111
-    D112
-    D113
-    D114
-    D115
-    D116
 *************************************************************
 
 *************************************************************
-Generating : PCB Info
-      File : [GRAF-MNP_1.0] Gerber.GM10
+Generating : Bottom Solder
+      File : [GRAF-MNP_1.0] Gerber.GBS
 
-    Adding Layer      : PCB Info
+    Adding Layer      : Bottom Solder
 
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
-
-
-Used DCodes :
-    D51
-    D52
-    D53
-    D54
-    D55
-    D56
-*************************************************************
-
-*************************************************************
-Generating : Outline
-      File : [GRAF-MNP_1.0] Gerber.GM1
-
-    Adding Layer      : Outline
-
-    Adding Layer      : Title Top
-
-    Adding Layer      : Layer Stack
-
-
-Used DCodes :
-    D51
-    D52
-    D53
-    D54
-    D55
-    D56
-*************************************************************
-
-*************************************************************
-Generating : Bottom Layer
-      File : [GRAF-MNP_1.0] Gerber.GBL
 
     Adding Layer      : Bottom Layer
 
+    Adding Layer      : Multi-Layer
+
+
+Used DCodes :
+    D51
+    D52
+    D53
+    D54
+    D55
+    D56
+    D89
+    D98
+    D99
+    D100
+    D101
+    D102
+    D103
+    D104
+    D105
+    D106
+    D107
+    D117
+    D118
+*************************************************************
+
+*************************************************************
+Generating : Bottom Paste
+      File : [GRAF-MNP_1.0] Gerber.GBP
+
+    Adding Layer      : Bottom Paste
+
     Adding Layer      : Title Top
 
     Adding Layer      : Layer Stack
+
+    Adding Layer      : Bottom Layer
 
     Adding Layer      : Multi-Layer
 
@@ -321,60 +434,8 @@ Used DCodes :
     D54
     D55
     D56
-    D98
-    D99
-    D100
-    D101
-    D102
-    D104
-    D105
-    D106
-    D107
-    D108
-    D109
-    D110
-    D111
-    D112
-    D113
-    D114
-    D115
-    D116
-    D117
-    D118
-*************************************************************
-
-*************************************************************
-Generating : VCC
-      File : [GRAF-MNP_1.0] Gerber.G2
-
-    Adding Layer      : VCC
-
-    Adding Layer      : Title Top
-
-    Adding Layer      : Layer Stack
-
-    Adding Layer      : Multi-Layer
-
-
-Used DCodes :
-    D51
-    D52
-    D53
-    D54
-    D55
-    D56
-    D105
-    D106
-    D107
-    D108
-    D109
-    D110
-    D111
-    D112
-    D113
-    D114
-    D115
-    D116
+    D119
+    D120
 *************************************************************
 
 *************************************************************
