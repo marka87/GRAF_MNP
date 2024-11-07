@@ -30,6 +30,8 @@
 #include <stdbool.h>
 #include "AD5684RARUZ.h"
 
+
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -68,14 +70,14 @@ UART_HandleTypeDef huart1;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM2_Init(void);
-static void MX_TIM3_Init(void);
-static void MX_ADC1_Init(void);
-static void MX_SPI2_Init(void);
-static void MX_TIM4_Init(void);
-static void MX_TIM5_Init(void);
+static void MX_TIM2_Init(void);		//A-Axis
+static void MX_TIM3_Init(void);		//Reserve
+static void MX_ADC1_Init(void);		//PA2 - ADC_NO_SEN - ADC1_IN2, PA3 - ADC_DRUCK_SEN - ADC1-IN3...IN7-8-9 are reserve
+static void MX_SPI2_Init(void);		//Display
+static void MX_TIM4_Init(void);		//Reserve
+static void MX_TIM5_Init(void);		//Z-Axis
 static void MX_USART1_UART_Init(void);
-static void MX_SPI4_Init(void);
+static void MX_SPI4_Init(void);		//DAC
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -138,6 +140,8 @@ int main(void)
 	HAL_Delay(50);
 	display_jazz_write_string_5x7(&display1, 7, "MENU-  OK  MENU+"); //The last row for buttons
 
+//ADC//
+	 HAL_ADC
 
   /* USER CODE END 2 */
 
