@@ -141,7 +141,7 @@ int main(void)
 	display_jazz_write_string_5x7(&display1, 7, "MENU-  OK  MENU+"); //The last row for buttons
 
 //ADC//
-	 HAL_ADC
+	 HAL_ADC_
 
   /* USER CODE END 2 */
 

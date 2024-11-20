@@ -1,6 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 ADC1.Channel-2\#ChannelRegularConversion=ADC_CHANNEL_2
-ADC1.IPParameters=Rank-2\#ChannelRegularConversion,master,Channel-2\#ChannelRegularConversion,SamplingTime-2\#ChannelRegularConversion,NbrOfConversionFlag
+ADC1.DataAlign=ADC_DATAALIGN_RIGHT
+ADC1.IPParameters=Rank-2\#ChannelRegularConversion,master,Channel-2\#ChannelRegularConversion,SamplingTime-2\#ChannelRegularConversion,NbrOfConversionFlag,DataAlign
 ADC1.NbrOfConversionFlag=1
 ADC1.Rank-2\#ChannelRegularConversion=1
 ADC1.SamplingTime-2\#ChannelRegularConversion=ADC_SAMPLETIME_3CYCLES
@@ -351,4 +352,4 @@ USART1.VirtualMode-Asynchronous=VM_ASYNC
 VP_SYS_VS_Systick.Mode=SysTick
 VP_SYS_VS_Systick.Signal=SYS_VS_Systick
 board=custom
-isbadioc=false
+isbadioc=true

@@ -204,20 +204,20 @@ const uint8_t font5x7[128][6] =
 // umschreiben wegen NSS, vielleicht hier funktioniert. Display SPI2
 void display_jazz_write_command(display_info_t* disp, uint8_t cmd) //send a command
 {
-//	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_RESET);
 //	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
 //	HAL_SPI_Transmit(disp->spi_handle, &cmd, 1, 2000);
 //	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-//	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
 	HAL_SPI_Transmit(spi_handle, &cmd, 1, 2000);
 
 void display_jazz_write_data(display_info_t* disp, uint8_t data)	//send a data
 {
-//	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
 //	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
 //	HAL_SPI_Transmit(disp->spi_handle, &data, 1, 2000);
 //	HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-//	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin, GPIO_PIN_SET);
 	HAL_SPI_Transmit(hspi2, &data, 1, 2000);
 }
 
