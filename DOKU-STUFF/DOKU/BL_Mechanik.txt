@@ -1,0 +1,5 @@
+M3x6 Abstandbolzen 230607400185
+M3x2,4	Mutter	230126400078
+M3x6	Schrauben	240612400017 - Gehäuse + Netzteil
+M2,5x10	Schrauben	240725400019 - Harting Stecker
+M2,5x2	Mutter		240521400123
