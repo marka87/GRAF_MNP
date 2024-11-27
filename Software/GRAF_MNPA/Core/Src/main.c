@@ -27,8 +27,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
-//#include "display.h"
-//#include "AD5684RARUZ.h"
+#include "display.h"
+#include "AD5684RARUZ.h"
 
 
 
@@ -70,14 +70,14 @@ UART_HandleTypeDef huart1;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM2_Init(void);		//A-Axis
-static void MX_TIM3_Init(void);		//Reserve
-static void MX_ADC1_Init(void);		//PA2 - ADC_NO_SEN - ADC1_IN2, PA3 - ADC_DRUCK_SEN - ADC1-IN3...IN7-8-9 are reserve
-static void MX_SPI2_Init(void);		//Display
-static void MX_TIM4_Init(void);		//Reserve
-static void MX_TIM5_Init(void);		//Z-Axis
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_SPI2_Init(void);
+static void MX_TIM4_Init(void);
+static void MX_TIM5_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_SPI4_Init(void);		//DAC
+static void MX_SPI4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -132,14 +132,16 @@ int main(void)
   HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
   HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
   HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);
+
 //  //Display//
-//
-//	display_info_t display1 = {	//The Display init
-//			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
-//					.lcd_ram_pages = 8, };
-//	display_jazz_init(&display1);
-//	HAL_Delay(50);
-//	display_jazz_write_string_5x7(&display1, 7, "MENU-  OK  MENU+"); //The last row for buttons
+
+	display_info_t display1 = {	//The Display init
+			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
+					.lcd_ram_pages = 8, };
+	display_jazz_init(&display1);
+	HAL_Delay(50);
+	display_jazz_write_string_5x7(&display1, 7, "MENU-     OK    MENU+"); //The last row for buttons
 
 //ADC//
 
@@ -149,6 +151,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  display_jazz_write_string_5x7(&display1, 1, "Hello Herr Thomas");
+	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -268,11 +272,11 @@ static void MX_SPI2_Init(void)
   hspi2.Instance = SPI2;
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_INPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

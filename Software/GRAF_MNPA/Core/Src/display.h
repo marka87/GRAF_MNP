@@ -2,7 +2,7 @@
  * display.h
  *	the header file for the display: JAZZ-AC-Y - ST7567
  *
- *  Created on: May 8, 2024
+ *  Created on: Nov 27, 2024
  *      Author: Mark Angyal
  */
 
@@ -14,6 +14,7 @@
 #include <stm32f7xx_it.h>
 #include <stm32f7xx_hal_spi.h>
 #include <stdbool.h>
+
 
 
 typedef struct {
