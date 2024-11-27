@@ -1,0 +1,36 @@
+Bestückungsliste RACK
+
+1x Rack:                                                                                  Schroff 24563-193        https://schroff.nvent.com/de-at/products/enc24563-193
+2x Führungsschienen-Set:                                                        Schroff 24568-363        https://schroff.nvent.com/en-de/products/enc24568-363
+3x DIN 41612 Steckverbinder,   Buchse C 64Pol a/c:                 Harting 09032646821   https://at.rs-online.com/web/p/din-41612-steckverbinder/0406240 (Stecker für 4-Fach-Endstufe; Halbleiterrelais-Karte und µC-Karte)
+2x DIN 41612 Steckverbinder,   Buchse D 32Pol a/c                  Harting 09042326821 (Stecker Rackseitig für 2-Fach-Enstufe und Relaiskarte)
+1x DIN 41612 Steckverbinder,   Stecker C 64Pol a/c                  Harting 09031646921 (Stecker Printseitig für µC Karte)
+1x DIN 41612 Steckverbinder,   Stecker D 32Pol a/c                  Harting 09041326921 (Stecker Printseitig für Relais-Karte)
+1x DIN 41612 Steckverbinder,   Buchse M                                 Harting 09032246805 (Stecker Rackseitig für Netzteil-Einschubprint)
+1x DIN 41612 Steckverbinder,   Stecker M gewinkelt                  Harting 09031246901 (Stecker Printseitig für Netzteil)
+6x Hochstrom-Kontakt Stecker, Kontakt-Einsatz M                    Harting 09030006104    (Kontakt-Einsatz für Netzteil-Stecker)
+2x Hochstrom-Kontakt Stecker, Kontakt-Einsatz voreilend          Harting 09030006134    (Kontakt-Einsatz für Netzteil-Stecker) https://at.farnell.com/harting/09030006134/contact-pin-solder-pcb/dp/3764027?pf_custSiteRedirect=true
+8x Hochstrom-Kontakt Buchse,                                                 Harting 09030006202    (Kontakt-Einsatz für Netzteil-Stecker)
+
+
+Für den Netzteil:
+•	Netzteil, RPS-60-24 (Mean Well), M !, Med. Open Frame Schaltnetzteil,
+Uin=90-264Vac, Uout=24Vdc, Iout=2,75A, -20°C bis +70°C, Isolationsspg: 4kV- 	RPS6024-K10
+
+
+Steckverbinder, VHR-4N (JST), M, Buchsengehäuse für Kabelmontage, 4 polpol W, RM3,96, weiß -	STVHR-K00
+Steckverbinder, VHR-3N (JST), M, Buchsengehäuse für Kabelmontage gerade, 3 polpol W, RM3,96, weiß -	STVHR-K01
+Verdrahtungsmaterial, SVH-41T-P1.1 (JST), Crimpkontakt AWG16-20 -	STSVH41T-K00
+
+Steckverbinder, VHR-4N (JST)	STVHR-K00	190128400032
+Steckverbinder, VHR-3N (JST)	STVHR-K01	190128400031
+SVH-41T-P1.1(JST)Crimpkontakt	STSVH41T-K00	190128400028
+
+M3x6 Abstandbolzen 230607400185
+M3x2,4	Mutter	230126400078
+M3x6	Schrauben	240612400017 - Gehäuse + Netzteil
+
+
+
+M2,5x10	Schrauben	240725400019 - Harting Stecker
+M2,5x2	Mutter		240521400123
