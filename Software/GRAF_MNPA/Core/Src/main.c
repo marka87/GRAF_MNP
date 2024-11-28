@@ -151,7 +151,7 @@ ad5684_init(&my_dac);
   //GPIO//
   HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
   HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
-  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);	//All LEDs ON
+  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
   HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 
   //Display//
@@ -171,9 +171,9 @@ ad5684_init(&my_dac);
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  ad5684_set_voltage(&my_dac, 4.9, a_mot); // DAC A auf x.xV setzen
-	  ad5684_set_voltage(&my_dac, 2.5, z_mot); // DAC B auf x.xV setzen
-	  ad5684_set_voltage(&my_dac, 0.1, d_mot); // DAC C auf x.xV setzen
+	  ad5684_set_voltage(&my_dac, 1.6, a_mot); // DAC A auf x.xV setzen
+	  ad5684_set_voltage(&my_dac, 2.4, z_mot); // DAC B auf x.xV setzen
+	  ad5684_set_voltage(&my_dac, 3.6, d_mot); // DAC C auf x.xV setzen
 
 	  display_jazz_write_string_5x7(&display1, 1, "f");
 	  HAL_Delay(50);
