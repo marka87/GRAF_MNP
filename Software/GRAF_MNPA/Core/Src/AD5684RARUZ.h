@@ -23,5 +23,6 @@ typedef struct {
 
 void ad5684_init(ad5684_dac_t* dac);
 
+void ad5684_set_voltage(ad5684_dac_t* dac, float voltage, uint8_t dac_channel);
 
 #endif /* SRC_AD5684RARUZ_H_ */

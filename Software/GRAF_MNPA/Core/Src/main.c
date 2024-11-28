@@ -29,8 +29,9 @@
 #include <stdbool.h>
 #include "display.h"
 #include "AD5684RARUZ.h"
-
-
+#define a_mot 0x01
+#define z_mot 0x02
+#define d_mot 0x04
 
 /* USER CODE END Includes */
 
@@ -84,6 +85,14 @@ static void MX_SPI4_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//Button//
+//GPIO_InitStruct.Pin = BTN_DOWN_Pin|BTN_OK_Pin|BTN_UP_Pin;
+//GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//GPIO_InitStruct.Pull = GPIO_NOPULL;
+//HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+
+
 
 /* USER CODE END 0 */
 
@@ -95,6 +104,13 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	//DAC//
+ad5684_dac_t my_dac = {
+    .spi_handle = &hspi4, // SPI-Handle deines Systems
+
+};
+ad5684_init(&my_dac);
+
 
   /* USER CODE END 1 */
 
@@ -128,20 +144,24 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
+
+
+//  ad5684_init(&my_dac);	//init DAC
+
   //GPIO//
   HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
   HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
-  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);	//All LEDs ON
+  HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 
-//  //Display//
+  //Display//
 
 	display_info_t display1 = {	//The Display init
 			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 					.lcd_ram_pages = 8, };
 	display_jazz_init(&display1);
 	HAL_Delay(50);
-	display_jazz_write_string_5x7(&display1, 7, "MENU-     OK    MENU+"); //The last row for buttons
+	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
 //ADC//
 
@@ -151,7 +171,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  display_jazz_write_string_5x7(&display1, 1, "Hello Herr Thomas");
+	  ad5684_set_voltage(&my_dac, 4.9, a_mot); // DAC A auf x.xV setzen
+	  ad5684_set_voltage(&my_dac, 2.5, z_mot); // DAC B auf x.xV setzen
+	  ad5684_set_voltage(&my_dac, 0.1, d_mot); // DAC C auf x.xV setzen
+
+	  display_jazz_write_string_5x7(&display1, 1, "f");
 	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
@@ -312,11 +336,11 @@ static void MX_SPI4_Init(void)
   hspi4.Instance = SPI4;
   hspi4.Init.Mode = SPI_MODE_MASTER;
   hspi4.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi4.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi4.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
