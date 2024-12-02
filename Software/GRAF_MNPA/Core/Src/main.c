@@ -30,6 +30,7 @@
 #include "display.h"
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
+#include <math.h>
 
 #define a_mot 0x01		//Address for DAC-A...
 #define z_mot 0x02		//DAC-B...
@@ -147,10 +148,11 @@ int main(void)
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
 
-  ad5684_dac_t my_dac = {
+  ad5684_dac_t dac = {
       .spi_handle = &hspi4, // SPI-Handle deines Systems
   };
-  ad5684_init(&my_dac);
+  ad5684_init(&dac);
+	HAL_Delay(50);
 
 
   //GPIO//
@@ -186,9 +188,9 @@ int main(void)
   {
 
 	   // DAC-Werte setzen
-	  ad5684_set_voltage(&my_dac, 2.0f, 0x01); // DAC A auf 1.6V setzen
-	  ad5684_set_voltage(&my_dac, 2.0f, z_mot); // DAC B auf 2.4V setzen
-	  ad5684_set_voltage(&my_dac, 2.0f, d_mot); // DAC C auf 3.6V setzen
+	  ad5684_set_voltage(&dac, 1.0f, a_mot); // DAC A auf 1.6V setzen
+	  ad5684_set_voltage(&dac, 1.0f, z_mot); // DAC B auf 2.4V setzen
+	  ad5684_set_voltage(&dac, 1.0f, d_mot); // DAC C auf 3.6V setzen
 	    // ADC-Werte auslesen
 	    float no_sen_value = ADC_Nadel_Oben(&hadc1);     													// Lichtschrankenwert
 	    sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
