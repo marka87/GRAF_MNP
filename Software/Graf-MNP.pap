@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="45A28381DAD8A822">
-  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2024.11.21 15:58:55">
+<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="23AFE703783B0CC7">
+  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2024.12.01 21:22:13">
     <DIAGRAMS>
-      <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2024.11.21 15:58:55">
-        <LAYOUT FORMAT="1.00" COLUMNS="4" ROWS="17">
+      <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2024.12.01 21:22:13">
+        <LAYOUT FORMAT="1.00" COLUMNS="3" ROWS="17">
           <ENTRIES>
             <ENTRY COLUMN="0" ROW="0" ANCHOR="True">
               <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
@@ -59,33 +59,28 @@ MX_SPI4_Init();]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="0" ROW="9">
-              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="33">
-                <TEXT><![CDATA[Prüfprogramm]]></TEXT>
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="62">
+                <TEXT><![CDATA[Referenzlauf]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="0" ROW="10">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="59">
+                <TEXT><![CDATA[Prüfprogramm]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="11">
               <FIGURE SUBTYPE="PapLoopStart" FORMAT="1.00" ID="4" ASSOCIATE="6">
                 <TEXT><![CDATA[1=1?]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="11">
-              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="35">
-                <TEXT><![CDATA[Referenzlauf]]></TEXT>
-              </FIGURE>
-            </ENTRY>
             <ENTRY COLUMN="0" ROW="12">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="26">
-                <TEXT><![CDATA[Motoren OK?]]></TEXT>
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="64">
+                <TEXT><![CDATA[Mode_count = 0?]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="0" ROW="13">
-              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="55">
-                <TEXT><![CDATA[Fehler!]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="14">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="49">
-                <TEXT><![CDATA[]]></TEXT>
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="71">
+                <TEXT><![CDATA[PC-Modus]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="0" ROW="15">
@@ -134,49 +129,25 @@ MX_SPI4_Init();]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="1" ROW="9">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="63">
+                <TEXT><![CDATA[Für die A-Achse ganze drehung von 0-bis n-Wert, dann die Mitte nehmen.
+Z-Achse fährt nach oben bis Nadel Oben sensor auslöst, dann langsam ganz nach unten bis DruckSensor auslöst.]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="10">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="37">
                 <TEXT><![CDATA[Programm für Test modus Kurz, 
 Standard, Langzeittest. Wo die 
-Ablauf gleich ist, nur die Zeit wird 
+Ablauf gleich ist, nur die Zeit/Zyklenanzahl wird 
 geändert]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="11">
-              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="38">
-                <TEXT><![CDATA[A-Achse, Z-Achse]]></TEXT>
-              </FIGURE>
-            </ENTRY>
             <ENTRY COLUMN="1" ROW="12">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="39">
-                <TEXT><![CDATA[Modus?]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="1" ROW="13">
-              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="40">
-                <TEXT><![CDATA[Prüfprogramm Aufrufen]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="1" ROW="14">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="52">
-                <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="2" ROW="12">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="42">
-                <TEXT><![CDATA[]]></TEXT>
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="73">
+                <TEXT><![CDATA[Manuell]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="2" ROW="14">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="46">
-                <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="3" ROW="12">
-              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="57">
-                <TEXT><![CDATA[Komm. über PC]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="3" ROW="13">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="58">
                 <TEXT><![CDATA[Prüfprogramm unterprogramm wird abgerufen mit 3 modis, Kurz, Standard, Lang]]></TEXT>
               </FIGURE>
@@ -186,26 +157,19 @@ geändert]]></TEXT>
         <CONNECTIONS>
           <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="28" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="2" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="35" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="21" FROM="20" TO="62" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="9" FROM="8" TO="10" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="11" FROM="10" TO="23" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="15" FROM="14" TO="16" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="17" FROM="16" TO="20" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="21" FROM="20" TO="33" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="24" FROM="23" TO="14" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="50" FROM="49" TO="6" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="70" FROM="59" TO="4" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="29" FROM="28" TO="8" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="32" FROM="26" TO="39" TEXT="ja" />
-          <CONNECTION FORMAT="1.00" ID="34" FROM="33" TO="4" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="36" FROM="35" TO="26" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="41" FROM="39" TO="40" TEXT="Standalone" />
-          <CONNECTION FORMAT="1.00" ID="43" FROM="39" TO="42" TEXT="PC Mode" />
-          <CONNECTION FORMAT="1.00" ID="27" FROM="26" TO="55" TEXT="nein" />
-          <CONNECTION FORMAT="1.00" ID="45" FROM="42" TO="46" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="53" FROM="52" TO="49" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="51" FROM="46" TO="52" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="54" FROM="40" TO="52" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="56" FROM="55" TO="49" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="61" FROM="62" TO="59" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="65" FROM="64" TO="71" TEXT="0" />
+          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="64" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="67" FROM="64" TO="73" TEXT="1" />
+          <CONNECTION FORMAT="1.00" ID="72" FROM="71" TO="6" TEXT="" />
         </CONNECTIONS>
       </DIAGRAM>
     </DIAGRAMS>

@@ -21,17 +21,28 @@
 #include <main.h>
 #include "AD5684RARUZ.h"
 
-void ad5684_init(ad5684_dac_t *dac) {
+void ad5684_init(ad5684_dac_t* dac) {
 	uint8_t tx_buffer[3];
 	tx_buffer[0] = 0x37; //0011 Write to and update DAC Channel n + 0111 EN_DAC A, B, C
 	tx_buffer[1] = 0x00;
 	tx_buffer[2] = 0x00;
 
 	HAL_SPI_Transmit(dac->spi_handle, tx_buffer, 3, 2000);
+
+//	tx_buffer[0] = 0x00;
+//	tx_buffer[1] = 0x00;
+//	tx_buffer[2] = 0x00;
+//
+//	uint8_t rx_buffer[3];
+//	rx_buffer[0] = 0x00;
+//	rx_buffer[1] = 0x00;
+//	rx_buffer[2] = 0x00;
+//
+//	HAL_SPI_TransmitReceive(dac->spi_handle, tx_buffer, rx_buffer, 3, 2000);
 }
 
 
-void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
+void ad5684_set_voltage(ad5684_dac_t* dac, float voltage, uint8_t dac_channel) {
 	uint16_t ad5684_data;
 	uint8_t tx_buffer[3];
 
@@ -39,7 +50,6 @@ void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
 
 	//Write to and Update DAC
 	tx_buffer[0] = 0x30 | dac_channel; // 0011 (Write + Update) 0x30 | (oder) dac_channel wert
-
 	tx_buffer[1] = (ad5684_data >> 8) & 0xFF; // Obere 8 Bit, nach rechts schieben
 	tx_buffer[2] = ad5684_data & 0xFF;        // Untere 8 Bit
 

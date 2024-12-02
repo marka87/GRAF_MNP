@@ -29,9 +29,11 @@
 #include <stdbool.h>
 #include "display.h"
 #include "AD5684RARUZ.h"
-#define a_mot 0x01
-#define z_mot 0x02
-#define d_mot 0x04
+#include "ADC_read.h"
+
+#define a_mot 0x01		//Address for DAC-A...
+#define z_mot 0x02		//DAC-B...
+#define d_mot 0x04		//DAC-C.
 
 /* USER CODE END Includes */
 
@@ -85,6 +87,8 @@ static void MX_SPI4_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+
 //Button//
 //GPIO_InitStruct.Pin = BTN_DOWN_Pin|BTN_OK_Pin|BTN_UP_Pin;
 //GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -104,12 +108,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	//DAC//
-ad5684_dac_t my_dac = {
-    .spi_handle = &hspi4, // SPI-Handle deines Systems
 
-};
-ad5684_init(&my_dac);
+	//DAC//
+
+//ad5684_init(&my_dac);
 
 
   /* USER CODE END 1 */
@@ -145,18 +147,22 @@ ad5684_init(&my_dac);
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
 
+  ad5684_dac_t my_dac = {
+      .spi_handle = &hspi4, // SPI-Handle deines Systems
+  };
+  ad5684_init(&my_dac);
 
-//  ad5684_init(&my_dac);	//init DAC
 
   //GPIO//
   HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
   HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
-  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
+ // HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
   HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+
 
   //Display//
 
-	display_info_t display1 = {	//The Display init
+	display_info_t display1 = {											//The Display init
 			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 					.lcd_ram_pages = 8, };
 	display_jazz_init(&display1);
@@ -164,6 +170,13 @@ ad5684_init(&my_dac);
 	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
 //ADC//
+//	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
+//	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
+
+	// Buffer für die Ausgabe auf dem Display
+	char no_sen_buffer[30];
+	char druck_sen_buffer[30];
+
 
   /* USER CODE END 2 */
 
@@ -171,12 +184,23 @@ ad5684_init(&my_dac);
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  ad5684_set_voltage(&my_dac, 1.6, a_mot); // DAC A auf x.xV setzen
-	  ad5684_set_voltage(&my_dac, 2.4, z_mot); // DAC B auf x.xV setzen
-	  ad5684_set_voltage(&my_dac, 3.6, d_mot); // DAC C auf x.xV setzen
 
-	  display_jazz_write_string_5x7(&display1, 1, "f");
-	  HAL_Delay(50);
+	   // DAC-Werte setzen
+	  ad5684_set_voltage(&my_dac, 2.0f, 0x01); // DAC A auf 1.6V setzen
+	  ad5684_set_voltage(&my_dac, 2.0f, z_mot); // DAC B auf 2.4V setzen
+	  ad5684_set_voltage(&my_dac, 2.0f, d_mot); // DAC C auf 3.6V setzen
+	    // ADC-Werte auslesen
+	    float no_sen_value = ADC_Nadel_Oben(&hadc1);     													// Lichtschrankenwert
+	    sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
+	    display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
+	    																							// LEDs basierend auf Lichtschrankenstatus schalte
+	    float druck_sen_value = ADC_drucksensor(&hadc1);
+	    sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
+	    display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
+
+
+
+	    HAL_Delay(50); // Kurze Pause für Stabilität
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -627,7 +651,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : DISP_A0_Pin A_AX_REL_EN_Pin Z_AX_REL_EN_Pin */
   GPIO_InitStruct.Pin = DISP_A0_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin;
@@ -664,8 +688,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin LED_YELLOW_Pin */
-  GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin;
+  /*Configure GPIO pins : PJ2 LED_RED_Pin LED_YELLOW_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|LED_RED_Pin|LED_YELLOW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

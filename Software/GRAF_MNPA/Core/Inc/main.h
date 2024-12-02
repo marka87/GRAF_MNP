@@ -95,14 +95,12 @@ void Error_Handler(void);
 #define EN_R_GPIO_Port GPIOD
 #define A_AXIS_CH2_Pin GPIO_PIN_1
 #define A_AXIS_CH2_GPIO_Port GPIOA
+#define A_AXIS_CH1_Pin GPIO_PIN_0
+#define A_AXIS_CH1_GPIO_Port GPIOA
 #define Z_AXIS_CH2_Pin GPIO_PIN_11
 #define Z_AXIS_CH2_GPIO_Port GPIOH
 #define ADC_NO_SEN_Pin GPIO_PIN_2
 #define ADC_NO_SEN_GPIO_Port GPIOA
-#define A_AXIS_CH1_Pin GPIO_PIN_5
-#define A_AXIS_CH1_GPIO_Port GPIOA
-#define LED_GREEN_Pin GPIO_PIN_2
-#define LED_GREEN_GPIO_Port GPIOJ
 #define Z_AXIS_CH1_Pin GPIO_PIN_10
 #define Z_AXIS_CH1_GPIO_Port GPIOH
 #define ADC_DRUCK_SEN_Pin GPIO_PIN_3
