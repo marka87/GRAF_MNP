@@ -52,7 +52,7 @@ void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
 //		voltage = 5.0f;
 //	}
 
-	uint16_t ad5684_data = (uint16_t)((voltage / 5.0f) * 65535);
+	uint16_t ad5684_data = (uint16_t)((voltage / 2.5f) * 65535);
 
 
 	HAL_GPIO_WritePin(dac->spi_cs_port, dac->spi_cs_pin, GPIO_PIN_RESET);

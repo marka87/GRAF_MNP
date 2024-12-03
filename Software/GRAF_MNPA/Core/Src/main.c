@@ -186,9 +186,9 @@ int main(void)
 	char no_sen_buffer[30];
 	char druck_sen_buffer[30];
 
-	  ad5684_set_voltage(&dac, 1.0f, a_mot); // DAC A auf 1.6V setzen
-	  ad5684_set_voltage(&dac, 1.0f, z_mot); // DAC B auf 2.4V setzen
-	  ad5684_set_voltage(&dac, 1.0f, d_mot); // DAC C auf 3.6V setzen
+	  ad5684_set_voltage(&dac, 5.0f, a_mot); // DAC A auf 1.6V setzen
+	  ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
+	  ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
 	  HAL_Delay(50);
 
   /* USER CODE END 2 */
