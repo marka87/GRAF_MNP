@@ -102,17 +102,16 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PA3     ------> ADC1_IN3
     PA7     ------> ADC1_IN7
     PB1     ------> ADC1_IN9
-    PB0     ------> ADC1_IN8
     */
     GPIO_InitStruct.Pin = ADC_NO_SEN_Pin|ADC_DRUCK_SEN_Pin|ADC1_IN7_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = ADC1_IN9_Pin|ADC1_IN8_Pin;
+    GPIO_InitStruct.Pin = ADC1_IN9_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    HAL_GPIO_Init(ADC1_IN9_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN ADC1_MspInit 1 */
 
@@ -143,11 +142,10 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     PA3     ------> ADC1_IN3
     PA7     ------> ADC1_IN7
     PB1     ------> ADC1_IN9
-    PB0     ------> ADC1_IN8
     */
     HAL_GPIO_DeInit(GPIOA, ADC_NO_SEN_Pin|ADC_DRUCK_SEN_Pin|ADC1_IN7_Pin);
 
-    HAL_GPIO_DeInit(GPIOB, ADC1_IN9_Pin|ADC1_IN8_Pin);
+    HAL_GPIO_DeInit(ADC1_IN9_GPIO_Port, ADC1_IN9_Pin);
 
   /* USER CODE BEGIN ADC1_MspDeInit 1 */
 
@@ -200,12 +198,11 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 
     __HAL_RCC_GPIOE_CLK_ENABLE();
     /**SPI4 GPIO Configuration
-    PE4     ------> SPI4_NSS
     PE2     ------> SPI4_SCK
     PE5     ------> SPI4_MISO
     PE6     ------> SPI4_MOSI
     */
-    GPIO_InitStruct.Pin = SPI4_DAC_NSS_Pin|SPI4_DAC_SCK_Pin|SPI4_DAC_MISO_Pin|SPI4_DAC_MOSI_Pin;
+    GPIO_InitStruct.Pin = SPI4_DAC_SCK_Pin|SPI4_DAC_MISO_Pin|SPI4_DAC_MOSI_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -255,12 +252,11 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     __HAL_RCC_SPI4_CLK_DISABLE();
 
     /**SPI4 GPIO Configuration
-    PE4     ------> SPI4_NSS
     PE2     ------> SPI4_SCK
     PE5     ------> SPI4_MISO
     PE6     ------> SPI4_MOSI
     */
-    HAL_GPIO_DeInit(GPIOE, SPI4_DAC_NSS_Pin|SPI4_DAC_SCK_Pin|SPI4_DAC_MISO_Pin|SPI4_DAC_MOSI_Pin);
+    HAL_GPIO_DeInit(GPIOE, SPI4_DAC_SCK_Pin|SPI4_DAC_MISO_Pin|SPI4_DAC_MOSI_Pin);
 
   /* USER CODE BEGIN SPI4_MspDeInit 1 */
 

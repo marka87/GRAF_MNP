@@ -57,8 +57,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SPI4_DAC_NSS_Pin GPIO_PIN_4
-#define SPI4_DAC_NSS_GPIO_Port GPIOE
+#define SPI4_NSS_Pin GPIO_PIN_4
+#define SPI4_NSS_GPIO_Port GPIOE
 #define SPI4_DAC_SCK_Pin GPIO_PIN_2
 #define SPI4_DAC_SCK_GPIO_Port GPIOE
 #define DISP_A0_Pin GPIO_PIN_8
@@ -109,8 +109,8 @@ void Error_Handler(void);
 #define ADC1_IN7_GPIO_Port GPIOA
 #define ADC1_IN9_Pin GPIO_PIN_1
 #define ADC1_IN9_GPIO_Port GPIOB
-#define ADC1_IN8_Pin GPIO_PIN_0
-#define ADC1_IN8_GPIO_Port GPIOB
+#define DAC_RESET_Pin GPIO_PIN_0
+#define DAC_RESET_GPIO_Port GPIOB
 #define LED_RED_Pin GPIO_PIN_0
 #define LED_RED_GPIO_Port GPIOJ
 #define LED_YELLOW_Pin GPIO_PIN_1

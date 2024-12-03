@@ -148,11 +148,7 @@ int main(void)
   MX_SPI4_Init();
   /* USER CODE BEGIN 2 */
 
-  ad5684_dac_t dac = {
-      .spi_handle = &hspi4, // SPI-Handle deines Systems
-  };
-  ad5684_init(&dac);
-	HAL_Delay(50);
+
 
 
   //GPIO//
@@ -161,15 +157,26 @@ int main(void)
  // HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
   HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 
+//DAC//
+  HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
+  ad5684_dac_t dac = {
+		  .spi_handle = &hspi4,
+		  .spi_cs_port = SPI4_NSS_GPIO_Port,
+		  .spi_cs_pin = SPI4_NSS_Pin,// SPI-Handle deines Systems
+  };
+  ad5684_init(&dac);
+  HAL_Delay(50);
 
   //Display//
 
-	display_info_t display1 = {											//The Display init
-			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
-					.lcd_ram_pages = 8, };
-	display_jazz_init(&display1);
-	HAL_Delay(50);
-	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
+  display_info_t display1 = {											//The Display init
+		  .spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
+		  .lcd_ram_pages = 8, };
+  display_jazz_init(&display1);
+  HAL_Delay(50);
+  display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
 //ADC//
 //	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
@@ -179,6 +186,10 @@ int main(void)
 	char no_sen_buffer[30];
 	char druck_sen_buffer[30];
 
+	  ad5684_set_voltage(&dac, 1.0f, a_mot); // DAC A auf 1.6V setzen
+	  ad5684_set_voltage(&dac, 1.0f, z_mot); // DAC B auf 2.4V setzen
+	  ad5684_set_voltage(&dac, 1.0f, d_mot); // DAC C auf 3.6V setzen
+	  HAL_Delay(50);
 
   /* USER CODE END 2 */
 
@@ -188,17 +199,15 @@ int main(void)
   {
 
 	   // DAC-Werte setzen
-	  ad5684_set_voltage(&dac, 1.0f, a_mot); // DAC A auf 1.6V setzen
-	  ad5684_set_voltage(&dac, 1.0f, z_mot); // DAC B auf 2.4V setzen
-	  ad5684_set_voltage(&dac, 1.0f, d_mot); // DAC C auf 3.6V setzen
-	    // ADC-Werte auslesen
-	    float no_sen_value = ADC_Nadel_Oben(&hadc1);     													// Lichtschrankenwert
-	    sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
-	    display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
-	    																							// LEDs basierend auf Lichtschrankenstatus schalte
-	    float druck_sen_value = ADC_drucksensor(&hadc1);
-	    sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
-	    display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
+
+//	    // ADC-W/erte auslesen
+//	    float no_sen_value = ADC_Nadel_Oben(&hadc1);     													// Lichtschrankenwert
+//	    sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
+//	    display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
+//	    																							// LEDs basierend auf Lichtschrankenstatus schalte
+//	    float druck_sen_value = ADC_drucksensor(&hadc1);
+//	    sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
+//	    display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
 
 
 
@@ -365,14 +374,14 @@ static void MX_SPI4_Init(void)
   hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi4.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi4.Init.NSS = SPI_NSS_SOFT;
   hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi4.Init.CRCPolynomial = 7;
   hspi4.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi4.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi4.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi4) != HAL_OK)
   {
     Error_Handler();
@@ -638,7 +647,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOJ_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI4_NSS_GPIO_Port, SPI4_NSS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(RST_DISPLAY_GPIO_Port, RST_DISPLAY_Pin, GPIO_PIN_RESET);
@@ -655,8 +667,15 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : DISP_A0_Pin A_AX_REL_EN_Pin Z_AX_REL_EN_Pin */
-  GPIO_InitStruct.Pin = DISP_A0_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin;
+  /*Configure GPIO pin : SPI4_NSS_Pin */
+  GPIO_InitStruct.Pin = SPI4_NSS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI4_NSS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : DISP_A0_Pin DAC_RESET_Pin A_AX_REL_EN_Pin Z_AX_REL_EN_Pin */
+  GPIO_InitStruct.Pin = DISP_A0_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
