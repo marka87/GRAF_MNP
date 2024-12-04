@@ -112,7 +112,7 @@ int main(void)
 
 	//DAC//
 
-//ad5684_init(&my_dac);
+	//ad5684_init(&my_dac);
 
 
   /* USER CODE END 1 */
@@ -151,71 +151,69 @@ int main(void)
 
 
 
-  //GPIO//
-  HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
-  HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
- // HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
-  HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+	//GPIO//
+	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
+	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
+	// HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
+	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 
-//DAC//
-  HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
-  HAL_Delay(1);
-  HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
-  ad5684_dac_t dac = {
-		  .spi_handle = &hspi4,
-		  .spi_cs_port = SPI4_NSS_GPIO_Port,
-		  .spi_cs_pin = SPI4_NSS_Pin,// SPI-Handle deines Systems
-  };
-  ad5684_init(&dac);
-  HAL_Delay(50);
+	//DAC//
+	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
+	ad5684_dac_t dac = {
+			.spi_handle = &hspi4,
+			.spi_cs_port = SPI4_NSS_GPIO_Port,
+			.spi_cs_pin = SPI4_NSS_Pin,// SPI-Handle deines Systems
+	};
+	ad5684_init(&dac);
+	HAL_Delay(50);
 
-  //Display//
+	//Display//
 
-  display_info_t display1 = {											//The Display init
-		  .spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
-		  .lcd_ram_pages = 8, };
-  display_jazz_init(&display1);
-  HAL_Delay(50);
-  display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
+	display_info_t display1 = {											//The Display init
+			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
+			.lcd_ram_pages = 8, };
+	display_jazz_init(&display1);
+	HAL_Delay(50);
+	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
-//ADC//
-//	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
-//	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
+	//ADC//
+
+	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
+	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
 
 	// Buffer für die Ausgabe auf dem Display
 	char no_sen_buffer[30];
 	char druck_sen_buffer[30];
 
-	  ad5684_set_voltage(&dac, 5.0f, a_mot); // DAC A auf 1.6V setzen
-	  ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
-	  ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
-	  HAL_Delay(50);
+	ad5684_set_voltage(&dac, 2.0f, a_mot); // DAC A auf 1.6V setzen
+	ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
+	ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
+	HAL_Delay(50);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-
-	   // DAC-Werte setzen
-
-//	    // ADC-W/erte auslesen
-//	    float no_sen_value = ADC_Nadel_Oben(&hadc1);     													// Lichtschrankenwert
-//	    sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
-//	    display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
-//	    																							// LEDs basierend auf Lichtschrankenstatus schalte
-//	    float druck_sen_value = ADC_drucksensor(&hadc1);
-//	    sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
-//	    display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
+	while (1)
+	{
+		// ADC-W/erte auslesen
+		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
+		sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
+		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
+		//Lichtschrankenstatus schalte
+		float druck_sen_value = ADC_Drucksensor(&hadc1);
+		sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
+		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
 
 
 
-	    HAL_Delay(50); // Kurze Pause für Stabilität
+		HAL_Delay(50); // Kurze Pause für Stabilität
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -281,7 +279,7 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;

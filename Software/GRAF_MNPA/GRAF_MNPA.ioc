@@ -1,11 +1,15 @@
 #MicroXplorer Configuration settings - do not modify
 ADC1.Channel-2\#ChannelRegularConversion=ADC_CHANNEL_2
-ADC1.ClockPrescaler=ADC_CLOCK_SYNC_PCLK_DIV2
+ADC1.ClockPrescaler=ADC_CLOCK_SYNC_PCLK_DIV4
+ADC1.ContinuousConvMode=DISABLE
 ADC1.DataAlign=ADC_DATAALIGN_RIGHT
-ADC1.IPParameters=Rank-2\#ChannelRegularConversion,master,Channel-2\#ChannelRegularConversion,SamplingTime-2\#ChannelRegularConversion,NbrOfConversionFlag,DataAlign,ClockPrescaler
+ADC1.EOCSelection=ADC_EOC_SINGLE_CONV
+ADC1.IPParameters=Rank-2\#ChannelRegularConversion,master,Channel-2\#ChannelRegularConversion,SamplingTime-2\#ChannelRegularConversion,NbrOfConversionFlag,DataAlign,ClockPrescaler,ContinuousConvMode,ScanConvMode,EOCSelection,Resolution
 ADC1.NbrOfConversionFlag=1
 ADC1.Rank-2\#ChannelRegularConversion=1
+ADC1.Resolution=ADC_RESOLUTION_12B
 ADC1.SamplingTime-2\#ChannelRegularConversion=ADC_SAMPLETIME_3CYCLES
+ADC1.ScanConvMode=ADC_SCAN_DISABLE
 ADC1.master=1
 CAD.formats=
 CAD.pinconfig=

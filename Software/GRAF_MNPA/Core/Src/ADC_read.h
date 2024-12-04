@@ -16,7 +16,7 @@
 void ADC_Init(ADC_HandleTypeDef* hadc);
 
 float ADC_Nadel_Oben(ADC_HandleTypeDef* adc_handle);
-float ADC_drucksensor(ADC_HandleTypeDef* adc_handle);
+float ADC_Drucksensor(ADC_HandleTypeDef* adc_handle);
 
 //float ADC_Read_DRUCK_SEN(ADC_HandleTypeDef* hadc);
 
