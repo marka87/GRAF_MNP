@@ -9,8 +9,36 @@
 #include "ADC_read.h"
 
 
-
-
+////DMA
+//uint32_t adc_dma_buffer[2]; // Buffer für DMA-Werte
+//
+//void ADC_Init(ADC_HandleTypeDef *hadc) {
+//	ADC_HandleTypeDef hadc1;
+//	ADC_Init(&hadc1);
+////    HAL_ADCEx_Calibration_Start(adc_handle); // ADC kalibrieren
+//    HAL_ADC_Start_DMA(hadc, (uint32_t*)adc_dma_buffer, ADC_BUFFER_SIZE); // ADC mit DMA starten
+//}
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+//    // Fertigstellungslogik hier
+//}
+//
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
+//    // Halbe-Fertigstellungslogik hier
+//}
+//
+//// Einlesen der Lichtschranke (ADC_NO_SEN_5V)
+//float ADC_Nadel_Oben(void) {
+//    uint32_t value = adc_dma_buffer[0]; // Wert aus DMA-Puffer
+//    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+//}
+//
+//// Einlesen des Drucksensors (ADC_DRUCK_SEN_5V)
+//float ADC_Drucksensor(void) {
+//    uint32_t value = adc_dma_buffer[1]; // Wert aus DMA-Puffer
+//    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+//}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Normal
 void ADC_Init(ADC_HandleTypeDef* adc_handle) {
     // ADC-Start
 	HAL_ADCEx_Calibration_Start(adc_handle);

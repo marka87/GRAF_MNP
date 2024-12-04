@@ -55,6 +55,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi4;
@@ -74,6 +75,7 @@ UART_HandleTypeDef huart1;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
@@ -110,9 +112,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
-	//DAC//
 
-	//ad5684_init(&my_dac);
 
 
   /* USER CODE END 1 */
@@ -138,6 +138,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_ADC1_Init();
@@ -182,11 +183,13 @@ int main(void)
 
 	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
 	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
-
-	// Buffer für die Ausgabe auf dem Display
-	char no_sen_buffer[30];
+	char no_sen_buffer[30];			// Buffer für die Ausgabe auf dem Display
 	char druck_sen_buffer[30];
 
+//	ADC_Init(&hadc1); // Eigene Initialisierungsfunktion
+//	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_dma_buffer, 2);
+
+	//DAC//
 	ad5684_set_voltage(&dac, 2.0f, a_mot); // DAC A auf 1.6V setzen
 	ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
 	ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
@@ -199,21 +202,25 @@ int main(void)
 	while (1)
 	{
 		// ADC-W/erte auslesen
-		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
+//		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
+		no_sen_value = ADC_Nadel_Oben(&hadc1);
 		sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
 		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
 		//Lichtschrankenstatus schalte
-		float druck_sen_value = ADC_Drucksensor(&hadc1);
+//		float druck_sen_value = ADC_Drucksensor(&hadc1);
+	    druck_sen_value = ADC_Drucksensor(&hadc1);
 		sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
 		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
 
 
 
 		HAL_Delay(50); // Kurze Pause für Stabilität
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	}
+	return 0;
   /* USER CODE END 3 */
 }
 
@@ -279,17 +286,17 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -299,7 +306,16 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -622,6 +638,22 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -725,6 +757,15 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+ //Called when first half of buffer is filled
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
+//	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+//}
+
+//// Called when buffer is completely filled
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+////	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+//}
 
 /* USER CODE END 4 */
 

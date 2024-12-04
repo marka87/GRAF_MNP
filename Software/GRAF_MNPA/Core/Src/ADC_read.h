@@ -8,17 +8,25 @@
 #ifndef SRC_ADC_READ_H_
 #define SRC_ADC_READ_H_
 
+
 #include <main.h>
 #include <stm32f7xx_hal_conf.h>
 #include <stm32f7xx_it.h>
 #include <stm32f7xx_hal_adc.h>
+#define ADC_BUFFER_SIZE 2 // Anzahl der ADC-Kanäle
 
-void ADC_Init(ADC_HandleTypeDef* hadc);
+//extern uint32_t adc_dma_buffer[2];
+//
+//void ADC_Init(ADC_HandleTypeDef *hadc);
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
+//float ADC_Nadel_Oben(void);     // Funktion ohne Parameter
+//float ADC_Drucksensor(void);   // Funktion ohne Parameter
 
+
+void ADC_Init(ADC_HandleTypeDef *adc_handle);
 float ADC_Nadel_Oben(ADC_HandleTypeDef* adc_handle);
 float ADC_Drucksensor(ADC_HandleTypeDef* adc_handle);
-
-//float ADC_Read_DRUCK_SEN(ADC_HandleTypeDef* hadc);
 
 
 #endif /* SRC_ADC_READ_H_ */
