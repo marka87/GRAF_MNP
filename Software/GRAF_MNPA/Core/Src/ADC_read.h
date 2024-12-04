@@ -16,17 +16,18 @@
 #define ADC_BUFFER_SIZE 2 // Anzahl der ADC-Kanäle
 
 //extern uint32_t adc_dma_buffer[2];
-//
-//void ADC_Init(ADC_HandleTypeDef *hadc);
-//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
+//ADC_HandleTypeDef hadc1;
+//DMA_HandleTypeDef hdma_adc1;
+void ADC_Init(ADC_HandleTypeDef *hadc);
 //void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
-//float ADC_Nadel_Oben(void);     // Funktion ohne Parameter
-//float ADC_Drucksensor(void);   // Funktion ohne Parameter
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc);
+float ADC_Nadel_Oben(void);     // Funktion ohne Parameter
+float ADC_Drucksensor(void);   // Funktion ohne Parameter
 
 
-void ADC_Init(ADC_HandleTypeDef *adc_handle);
-float ADC_Nadel_Oben(ADC_HandleTypeDef* adc_handle);
-float ADC_Drucksensor(ADC_HandleTypeDef* adc_handle);
+//void ADC_Init(ADC_HandleTypeDef *adc_handle);
+//float ADC_Nadel_Oben(ADC_HandleTypeDef* adc_handle);
+//float ADC_Drucksensor(ADC_HandleTypeDef* adc_handle);
 
 
 #endif /* SRC_ADC_READ_H_ */

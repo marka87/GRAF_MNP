@@ -31,6 +31,7 @@
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include <math.h>
+#include "encoder.h"
 
 #define a_mot 0x01		//Address for DAC-A...
 #define z_mot 0x02		//DAC-B...
@@ -194,7 +195,18 @@ int main(void)
 	ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
 	ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
 	HAL_Delay(50);
+// Encoder //
+    Encoder_Init();
+    TIM_HandleTypeDef htim2;
+    TIM_HandleTypeDef htim5;
 
+    void MX_TIM2_Init(void) {
+        // Konfiguration für TIM2
+    }
+
+    void MX_TIM5_Init(void) {
+        // Konfiguration für TIM5
+    }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -203,14 +215,21 @@ int main(void)
 	{
 		// ADC-W/erte auslesen
 //		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
-		no_sen_value = ADC_Nadel_Oben(&hadc1);
+		no_sen_value = ADC_Nadel_Oben();
 		sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
 		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
 		//Lichtschrankenstatus schalte
 //		float druck_sen_value = ADC_Drucksensor(&hadc1);
-	    druck_sen_value = ADC_Drucksensor(&hadc1);
+	    druck_sen_value = ADC_Drucksensor();
 		sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
 		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
+
+		//Encoder
+	      uint32_t a_axis_position = Encoder_GetPosition_A_AXIS();
+	      uint32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
+
+	        printf("A_AXIS Position: %lu\n", a_axis_position);
+	        printf("Z_AXIS Position: %lu\n", z_axis_position);
 
 
 
@@ -278,6 +297,7 @@ static void MX_ADC1_Init(void)
   /* USER CODE END ADC1_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
+  ADC_InjectionConfTypeDef sConfigInjected = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
 
@@ -317,6 +337,30 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configures for the selected ADC injected channel its corresponding rank in the sequencer and its sample time
+  */
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_2;
+  sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
+  sConfigInjected.InjectedNbrOfConversion = 2;
+  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONVEDGE_NONE;
+  sConfigInjected.ExternalTrigInjecConv = ADC_INJECTED_SOFTWARE_START;
+  sConfigInjected.AutoInjectedConv = DISABLE;
+  sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
+  sConfigInjected.InjectedOffset = 0;
+  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configures for the selected ADC injected channel its corresponding rank in the sequencer and its sample time
+  */
+  sConfigInjected.InjectedRank = ADC_INJECTED_RANK_2;
+  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
   {
     Error_Handler();
   }
@@ -430,7 +474,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;

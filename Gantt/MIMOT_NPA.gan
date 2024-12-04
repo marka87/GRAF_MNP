@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-08-01" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3312" locale="de_DE">
+<?xml version="1.0" encoding="UTF-8"?><project name="Graf - MNPA" company="Graf Elektronik GmbH" webLink="http://" view-date="2024-10-01" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3312" locale="de_DE">
     <description/>
     <view zooming-state="default:8" id="gantt-chart">
         <field id="tpd3" name="Vorgang" width="200" order="0"/>
