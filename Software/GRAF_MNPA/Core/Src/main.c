@@ -215,12 +215,12 @@ int main(void)
 	{
 		// ADC-W/erte auslesen
 //		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
-		no_sen_value = ADC_Nadel_Oben();
+		float no_sen_value = ADC_Nadel_Oben();
 		sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
 		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
 		//Lichtschrankenstatus schalte
 //		float druck_sen_value = ADC_Drucksensor(&hadc1);
-	    druck_sen_value = ADC_Drucksensor();
+	    float druck_sen_value = ADC_Drucksensor();
 		sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
 		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
 

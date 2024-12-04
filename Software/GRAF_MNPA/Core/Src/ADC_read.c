@@ -8,27 +8,45 @@
 #include <stdio.h>
 #include "ADC_read.h"
 
-
-////DMA
-
-uint32_t adc_dma_buffer[2]; // Buffer für DMA-Werte
+uint32_t adc_dma_buffer[ADC_BUFFER_SIZE]; // Buffer for DMA values
 
 void ADC_Init(ADC_HandleTypeDef *hadc) {
+    // Initialize ADC
+    HAL_ADC_Init(hadc);
 
-    HAL_ADC_Start_DMA(hadc, (uint32_t*)adc_dma_buffer, ADC_BUFFER_SIZE); // ADC mit DMA starten
+    // Start ADC with DMA
+    HAL_ADC_Start_DMA(hadc, (uint32_t*)adc_dma_buffer, ADC_BUFFER_SIZE);
 }
 
-// Einlesen der Lichtschranke (ADC_NO_SEN_5V)
 float ADC_Nadel_Oben(void) {
-    uint32_t value = adc_dma_buffer[0]; // Wert aus DMA-Puffer
-    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+    uint32_t value = adc_dma_buffer[0]; // Value from DMA buffer
+    return value * (2.0f * 2.5f / 4095.0f); // Convert to voltage
 }
 
-// Einlesen des Drucksensors (ADC_DRUCK_SEN_5V)
 float ADC_Drucksensor(void) {
-    uint32_t value = adc_dma_buffer[1]; // Wert aus DMA-Puffer
-    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+    uint32_t value = adc_dma_buffer[1]; // Value from DMA buffer
+    return value * (2.0f * 2.5f / 4095.0f); // Convert to voltage
 }
+////DMA
+
+//uint32_t adc_dma_buffer[2]; // Buffer für DMA-Werte
+//
+//void ADC_Init(ADC_HandleTypeDef *hadc) {
+//
+//    HAL_ADC_Start_DMA(hadc, (uint32_t*)adc_dma_buffer, ADC_BUFFER_SIZE); // ADC mit DMA starten
+//}
+//
+//// Einlesen der Lichtschranke (ADC_NO_SEN_5V)
+//float ADC_Nadel_Oben(void) {
+//    uint32_t value = adc_dma_buffer[0]; // Wert aus DMA-Puffer
+//    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+//}
+//
+//// Einlesen des Drucksensors (ADC_DRUCK_SEN_5V)
+//float ADC_Drucksensor(void) {
+//    uint32_t value = adc_dma_buffer[1]; // Wert aus DMA-Puffer
+//    return value * (2.0f * 2.5f / 4095.0f); // Umrechnung in Spannung
+//}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
