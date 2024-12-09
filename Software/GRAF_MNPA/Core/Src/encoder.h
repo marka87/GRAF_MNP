@@ -2,7 +2,8 @@
  * encoder.h
  *
  *  Created on: Dec 4, 2024
- *      Author: Mark
+ *      Author: Mark Angyal
+ *      Header File for encoder
  */
 
 #ifndef SRC_ENCODER_H_

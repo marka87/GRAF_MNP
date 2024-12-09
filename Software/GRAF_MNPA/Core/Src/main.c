@@ -181,55 +181,62 @@ int main(void)
 	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
 	//ADC//
+//	ADC_Init(&hadc1);
+//
+//	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_dma_buffer, 2);
 
-	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
-	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
+
+//	float no_sen_value = 0.0f;     // Variable für Lichtschrankenwert
+//	float druck_sen_value = 0.0f;  // Variable für Drucksensorwert
 	char no_sen_buffer[30];			// Buffer für die Ausgabe auf dem Display
 	char druck_sen_buffer[30];
-
+	char z_axis_position_buffer[30];
+	char a_axis_position_buffer[30];
 //	ADC_Init(&hadc1); // Eigene Initialisierungsfunktion
 //	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_dma_buffer, 2);
 
 	//DAC//
-	ad5684_set_voltage(&dac, 2.0f, a_mot); // DAC A auf 1.6V setzen
-	ad5684_set_voltage(&dac, 5.0f, z_mot); // DAC B auf 2.4V setzen
-	ad5684_set_voltage(&dac, 5.0f, d_mot); // DAC C auf 3.6V setzen
+	ad5684_set_voltage(&dac, 2.5f, a_mot); // DAC A auf 1.6V setzen
+	ad5684_set_voltage(&dac, 2.5f, z_mot); // DAC B auf 2.4V setzen
+	ad5684_set_voltage(&dac, 2.3f, d_mot); // DAC C auf 3.6V setzen
 	HAL_Delay(50);
 // Encoder //
     Encoder_Init();
-    TIM_HandleTypeDef htim2;
-    TIM_HandleTypeDef htim5;
-
-    void MX_TIM2_Init(void) {
-        // Konfiguration für TIM2
-    }
-
-    void MX_TIM5_Init(void) {
-        // Konfiguration für TIM5
-    }
+//    TIM_HandleTypeDef htim2;
+//    TIM_HandleTypeDef htim5;
+//
+//    void MX_TIM2_Init(void) {
+//        // Konfiguration für TIM2
+//    }
+//
+//    void MX_TIM5_Init(void) {
+//        // Konfiguration für TIM5
+//    }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1)
 	{
-		// ADC-W/erte auslesen
-//		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
-		float no_sen_value = ADC_Nadel_Oben();
-		sprintf(no_sen_buffer, "Nadel oben: %.2f V", no_sen_value);
+		// ADC-Werte
+		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
+		//float no_sen_value = ADC_Nadel_Oben();
+		sprintf(no_sen_buffer, "Nadel oben: %.3f V", no_sen_value);
 		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
-		//Lichtschrankenstatus schalte
-//		float druck_sen_value = ADC_Drucksensor(&hadc1);
-	    float druck_sen_value = ADC_Drucksensor();
-		sprintf(druck_sen_buffer, "Drucksensor: %.2f V", druck_sen_value);
+
+		float druck_sen_value = ADC_Drucksensor(&hadc1);
+		//float druck_sen_value = ADC_Drucksensor();
+		sprintf(druck_sen_buffer, "Drucksensor: %.3f V", druck_sen_value);
 		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
 
 		//Encoder
-	      uint32_t a_axis_position = Encoder_GetPosition_A_AXIS();
-	      uint32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
+		float a_axis_position = Encoder_GetPosition_A_AXIS();
+		sprintf(a_axis_position_buffer, "AAX:%4.1f", a_axis_position);
+		display_jazz_write_string_5x7(&display1, 3, a_axis_position_buffer);
 
-	        printf("A_AXIS Position: %lu\n", a_axis_position);
-	        printf("Z_AXIS Position: %lu\n", z_axis_position);
+		float z_axis_position = Encoder_GetPosition_Z_AXIS();
+		sprintf(z_axis_position_buffer, "ZAX:%4.1f", z_axis_position);
+		display_jazz_write_string_5x7(&display1, 4, z_axis_position_buffer);
 
 
 
@@ -297,7 +304,6 @@ static void MX_ADC1_Init(void)
   /* USER CODE END ADC1_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
-  ADC_InjectionConfTypeDef sConfigInjected = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
 
@@ -337,30 +343,6 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configures for the selected ADC injected channel its corresponding rank in the sequencer and its sample time
-  */
-  sConfigInjected.InjectedChannel = ADC_CHANNEL_2;
-  sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
-  sConfigInjected.InjectedNbrOfConversion = 2;
-  sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_3CYCLES;
-  sConfigInjected.ExternalTrigInjecConvEdge = ADC_EXTERNALTRIGINJECCONVEDGE_NONE;
-  sConfigInjected.ExternalTrigInjecConv = ADC_INJECTED_SOFTWARE_START;
-  sConfigInjected.AutoInjectedConv = DISABLE;
-  sConfigInjected.InjectedDiscontinuousConvMode = DISABLE;
-  sConfigInjected.InjectedOffset = 0;
-  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configures for the selected ADC injected channel its corresponding rank in the sequencer and its sample time
-  */
-  sConfigInjected.InjectedRank = ADC_INJECTED_RANK_2;
-  if (HAL_ADCEx_InjectedConfigChannel(&hadc1, &sConfigInjected) != HAL_OK)
   {
     Error_Handler();
   }
@@ -519,11 +501,11 @@ static void MX_TIM3_Init(void)
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
   htim3.Init.Period = 65535;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
@@ -621,7 +603,7 @@ static void MX_TIM5_Init(void)
   htim5.Init.Period = 4294967295;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
@@ -634,7 +616,7 @@ static void MX_TIM5_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
   {
