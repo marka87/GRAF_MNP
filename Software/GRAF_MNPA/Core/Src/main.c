@@ -156,7 +156,7 @@ int main(void)
 	//GPIO//
 	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
 	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
-	// HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
+	HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);	//All LEDs ON
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 
 	//DAC//
@@ -196,9 +196,13 @@ int main(void)
 //	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_dma_buffer, 2);
 
 	//DAC//
-	ad5684_set_voltage(&dac, 2.5f, a_mot); // DAC A auf 1.6V setzen
-	ad5684_set_voltage(&dac, 2.5f, z_mot); // DAC B auf 2.4V setzen
-	ad5684_set_voltage(&dac, 2.3f, d_mot); // DAC C auf 3.6V setzen
+	ad5684_set_voltage(&dac, 5.0f, a_mot); // DAC A
+	ad5684_set_voltage(&dac, 2.5f, z_mot); // DAC B
+	ad5684_set_voltage(&dac, 2.5f, d_mot); // DAC C
+	HAL_GPIO_WritePin(GPIOB,A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB,DRUCK_REL_EN_Pin, GPIO_PIN_RESET);
+
+
 	HAL_Delay(50);
 // Encoder //
     Encoder_Init();
@@ -706,7 +710,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SPI4_NSS_GPIO_Port, SPI4_NSS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, DISP_A0_Pin|DRUCK_REL_EN_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin
+                          |Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(RST_DISPLAY_GPIO_Port, RST_DISPLAY_Pin, GPIO_PIN_RESET);
@@ -721,7 +726,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOJ, GPIO_PIN_2|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SPI4_NSS_Pin */
   GPIO_InitStruct.Pin = SPI4_NSS_Pin;
@@ -730,8 +735,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SPI4_NSS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : DISP_A0_Pin DAC_RESET_Pin A_AX_REL_EN_Pin Z_AX_REL_EN_Pin */
-  GPIO_InitStruct.Pin = DISP_A0_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin;
+  /*Configure GPIO pins : DISP_A0_Pin DRUCK_REL_EN_Pin DAC_RESET_Pin A_AX_REL_EN_Pin
+                           Z_AX_REL_EN_Pin */
+  GPIO_InitStruct.Pin = DISP_A0_Pin|DRUCK_REL_EN_Pin|DAC_RESET_Pin|A_AX_REL_EN_Pin
+                          |Z_AX_REL_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -765,8 +772,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PJ2 LED_RED_Pin LED_YELLOW_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_2|LED_RED_Pin|LED_YELLOW_Pin;
+  /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin LED_YELLOW_Pin */
+  GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
