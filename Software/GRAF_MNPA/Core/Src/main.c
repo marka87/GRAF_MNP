@@ -31,6 +31,8 @@
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include <math.h>
+
+#include "ADC_task.h"
 #include "encoder.h"
 
 #define a_mot 0x01		//Address for DAC-A...
@@ -112,7 +114,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	uint8_t btn_up_state = 0;         // Zustandsvariable für BTN_UP
+	uint8_t last_btn_up_state = 1;    // Vorheriger Zustand von BTN_UP
 
+	uint8_t btn_down_state = 0;       // Zustandsvariable für BTN_DOWN
+	uint8_t last_btn_down_state = 1;  // Vorheriger Zustand von BTN_DOWN
 
 
 
@@ -157,7 +163,8 @@ int main(void)
 	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
 	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
 	HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_SET);	//All LEDs ON
-	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+//	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+	HAL_GPIO_WritePin(GPIOD, EN_B_Pin, GPIO_PIN_SET);	//Display background ON
 
 	//DAC//
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
@@ -196,26 +203,22 @@ int main(void)
 //	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_dma_buffer, 2);
 
 	//DAC//
-	ad5684_set_voltage(&dac, 5.0f, a_mot); // DAC A
-	ad5684_set_voltage(&dac, 2.5f, z_mot); // DAC B
-	ad5684_set_voltage(&dac, 2.5f, d_mot); // DAC C
+//	ad5684_set_voltage(&dac, 2.5f, a_mot); // DAC A
+//	ad5684_set_voltage(&dac, 2.5f, z_mot); // DAC B
+//	ad5684_set_voltage(&dac, 2.5f, d_mot); // DAC C
+
+
+
+
+
 	HAL_GPIO_WritePin(GPIOB,A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOB,DRUCK_REL_EN_Pin, GPIO_PIN_RESET);
+//	HAL_GPIO_WritePin(GPIOB,DRUCK_REL_EN_Pin, GPIO_PIN_RESET);
 
 
 	HAL_Delay(50);
 // Encoder //
     Encoder_Init();
-//    TIM_HandleTypeDef htim2;
-//    TIM_HandleTypeDef htim5;
-//
-//    void MX_TIM2_Init(void) {
-//        // Konfiguration für TIM2
-//    }
-//
-//    void MX_TIM5_Init(void) {
-//        // Konfiguration für TIM5
-//    }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -242,8 +245,28 @@ int main(void)
 		sprintf(z_axis_position_buffer, "ZAX:%4.1f", z_axis_position);
 		display_jazz_write_string_5x7(&display1, 4, z_axis_position_buffer);
 
+        DAC_Automatic_Adjustment(&dac);
 
+        btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
 
+           // Wenn BTN_UP gedrückt wurde (fallende Flanke)
+           if (btn_up_state == GPIO_PIN_RESET && last_btn_up_state == GPIO_PIN_SET) {
+               // Z-Achse Relais togglen
+               HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin);
+           }
+
+           // BTN_DOWN-Zustand für A-Achse lesen
+           btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin);
+
+           // Wenn BTN_DOWN gedrückt wurde (fallende Flanke)
+           if (btn_down_state == GPIO_PIN_RESET && last_btn_down_state == GPIO_PIN_SET) {
+               // A-Achse Relais togglen
+               HAL_GPIO_TogglePin(GPIOB, A_AX_REL_EN_Pin);
+           }
+
+           // Speichere Tasterzustände für die nächste Abfrage
+           last_btn_up_state = btn_up_state;
+           last_btn_down_state = btn_down_state;
 		HAL_Delay(50); // Kurze Pause für Stabilität
 
     /* USER CODE END WHILE */
@@ -459,21 +482,21 @@ static void MX_TIM2_Init(void)
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 10;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 10;
   if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1REF;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
@@ -606,21 +629,21 @@ static void MX_TIM5_Init(void)
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 4294967295;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 10;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 10;
   if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
   {
