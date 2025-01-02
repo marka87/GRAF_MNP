@@ -4,8 +4,7 @@
  *  Created on: Dec 15, 2024
  *      Author: Mark
  */
-#include "ADC_task.h"
-
+#include "DAC_task.h"
 #include "main.h"
 #include "AD5684RARUZ.h"
 
@@ -28,7 +27,7 @@ void DAC_Automatic_Adjustment(ad5684_dac_t* dac) {
     voltage_b += direction * VOLTAGE_STEP;
 
     // Neue Spannungen setzen
-    ad5684_set_voltage(dac, voltage_a, a_mot);  // DAC A
+//    ad5684_set_voltage(dac, voltage_a, a_mot);  // DAC A
     ad5684_set_voltage(dac, voltage_b, z_mot);  // DAC B
     ad5684_set_voltage(dac, voltage_b, d_mot);  // DAC B
     // Richtungswechsel an den Grenzen

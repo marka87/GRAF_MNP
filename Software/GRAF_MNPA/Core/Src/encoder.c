@@ -17,9 +17,8 @@ void Encoder_Init(void) {
     // Start TIM2 for A_AXIS
     HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
     __HAL_TIM_SET_COUNTER(&htim2, 0); // Reset position to zero
-
-    HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
-    __HAL_TIM_SET_COUNTER(&htim3, 0); // Reset position to zero
+//    HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+//    __HAL_TIM_SET_COUNTER(&htim3, 0); // Reset position to zero
 
     // Start TIM5 for Z_AXIS
     HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
