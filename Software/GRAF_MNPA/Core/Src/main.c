@@ -33,8 +33,8 @@
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include "encoder.h"
-#include "AAXIS_TASK.h"
-#include "DAC_task.h"
+//#include "AAXIS_TASK.h"
+//#include "DAC_task.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
 
@@ -251,6 +251,7 @@ int main(void)
 	}
 
     A_Axis_ReferenceRun(&dac);
+    Z_Axis_ReferenceRun(&dac);
 /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -259,7 +260,7 @@ int main(void)
 	{
 	    A_Axis_PIDControl(&dac, 0);
 
-		DAC_Automatic_Adjustment(&dac);
+//		DAC_Automatic_Adjustment(&dac);
 
 		// ADC-Werte
 		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert

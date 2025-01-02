@@ -10,6 +10,8 @@
 #include "encoder.h"
 #include "Reference_Run.h"
 #include "AD5684RARUZ.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 #define KP 0.00005f
 #define KI 0.00001f
