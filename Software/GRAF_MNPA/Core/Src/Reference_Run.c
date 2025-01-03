@@ -53,30 +53,13 @@ void A_Axis_ReferenceRun(ad5684_dac_t* dac) {
 	// Schritt 3: Mitte berechnen
 	A_Axis_TargetPosition = (encoder_start + encoder_end) / 2;
 
-	// Schritt 4: Zur Mitte fahren
-//	while (abs((int)(Encoder_GetPosition_A_AXIS() - encoder_mid)) > ENCODER_TOLERANCE) {
-//		if (Encoder_GetPosition_A_AXIS() > encoder_mid) {
-//			ad5684_set_voltage(dac, 3.0f, a_mot); // Richtung: Uhrzeigersinn
-//		} else {
-//			ad5684_set_voltage(dac, 2.0f, a_mot); // Richtung: Gegen Uhrzeigersinn
-//		}
-//		HAL_Delay(10);
-//		timeout += 10;
-//
-//		if (timeout > 10000) { // Timeout nach 10 Sekunden
-//			//            	display_jazz_write_string_5x7(&display1, 0, "Timeout: A-Achse erreicht die Mitte nicht");
-//			break;
-//		}
-//		HAL_Delay(750);
+
 
 	// Debugging
 	printf("Encoder Start: %lu, End: %lu, Mid: %lu\n", encoder_start, encoder_end, A_Axis_TargetPosition);
 
 		// Motor stoppen
 		ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
-
-		// Schritt 5: PID-Regelung aktivieren
-//		A_Axis_PIDControl(dac, A_Axis_TargetPosition);
 
 	}
 //}
@@ -90,54 +73,23 @@ void Z_Axis_ReferenceRun(ad5684_dac_t* dac) {
 	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
 
 	// Schritt 1: Motor im Uhrzeigersinn (3V) für 2,5 Sekunden
-	ad5684_set_voltage(dac, 3.0f, z_mot); // Richtung: hinauf
-	HAL_Delay(2500);
+	ad5684_set_voltage(dac, 2.8f, z_mot); // Richtung: runter auf position 0
+	HAL_Delay(1000);
 	z_encoder_start = Encoder_GetPosition_Z_AXIS(); // Anfangsposition speichern
 
 	// Schritt 2: Motor in entgegengesetzter Richtung (2V) bis zum maximalen Wert
-	ad5684_set_voltage(dac, 2.0f, z_mot); // Richtung: Herunter
-	timeout = 0;
-	while (timeout < REFERENCE_TIMEOUT_MS) {
-		HAL_Delay(10); // Wartezeit
-		timeout += 10;
-
-		if (Encoder_GetPosition_Z_AXIS() > z_encoder_start) {
-			z_encoder_start = Encoder_GetPosition_Z_AXIS(); // Maximale Position speichern
-			timeout = 0; // Timeout zurücksetzen
-		}
-	}
-
-	z_encoder_end = Encoder_GetPosition_Z_AXIS();
-
+	ad5684_set_voltage(dac, 2.0f, z_mot); // Richtung: oben auf position ~3500
+    HAL_Delay(2500);
+    z_encoder_end = Encoder_GetPosition_Z_AXIS();
+    HAL_Delay(50);
 	// Schritt 3: Motor stoppen
 	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
 	HAL_Delay(500);
-	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
 	// Schritt 4: Mitte berechnen
-//	// Schritt 4: Mitte berechnen
-//	encoder_mid = (encoder_start + encoder_end) / 2;
-//
-//	// Schritt 5: Zur Mitte fahren
-//	timeout = 0;
-//	while (abs((int)(Encoder_GetPosition_Z_AXIS() - encoder_mid)) > ENCODER_TOLERANCE) {
-//		if (Encoder_GetPosition_Z_AXIS() > encoder_mid) {
-//			ad5684_set_voltage(dac, 3.0f, z_mot); // Richtung: Uhrzeigersinn
-//		} else {
-//			ad5684_set_voltage(dac, 2.0f, z_mot); // Richtung: Gegen Uhrzeigersinn
-//		}
-//
-//		HAL_Delay(10);
-//		timeout += 10;
-//
-//		if (timeout > REFERENCE_TIMEOUT_MS) {
-//			//        	display_jazz_write_string_5x7(&display1, 0, "Timeout: Z-Achse erreicht die Mitte nicht");
-//			break;
-//		}
-//	}
-//
-//	// Motor stoppen
-//	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
+	// Schritt 4: Mitte berechnen
+	Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 
-	// Schritt 6: PID-Regelung aktivieren
-	//    Z_Axis_PIDControl(dac, encoder_mid);
+	// Motor stoppen
+	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
+
 }

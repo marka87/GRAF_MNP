@@ -1,11 +1,11 @@
 /*
- * PID_Control.c
+ * Z_PID_Control.c
  *
- *  Created on: Jan 2, 2025
+ *  Created on: Jan 3, 2025
  *      Author: Mark
  */
 
-#include "PID_Control.h"
+#include "Z_PID_Control.h"
 #include "encoder.h"
 #include "Reference_Run.h"
 #include "AD5684RARUZ.h"
@@ -13,23 +13,24 @@
 #include <stdio.h>
 
 /* PID-Parameter */
-#define KP 0.001f
-#define KI 0.002f
-#define KD 0.00001f
+#define KP 0.0008f
+#define KI 0.0007f
+#define KD 0.000004f
 
 /* Limitierung für den Integral-Anteil */
-#define INTEGRAL_LIMIT  50.0f
+#define INTEGRAL_LIMIT  100.0f
 
 /* Spannungsgrenzen und Neutralspannung */
-#define VOLTAGE_MIN     2.0f
-#define VOLTAGE_MAX     3.0f
+#define VOLTAGE_MIN     0.0f
+#define VOLTAGE_MAX     5.0f
 #define NEUTRAL_VOLTAGE 2.5f
 
 /* Toleranzbereich (derzeit auskommentiert) */
-#define POSITION_TOLERANCE 100
+#define POSITION_TOLERANCE 1
 
 /* DAC-Adresse */
-#define A_MOT 0x01
+#define z_mot 0x02		//DAC-B...
+
 
 /* Abtastzeit: 10 ms (Timer-Intervall) */
 #define DT 0.01f
@@ -41,13 +42,13 @@ static float previous_error = 0.0f;
 /* Skalierungsfaktor für den Output (optional) */
 static float scale_factor = 1.0f;  // Beispiel: 1.0f = keine Skalierung
 
-void A_Axis_PIDControl(ad5684_dac_t* dac, uint32_t A_Axis_TargetPosition)
+void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 {
     /* Istwert aus Encoder */
-    int encoder_value = Encoder_GetPosition_A_AXIS();
+    int encoder_value = Encoder_GetPosition_Z_AXIS();
 
     /* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-    int error = encoder_value - A_Axis_TargetPosition;
+    int error = encoder_value - Z_Axis_TargetPosition;
 
     /* -- Optional: Toleranz-Prüfung auskommentiert --
     if (abs(error) <= POSITION_TOLERANCE) {
@@ -83,7 +84,7 @@ void A_Axis_PIDControl(ad5684_dac_t* dac, uint32_t A_Axis_TargetPosition)
     if (voltage > VOLTAGE_MAX)  voltage = VOLTAGE_MAX;
 
     /* Spannung an den DAC senden */
-    ad5684_set_voltage(dac, voltage, A_MOT);
+    ad5684_set_voltage(dac, voltage, z_mot);
 
     /* Debug-Ausgabe */
     printf("Encoder: %d, Error: %d, Integral: %.2f, Deriv: %.2f, Out: %.6f, Voltage: %.3f\n",
@@ -92,3 +93,4 @@ void A_Axis_PIDControl(ad5684_dac_t* dac, uint32_t A_Axis_TargetPosition)
     /* Fehler für den nächsten Zyklus speichern */
     previous_error = (float)error;
 }
+

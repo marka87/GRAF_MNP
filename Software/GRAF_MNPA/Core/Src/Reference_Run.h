@@ -13,6 +13,8 @@
 
 // Funktionsprototyp für Referenzlauf
 extern uint32_t A_Axis_TargetPosition;
+extern uint32_t Z_Axis_TargetPosition;
+
 extern uint32_t allowedMin;
 extern uint32_t allowedMax;
 

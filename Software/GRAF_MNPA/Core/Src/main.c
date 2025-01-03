@@ -33,6 +33,7 @@
 #include "encoder.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
+#include "Z_PID_Control.h"
 
 #define a_mot 0x01		//Address for DAC-A...
 #define z_mot 0x02		//DAC-B...
@@ -40,6 +41,7 @@
 
 #define DISPLAY_MAX_LINES 7 // Maximale Zeilen des Displays
 uint32_t A_Axis_TargetPosition = 0;
+uint32_t Z_Axis_TargetPosition = 0;
 
 /* USER CODE END Includes */
 
@@ -118,9 +120,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM1) { // A-Achse PID-Regelung
 		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 	}
-//	if (htim->Instance == TIM8) { // Z-Achse PID-Regelung
-////		Z_Axis_PIDControl(&dac, TARGET_POSITION_Z);
-//	}
+	if (htim->Instance == TIM8) { // Z-Achse PID-Regelung
+		Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+	}
 }
 /* USER CODE END 0 */
 
@@ -254,6 +256,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+		Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 		/* Handle Buttons */
 		handle_button_up();
 		handle_button_down();
