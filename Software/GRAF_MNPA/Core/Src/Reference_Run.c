@@ -112,7 +112,8 @@ void Z_Axis_ReferenceRun(ad5684_dac_t* dac) {
 	// Schritt 3: Motor stoppen
 	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
 	HAL_Delay(500);
-
+	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
+	// Schritt 4: Mitte berechnen
 //	// Schritt 4: Mitte berechnen
 //	encoder_mid = (encoder_start + encoder_end) / 2;
 //
