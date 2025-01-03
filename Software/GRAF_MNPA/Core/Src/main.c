@@ -1,22 +1,22 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Mark Angyal, E4, 2024. GRAF MNP
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Mark Angyal, E4, 2024. GRAF MNP
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -27,21 +27,19 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
-#include <math.h>
-
 #include "display.h"
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include "encoder.h"
-//#include "AAXIS_TASK.h"
-//#include "DAC_task.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
-
 
 #define a_mot 0x01		//Address for DAC-A...
 #define z_mot 0x02		//DAC-B...
 #define d_mot 0x04		//DAC-C.
+
+#define DISPLAY_MAX_LINES 7 // Maximale Zeilen des Displays
+uint32_t A_Axis_TargetPosition = 0;
 
 /* USER CODE END Includes */
 
@@ -72,10 +70,12 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+ad5684_dac_t dac;
 
 /* USER CODE END PV */
 
@@ -93,49 +93,35 @@ static void MX_TIM5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_SPI4_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM8_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* Display Buffers */
+char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
+
+/* Button States */
+uint8_t btn_up_state = 0, last_btn_up_state = 1;
+uint8_t btn_down_state = 0, last_btn_down_state = 1;
+
+/* Prototypes */
+void handle_button_up(void);
+void handle_button_down(void);
+void update_display(void);
 
 
-//Button//
-uint8_t btn_up_state = 0;         // Zustandsvariable für BTN_UP
-uint8_t last_btn_up_state = 1;    // Vorheriger Zustand von BTN_UP
-
-uint8_t btn_down_state = 0;       // Zustandsvariable für BTN_DOWN
-uint8_t last_btn_down_state = 1;  // Vorheriger Zustand von BTN_DOWN
-
-void handle_button_up() {
-btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
-
-   // Wenn BTN_UP gedrückt wurde (fallende Flanke)
-   if (btn_up_state == GPIO_PIN_RESET && last_btn_up_state == GPIO_PIN_SET) {
-       // Z-Achse Relais togglen
-       HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin);
-   }
-   last_btn_up_state = btn_up_state;
+/*Interrupt-Handler für beide Timer: */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance == TIM1) { // A-Achse PID-Regelung
+		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+	}
+//	if (htim->Instance == TIM8) { // Z-Achse PID-Regelung
+////		Z_Axis_PIDControl(&dac, TARGET_POSITION_Z);
+//	}
 }
-
-void handle_button_down() {
-   // BTN_DOWN-Zustand für A-Achse lesen
-   btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin);
-
-   // Wenn BTN_DOWN gedrückt wurde (fallende Flanke)
-   if (btn_down_state == GPIO_PIN_RESET && last_btn_down_state == GPIO_PIN_SET) {
-       // A-Achse Relais togglen
-       HAL_GPIO_TogglePin(GPIOB, A_AX_REL_EN_Pin);
-   }
-
-   last_btn_down_state = btn_down_state;
-}
-
-
-
-
-
 /* USER CODE END 0 */
 
 /**
@@ -158,7 +144,9 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+	/* Enable Timers for PID */
+	HAL_TIM_Base_Start_IT(&htim1); // Timer für A-Achse
+	HAL_TIM_Base_Start_IT(&htim8); // Timer für Z-Achse
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -180,120 +168,107 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI4_Init();
   MX_TIM1_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
 
-
-
-
-	//GPIO//
-	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);		//Enables 5V
-	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);	//Enables 12V
-	HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin|LED_RED_Pin|LED_YELLOW_Pin, GPIO_PIN_RESET);	//All LEDs ON
-//	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
-	HAL_GPIO_WritePin(GPIOD, EN_B_Pin, GPIO_PIN_SET);	//Display background ON
-
-	//DAC//
+	/* GPIO Enables Voltages */
+	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);	//Enables 5V
+	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);//Enables 12V
+			/* DAC Initialization */
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
-	ad5684_dac_t dac = {
-			.spi_handle = &hspi4,
-			.spi_cs_port = SPI4_NSS_GPIO_Port,
-			.spi_cs_pin = SPI4_NSS_Pin,// SPI-Handle deines Systems
-	};
+	ad5684_dac_t dac = { .spi_handle = &hspi4,
+			.spi_cs_port = SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,	// SPI-Handle deines Systems
+			};
 	ad5684_init(&dac);
-	HAL_Delay(50);
 
-	//Display//
+	/* Display Initialization */
 
-	display_info_t display1 = {											//The Display init
+	display_info_t display1 = {								//The Display init
 			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
-			.lcd_ram_pages = 8, };
+					.lcd_ram_pages = 8, };
 	display_jazz_init(&display1);
-	HAL_Delay(50);
+//	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+	HAL_GPIO_WritePin(GPIOD, EN_B_Pin, GPIO_PIN_SET);	//Display background ON
+
+
+
+
+
+	/* Encoder Initialization */
+	Encoder_Init();
+
+	/* Start Reference Runs */
+	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
+	A_Axis_ReferenceRun(&dac);
+	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
+	Z_Axis_ReferenceRun(&dac);
+	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
 
-	//ADC//
-
-	char no_sen_buffer[30];			// Buffer für die Ausgabe auf dem Display
-	char druck_sen_buffer[30];
-	char z_axis_position_buffer[30];
-	char a_axis_position_buffer[30];
-
-
-	HAL_GPIO_WritePin(GPIOB,A_AX_REL_EN_Pin|Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
-
-
-	HAL_Delay(50);
-// Encoder //
-    Encoder_Init();
-//    void A_Axis_ReferenceRun(ad5684_dac_t* dac) {
-//    	HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
-//        // Schritt 1: Motor im Uhrzeigersinn (2V) für 5 Sekunden laufen lassen
-//        ad5684_set_voltage(dac, 3.0f, a_mot);  // Setze 2V für den Motor
-//        HAL_Delay(2500);                       // Warte 5 Sekunden
-//
-//        // Schritt 2: Motor in die entgegengesetzte Richtung (3V) laufen lassen
-//        ad5684_set_voltage(dac, 2.0f, a_mot);  // Setze 3V für den Motor
-//        while (Encoder_GetPosition_A_AXIS() < 24000) {  // Solange Encoder-Wert < 24000
-//            HAL_Delay(10);  // Kleine Pause für Stabilität
-//        }
-//
-//        // Schritt 3: Motor anhalten
-//        ad5684_set_voltage(dac, 2.5f, a_mot);  // Stoppe Motor (2.5V als Neutralposition)
-//    }
-    HAL_TIM_Base_Start_IT(&htim1); // Starte den Timer mit Interrupt
-
-	void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	    if (htim->Instance == TIM1) { // Timer 1 für PID
-	        A_Axis_PIDControl(&dac, 0); // PID-Regelung mit Zielposition 0
-	    }
+	/* Handle BTN_UP */
+	void handle_button_up() {
+		btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
+		if (btn_up_state == GPIO_PIN_RESET
+				&& last_btn_up_state == GPIO_PIN_SET) {
+			HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin); // Toggle Z-Achse Relais
+		}
+		last_btn_up_state = btn_up_state;
 	}
 
-    A_Axis_ReferenceRun(&dac);
-    Z_Axis_ReferenceRun(&dac);
-/* USER CODE END 2 */
+	/* Handle BTN_DOWN */
+	void handle_button_down() {
+		btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin);
+		if (btn_down_state == GPIO_PIN_RESET
+				&& last_btn_down_state == GPIO_PIN_SET) {
+			HAL_GPIO_TogglePin(GPIOB, A_AX_REL_EN_Pin); // Toggle A-Achse Relais
+		}
+		last_btn_down_state = btn_down_state;
+	}
+
+	/* Update Display */
+	void update_display() {
+		float no_sen_value = ADC_Nadel_Oben(&hadc1);
+		float druck_sen_value = ADC_Drucksensor(&hadc1);
+		uint32_t a_axis_position = Encoder_GetPosition_A_AXIS();
+		uint32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
+
+		sprintf(display_buffer[0], "Nadel oben: %.3f V", no_sen_value);
+		sprintf(display_buffer[1], "Drucksensor: %.3f V", druck_sen_value);
+		sprintf(display_buffer[2], "AAX:%5lu", a_axis_position);
+		sprintf(display_buffer[3], "ZAX:%5lu", z_axis_position);
+		sprintf(display_buffer[4], "Relais A: %s",
+				HAL_GPIO_ReadPin(GPIOB, A_AX_REL_EN_Pin) ? "ON" : "OFF");
+		sprintf(display_buffer[5], "Relais Z: %s",
+				HAL_GPIO_ReadPin(GPIOB, Z_AX_REL_EN_Pin) ? "ON" : "OFF");
+		sprintf(display_buffer[6], "Status: OK");
+
+		for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
+			display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
+		}
+	}
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	while (1)
-	{
-	    A_Axis_PIDControl(&dac, 0);
+	while (1) {
+		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+		/* Handle Buttons */
+		handle_button_up();
+		handle_button_down();
 
+		/* Update Display */
+		update_display();
+
+		/* Short Delay */
+		HAL_Delay(10);
 //		DAC_Automatic_Adjustment(&dac);
-
-		// ADC-Werte
-		float no_sen_value = ADC_Nadel_Oben(&hadc1);     											// Lichtschrankenwert
-		//float no_sen_value = ADC_Nadel_Oben();
-		sprintf(no_sen_buffer, "Nadel oben: %.3f V", no_sen_value);
-		display_jazz_write_string_5x7(&display1, 1, no_sen_buffer); 								// Erste Zeile
-
-		float druck_sen_value = ADC_Drucksensor(&hadc1);
-		//float druck_sen_value = ADC_Drucksensor();
-		sprintf(druck_sen_buffer, "Drucksensor: %.3f V", druck_sen_value);
-		display_jazz_write_string_5x7(&display1, 2, druck_sen_buffer); 								// Erste Zeile
-
-		//Encoder
-		float a_axis_position = Encoder_GetPosition_A_AXIS();
-		sprintf(a_axis_position_buffer, "AAX:%4.1f", a_axis_position);
-		display_jazz_write_string_5x7(&display1, 3, a_axis_position_buffer);
-
-		float z_axis_position = Encoder_GetPosition_Z_AXIS();
-		sprintf(z_axis_position_buffer, "ZAX:%4.1f", z_axis_position);
-		display_jazz_write_string_5x7(&display1, 4, z_axis_position_buffer);
-
-
-
-
-        handle_button_up();
-        handle_button_down();
-
-           // Speichere Tasterzustände für die nächste Abfrage
-		HAL_Delay(10); // Kurze Pause für Stabilität
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
 	}
 	return 0;
   /* USER CODE END 3 */
@@ -311,16 +286,27 @@ void SystemClock_Config(void)
   /** Configure the main internal regulator output voltage
   */
   __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 432;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Activate the Over-Drive mode
+  */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
@@ -329,12 +315,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
   {
     Error_Handler();
   }
@@ -361,7 +347,7 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
@@ -493,16 +479,16 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 0 */
 
-  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 999;
+  htim1.Init.Prescaler = 21599;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000-1;
+  htim1.Init.Period = 99;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -510,9 +496,8 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
-  sSlaveConfig.InputTrigger = TIM_TS_ITR0;
-  if (HAL_TIM_SlaveConfigSynchro(&htim1, &sSlaveConfig) != HAL_OK)
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -726,6 +711,53 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 21599;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 99;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -883,16 +915,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
- //Called when first half of buffer is filled
+//Called when first half of buffer is filled
 //void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
 //	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 //}
-
 //// Called when buffer is completely filled
 //void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 ////	  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 //}
-
 /* USER CODE END 4 */
 
  /* MPU Configuration */
@@ -931,11 +961,10 @@ void MPU_Config(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 
@@ -950,8 +979,8 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+/* User can add his own implementation to report the file name and line number,
+ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
