@@ -45,11 +45,7 @@ void ad5684_init(ad5684_dac_t *dac) {
 }
 
 void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
-	//	if (voltage < 0.0f) {
-	//		voltage = 0.0f;
-	//	} else if (voltage > 5.0f) {
-	//		voltage = 5.0f;
-	//	}
+
 
 	uint16_t ad5684_data = (uint16_t)((voltage / 5.0f) * 65535);
 

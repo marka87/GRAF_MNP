@@ -10,14 +10,8 @@
 
 #include "AD5684RARUZ.h"
 #include "display.h"
-
-// Funktionsprototyp für Referenzlauf
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-
-extern uint32_t allowedMin;
-extern uint32_t allowedMax;
-
 void A_Axis_ReferenceRun(ad5684_dac_t* dac);
 void Z_Axis_ReferenceRun(ad5684_dac_t* dac);
 

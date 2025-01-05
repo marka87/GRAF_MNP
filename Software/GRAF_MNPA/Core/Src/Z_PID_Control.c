@@ -13,17 +13,17 @@
 #include <stdio.h>
 
 /* PID-Parameter */
-#define KP 0.0007f
-#define KI 0.0001f
+#define KP 0.00075f
+#define KI 0.00025f
 #define KD 0.000003f
 
 /* Limitierung für den Integral-Anteil */
-#define INTEGRAL_LIMIT  100.0f
+#define INTEGRAL_LIMIT  1000.0f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
-#define NEUTRAL_VOLTAGE 2.5f
+#define NEUTRAL_VOLTAGE 2.32f
 
 /* Toleranzbereich (derzeit auskommentiert) */
 #define POSITION_TOLERANCE 1
@@ -40,7 +40,7 @@ static float integral = 0.0f;
 static float previous_error = 0.0f;
 
 /* Skalierungsfaktor für den Output (optional) */
-static float scale_factor = 1.0f;  // Beispiel: 1.0f = keine Skalierung
+static float scale_factor = 1.2f;  // Beispiel: 1.0f = keine Skalierung
 
 void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 {
@@ -50,15 +50,15 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
     /* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
     int error = encoder_value - Z_Axis_TargetPosition;
 
-    /* -- Optional: Toleranz-Prüfung auskommentiert --
+    /* -- Optional: Toleranz-Prüfung auskommentiert --*/
     if (abs(error) <= POSITION_TOLERANCE) {
         // Motor stoppen
-        ad5684_set_voltage(dac, NEUTRAL_VOLTAGE, A_MOT);
+//        ad5684_set_voltage(dac, NEUTRAL_VOLTAGE, A_MOT);
         integral = 0.0f;
-        previous_error = 0.0f;
-        return;
+//        previous_error = 0.0f;
+//        return;
     }
-    */
+
 
     /* Integral-Anteil mit Zeitbezug */
     integral += error * DT;

@@ -4,8 +4,8 @@
  *  Created on: Nov 29, 2024
  *      Author: Mark
  */
-#include <string.h>
-#include <stdio.h>
+//#include <string.h>
+//#include <stdio.h>
 #include "ADC_read.h"
 
 void ADC_Init(ADC_HandleTypeDef *adc_handle) {

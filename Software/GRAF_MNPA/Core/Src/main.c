@@ -35,14 +35,6 @@
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
 
-#define a_mot 0x01		//Address for DAC-A...
-#define z_mot 0x02		//DAC-B...
-#define d_mot 0x04		//DAC-C.
-
-//#define DISPLAY_MAX_LINES 7 // Maximale Zeilen des Displays
-uint32_t A_Axis_TargetPosition = 0;
-uint32_t Z_Axis_TargetPosition = 0;
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,7 +44,9 @@ uint32_t Z_Axis_TargetPosition = 0;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define a_mot 0x01		//Address for DAC-A...
+#define z_mot 0x02		//DAC-B...
+#define d_mot 0x04		//DAC-C.
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -79,6 +73,13 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 ad5684_dac_t dac;
 
+// Funktionsprototyp für Referenzlauf
+extern uint32_t A_Axis_TargetPosition;
+extern uint32_t Z_Axis_TargetPosition;
+
+/* Button States */
+uint8_t btn_up_state = 0, last_btn_up_state = 1;
+uint8_t btn_down_state = 0, last_btn_down_state = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -102,12 +103,6 @@ static void MX_TIM8_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/* Display Buffers */
-//char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
-
-/* Button States */
-uint8_t btn_up_state = 0, last_btn_up_state = 1;
-uint8_t btn_down_state = 0, last_btn_down_state = 1;
 
 /* Prototypes */
 void handle_button_up(void);
@@ -236,8 +231,9 @@ int main(void)
 		sprintf(display_buffer[1], "Drucksensor: %.3f V", druck_sen_value);
 		sprintf(display_buffer[2], "AAX:%5lu", a_axis_position);
 		sprintf(display_buffer[3], "ZAX:%5lu", z_axis_position);
-		sprintf(display_buffer[4], "Relais A: %s",
-				HAL_GPIO_ReadPin(GPIOB, A_AX_REL_EN_Pin) ? "ON" : "OFF");
+		sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition);
+//		sprintf(display_buffer[4], "Relais A: %s",
+//				HAL_GPIO_ReadPin(GPIOB, A_AX_REL_EN_Pin) ? "ON" : "OFF");
 		sprintf(display_buffer[5], "Relais Z: %s",
 				HAL_GPIO_ReadPin(GPIOB, Z_AX_REL_EN_Pin) ? "ON" : "OFF");
 		sprintf(display_buffer[6], "Status: OK");
@@ -247,10 +243,11 @@ int main(void)
 		}
 	}
 	/* Start Reference Runs */
-	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
-	A_Axis_ReferenceRun(&dac);
+
 	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
 	Z_Axis_ReferenceRun(&dac);
+	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
+	A_Axis_ReferenceRun(&dac);
 	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
   /* USER CODE END 2 */
