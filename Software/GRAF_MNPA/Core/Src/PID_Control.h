@@ -9,9 +9,9 @@
 #define SRC_PID_CONTROL_H_
 
 #include "AD5684RARUZ.h"
+
 extern uint32_t A_Axis_TargetPosition;
-extern uint32_t allowedMin;
-extern uint32_t allowedMax;
+
 // Funktionsprototyp
 void A_Axis_PIDControl(ad5684_dac_t* dac, uint32_t A_Axis_TargetPosition);
 

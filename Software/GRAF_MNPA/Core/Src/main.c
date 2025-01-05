@@ -29,11 +29,13 @@
 #include <stdbool.h>
 #include "display.h"
 #include "AD5684RARUZ.h"
+//#include "ADC_DMA_Read.h"
 #include "ADC_read.h"
 #include "encoder.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
+
 
 /* USER CODE END Includes */
 
@@ -141,9 +143,9 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-	/* Enable Timers for PID */
-	HAL_TIM_Base_Start_IT(&htim1); // Timer für A-Achse
-	HAL_TIM_Base_Start_IT(&htim8); // Timer für Z-Achse
+
+
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -192,7 +194,9 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOD, EN_B_Pin, GPIO_PIN_SET);	//Display background ON
 
 
-
+	/* Enable Timers for PID */
+	HAL_TIM_Base_Start_IT(&htim1); // Timer für A-Achse
+	HAL_TIM_Base_Start_IT(&htim8); // Timer für Z-Achse
 
 
 	/* Encoder Initialization */

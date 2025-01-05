@@ -8,7 +8,8 @@
 
 #ifndef SRC_DISPLAY_H_
 #define SRC_DISPLAY_H_
-#define DISPLAY_MAX_LINES 7
+
+#define DISPLAY_MAX_LINES 8
 
 #include <main.h>
 #include <stm32f7xx_hal_conf.h>
