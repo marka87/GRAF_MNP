@@ -8,6 +8,7 @@
 
 #ifndef SRC_DISPLAY_H_
 #define SRC_DISPLAY_H_
+#define DISPLAY_MAX_LINES 7
 
 #include <main.h>
 #include <stm32f7xx_hal_conf.h>
@@ -15,6 +16,7 @@
 #include <stm32f7xx_hal_spi.h>
 #include <stdbool.h>
 
+extern char display_buffer[DISPLAY_MAX_LINES][30];
 
 
 typedef struct {

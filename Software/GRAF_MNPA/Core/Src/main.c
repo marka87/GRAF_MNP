@@ -39,7 +39,7 @@
 #define z_mot 0x02		//DAC-B...
 #define d_mot 0x04		//DAC-C.
 
-#define DISPLAY_MAX_LINES 7 // Maximale Zeilen des Displays
+//#define DISPLAY_MAX_LINES 7 // Maximale Zeilen des Displays
 uint32_t A_Axis_TargetPosition = 0;
 uint32_t Z_Axis_TargetPosition = 0;
 
@@ -103,7 +103,7 @@ static void MX_TIM8_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 /* Display Buffers */
-char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
+//char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
 
 /* Button States */
 uint8_t btn_up_state = 0, last_btn_up_state = 1;
@@ -176,10 +176,12 @@ int main(void)
 	/* GPIO Enables Voltages */
 	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);	//Enables 5V
 	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);//Enables 12V
-			/* DAC Initialization */
+
+	/* DAC Initialization */
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
+
 	ad5684_dac_t dac = { .spi_handle = &hspi4,
 			.spi_cs_port = SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,	// SPI-Handle deines Systems
 			};
@@ -201,13 +203,7 @@ int main(void)
 	/* Encoder Initialization */
 	Encoder_Init();
 
-	/* Start Reference Runs */
-	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
-	A_Axis_ReferenceRun(&dac);
-	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
-	Z_Axis_ReferenceRun(&dac);
-	display_jazz_clear(&display1);
-	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
+
 
 	/* Handle BTN_UP */
 	void handle_button_up() {
@@ -250,6 +246,13 @@ int main(void)
 			display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 		}
 	}
+	/* Start Reference Runs */
+	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
+	A_Axis_ReferenceRun(&dac);
+	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
+	Z_Axis_ReferenceRun(&dac);
+	display_jazz_clear(&display1);
+	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
   /* USER CODE END 2 */
 
   /* Infinite loop */

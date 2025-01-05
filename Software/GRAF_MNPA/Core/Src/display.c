@@ -9,6 +9,8 @@
 #include "display.h"
 #include <string.h>
 #include <stdarg.h>
+char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
+
 
 
 // Display Commands (ST7567) //Instruction Table DB 21/49

@@ -13,9 +13,9 @@
 #include <stdio.h>
 
 /* PID-Parameter */
-#define KP 0.0008f
-#define KI 0.0007f
-#define KD 0.000004f
+#define KP 0.0007f
+#define KI 0.0001f
+#define KD 0.000003f
 
 /* Limitierung für den Integral-Anteil */
 #define INTEGRAL_LIMIT  100.0f
