@@ -20,4 +20,5 @@ float ADC_Nadel_Oben(ADC_HandleTypeDef* adc_handle);
 float ADC_Drucksensor(ADC_HandleTypeDef* adc_handle);
 
 
+
 #endif /* SRC_ADC_READ_H_ */

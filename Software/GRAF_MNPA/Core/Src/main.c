@@ -35,7 +35,7 @@
 #include "Reference_Run.h"
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
-
+#include "timers.h"
 
 /* USER CODE END Includes */
 
@@ -69,6 +69,10 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim8;
+DMA_HandleTypeDef hdma_tim1_up;
+DMA_HandleTypeDef hdma_tim2_up_ch3;
+DMA_HandleTypeDef hdma_tim5_up;
+DMA_HandleTypeDef hdma_tim8_up;
 
 UART_HandleTypeDef huart1;
 
@@ -78,7 +82,10 @@ ad5684_dac_t dac;
 // Funktionsprototyp für Referenzlauf
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-
+extern uint32_t encoder_start;
+extern uint32_t encoder_end;
+extern uint32_t z_encoder_start;
+extern uint32_t z_encoder_end;
 /* Button States */
 uint8_t btn_up_state = 0, last_btn_up_state = 1;
 uint8_t btn_down_state = 0, last_btn_down_state = 1;
@@ -100,6 +107,23 @@ static void MX_SPI4_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM8_Init(void);
 /* USER CODE BEGIN PFP */
+/*Interrupt-Handler für beide Timer: */
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+//	if (htim->Instance == TIM2) { // A-Achse PID-Regelung
+//		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+//	}
+//	if (htim->Instance == TIM5) { // Z-Achse PID-Regelung
+//		Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+//	}
+//}
+//void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
+//    if (htim->Instance == TIM1) {
+//        A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+//    }
+//    if (htim->Instance == TIM8) {
+//        Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+//    }
+//}
 
 /* USER CODE END PFP */
 
@@ -112,15 +136,7 @@ void handle_button_down(void);
 void update_display(void);
 
 
-/*Interrupt-Handler für beide Timer: */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM1) { // A-Achse PID-Regelung
-		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
-	}
-	if (htim->Instance == TIM8) { // Z-Achse PID-Regelung
-		Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
-	}
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -143,7 +159,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
 
 
   /* USER CODE END Init */
@@ -173,19 +188,16 @@ int main(void)
 	/* GPIO Enables Voltages */
 	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);	//Enables 5V
 	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);//Enables 12V
-
 	/* DAC Initialization */
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
-
 	ad5684_dac_t dac = { .spi_handle = &hspi4,
 			.spi_cs_port = SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,	// SPI-Handle deines Systems
 			};
 	ad5684_init(&dac);
 
 	/* Display Initialization */
-
 	display_info_t display1 = {								//The Display init
 			.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 					.lcd_ram_pages = 8, };
@@ -193,16 +205,10 @@ int main(void)
 //	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 	HAL_GPIO_WritePin(GPIOD, EN_B_Pin, GPIO_PIN_SET);	//Display background ON
 
-
-	/* Enable Timers for PID */
-	HAL_TIM_Base_Start_IT(&htim1); // Timer für A-Achse
-	HAL_TIM_Base_Start_IT(&htim8); // Timer für Z-Achse
-
-
 	/* Encoder Initialization */
 	Encoder_Init();
-
-
+	HAL_TIM_Base_Start_IT(&htim2); // Timer 1 starten
+	HAL_TIM_Base_Start_IT(&htim5); // Timer 8 starten
 
 	/* Handle BTN_UP */
 	void handle_button_up() {
@@ -223,6 +229,18 @@ int main(void)
 		}
 		last_btn_down_state = btn_down_state;
 	}
+
+	/* Start Reference Runs */
+	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
+	Z_Axis_ReferenceRun(&dac);
+	HAL_Delay(1000);
+	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
+	A_Axis_ReferenceRun(&dac);
+	HAL_Delay(1000);
+
+	display_jazz_clear(&display1);
+
+//	start_timers_with_dma();
 
 	/* Update Display */
 	void update_display() {
@@ -246,14 +264,25 @@ int main(void)
 			display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 		}
 	}
-	/* Start Reference Runs */
 
-	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenzfahrt");
-	Z_Axis_ReferenceRun(&dac);
-	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenzfahrt");
-	A_Axis_ReferenceRun(&dac);
-	display_jazz_clear(&display1);
-	display_jazz_write_string_5x7(&display1, 7, "<         OK        >"); //The last row for buttons
+	void Change_Z_Axis_TargetPosition_Stepwise(uint32_t step) {
+	    static int32_t current_position = 0;
+	    static int32_t direction = 1; // 1: aufwärts, -1: abwärts
+
+	    current_position += step * direction;
+
+	    // Begrenzung und Richtungswechsel
+	    if (current_position >= 3500) {
+	        current_position = 3500;
+	        direction = -1; // Richtung umkehren
+	    } else if (current_position <= 0) {
+	        current_position = 0;
+	        direction = 1; // Richtung umkehren
+	    }
+
+	    Z_Axis_TargetPosition = (uint32_t)current_position;
+	}
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -261,6 +290,7 @@ int main(void)
 	while (1) {
 		A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 		Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+		Change_Z_Axis_TargetPosition_Stepwise(250);
 		/* Handle Buttons */
 		handle_button_up();
 		handle_button_down();
@@ -269,7 +299,7 @@ int main(void)
 		update_display();
 
 		/* Short Delay */
-		HAL_Delay(10);
+		HAL_Delay(1);
 //		DAC_Automatic_Adjustment(&dac);
 
     /* USER CODE END WHILE */
@@ -277,6 +307,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	}
+
 	return 0;
   /* USER CODE END 3 */
 }
@@ -541,7 +572,7 @@ static void MX_TIM2_Init(void)
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -549,11 +580,11 @@ static void MX_TIM2_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 10;
+  sConfig.IC1Filter = 1;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 10;
+  sConfig.IC2Filter = 1;
   if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -688,7 +719,7 @@ static void MX_TIM5_Init(void)
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
   htim5.Init.Prescaler = 0;
-  htim5.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 4294967295;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -696,11 +727,11 @@ static void MX_TIM5_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 10;
+  sConfig.IC1Filter = 1;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 10;
+  sConfig.IC2Filter = 1;
   if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -807,11 +838,24 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  /* DMA2_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
+  /* DMA2_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream5_IRQn);
 
 }
 

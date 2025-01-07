@@ -12,6 +12,10 @@
 #include "display.h"
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
+extern uint32_t encoder_start;
+extern uint32_t encoder_end;
+extern uint32_t z_encoder_start;
+extern uint32_t z_encoder_end;
 void A_Axis_ReferenceRun(ad5684_dac_t* dac);
 void Z_Axis_ReferenceRun(ad5684_dac_t* dac);
 
