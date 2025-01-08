@@ -8,8 +8,6 @@
 //#include <stdio.h>
 #include "ADC_read.h"
 
-
-
 void ADC_Init(ADC_HandleTypeDef *adc_handle) {
 	// ADC-Start
 	HAL_ADCEx_Calibration_Start(adc_handle);
@@ -45,3 +43,4 @@ float ADC_Drucksensor(ADC_HandleTypeDef *adc_handle) {
 	return value * (5.0f / 4095.0f);             // Umrechnen in Spannung
 
 }
+

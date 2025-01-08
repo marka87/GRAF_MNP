@@ -28,8 +28,6 @@ uint32_t encoder_end = 0;
 uint32_t z_encoder_start = 0;
 uint32_t z_encoder_end = 0;
 
-extern ADC_HandleTypeDef hadc1; // Declare hadc1 as an external variable
-
 void A_Axis_ReferenceRun(ad5684_dac_t *dac) {
 
 

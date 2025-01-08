@@ -41,54 +41,58 @@ static float previous_error = 0.0f;
 /* Skalierungsfaktor für den Output (optional) */
 static float scale_factor = 1.0f;  // Beispiel: 1.0f = keine Skalierung
 
-void A_Axis_PIDControl(ad5684_dac_t* dac, uint32_t A_Axis_TargetPosition)
-{
-    /* Istwert aus Encoder */
-    int encoder_value = Encoder_GetPosition_A_AXIS();
+void A_Axis_PIDControl(ad5684_dac_t *dac, uint32_t A_Axis_TargetPosition) {
+	/* Istwert aus Encoder */
+	int encoder_value = Encoder_GetPosition_A_AXIS();
 
-    /* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-    int error = encoder_value - A_Axis_TargetPosition;
+	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
+	int error = encoder_value - A_Axis_TargetPosition;
 
-    /* -- Optional: Toleranz-Prüfung auskommentiert --
-    if (abs(error) <= POSITION_TOLERANCE) {
-        // Motor stoppen
-        ad5684_set_voltage(dac, NEUTRAL_VOLTAGE, A_MOT);
-        integral = 0.0f;
-        previous_error = 0.0f;
-        return;
-    }
-    */
+	/* -- Optional: Toleranz-Prüfung auskommentiert --
+	 if (abs(error) <= POSITION_TOLERANCE) {
+	 // Motor stoppen
+	 ad5684_set_voltage(dac, NEUTRAL_VOLTAGE, A_MOT);
+	 integral = 0.0f;
+	 previous_error = 0.0f;
+	 return;
+	 }
+	 */
 
-    /* Integral-Anteil mit Zeitbezug */
-    integral += error * DT;
+	/* Integral-Anteil mit Zeitbezug */
+	integral += error * DT;
 
-    /* Integralbegrenzung */
-    if (integral > INTEGRAL_LIMIT)  integral = INTEGRAL_LIMIT;
-    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
+	/* Integralbegrenzung */
+	if (integral > INTEGRAL_LIMIT)
+		integral = INTEGRAL_LIMIT;
+	if (integral < -INTEGRAL_LIMIT)
+		integral = -INTEGRAL_LIMIT;
 
-    /* Differential-Anteil mit Zeitbezug */
-    float derivative = (error - previous_error) / DT;
+	/* Differential-Anteil mit Zeitbezug */
+	float derivative = (error - previous_error) / DT;
 
-    /* PID-Berechnung */
-    float output = (KP * error) + (KI * integral) + (KD * derivative);
+	/* PID-Berechnung */
+	float output = (KP * error) + (KI * integral) + (KD * derivative);
 
-    /* Skalierung anwenden (optional) */
-    output *= scale_factor;
+	/* Skalierung anwenden (optional) */
+	output *= scale_factor;
 
-    /* Spannung berechnen */
-    float voltage = NEUTRAL_VOLTAGE + output;
+	/* Spannung berechnen */
+	float voltage = NEUTRAL_VOLTAGE + output;
 
-    /* Begrenzen der Spannung */
-    if (voltage < VOLTAGE_MIN)  voltage = VOLTAGE_MIN;
-    if (voltage > VOLTAGE_MAX)  voltage = VOLTAGE_MAX;
+	/* Begrenzen der Spannung */
+	if (voltage < VOLTAGE_MIN)
+		voltage = VOLTAGE_MIN;
+	if (voltage > VOLTAGE_MAX)
+		voltage = VOLTAGE_MAX;
 
-    /* Spannung an den DAC senden */
-    ad5684_set_voltage(dac, voltage, A_MOT);
+	/* Spannung an den DAC senden */
+	ad5684_set_voltage(dac, voltage, A_MOT);
 
-    /* Debug-Ausgabe */
-    printf("Encoder: %d, Error: %d, Integral: %.2f, Deriv: %.2f, Out: %.6f, Voltage: %.3f\n",
-           encoder_value, error, integral, derivative, output, voltage);
+	/* Debug-Ausgabe */
+	printf(
+			"Encoder: %d, Error: %d, Integral: %.2f, Deriv: %.2f, Out: %.6f, Voltage: %.3f\n",
+			encoder_value, error, integral, derivative, output, voltage);
 
-    /* Fehler für den nächsten Zyklus speichern */
-    previous_error = (float)error;
+	/* Fehler für den nächsten Zyklus speichern */
+	previous_error = (float) error;
 }
