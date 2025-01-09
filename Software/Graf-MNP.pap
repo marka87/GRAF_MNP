@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="8CC60E35D52AE17E">
-  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2024.12.05 09:21:59">
+<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="AEA2A99DD541988B">
+  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2025.01.08 16:27:03">
     <DIAGRAMS>
       <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2024.12.05 09:21:59">
         <LAYOUT FORMAT="1.00" COLUMNS="5" ROWS="16">
@@ -223,6 +223,59 @@ manuell_counter <=2]]></TEXT>
           <CONNECTION FORMAT="1.00" ID="139" FROM="136" TO="142" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="144" FROM="142" TO="145" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="147" FROM="145" TO="81" TEXT="" />
+        </CONNECTIONS>
+      </DIAGRAM>
+      <DIAGRAM FORMAT="1.00" ID="1" NAME="Prüfprogramm" CREATED="2025.01.08 14:31:13" MODIFIED="2025.01.08 14:31:13">
+        <LAYOUT FORMAT="1.00" COLUMNS="2" ROWS="7">
+          <ENTRIES>
+            <ENTRY COLUMN="0" ROW="0" ANCHOR="True">
+              <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
+                <TEXT><![CDATA[Prüfprogramm]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="1">
+              <FIGURE SUBTYPE="PapStart" FORMAT="1.00" ID="1">
+                <TEXT><![CDATA[Start]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="2">
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="4">
+                <TEXT><![CDATA[Ausgabe von START]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="3">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="6">
+                <TEXT><![CDATA[Referenzlauf  Z (NO_SEN + Druck SEN)]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="4">
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="11">
+                <TEXT><![CDATA[NO_Sensor erreicht?]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="5">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="9">
+                <TEXT><![CDATA[Referenz A (DruckSensor)]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="6">
+              <FIGURE SUBTYPE="PapEnd" FORMAT="1.00" ID="2">
+                <TEXT><![CDATA[Ende]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="3">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="8">
+                <TEXT><![CDATA[Erfasst Encoder Start und Endwerte, A-Achse wird in der mitte positioniert.]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+          </ENTRIES>
+        </LAYOUT>
+        <CONNECTIONS>
+          <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="4" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="6" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="11" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="10" FROM="9" TO="2" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="12" FROM="11" TO="9" TEXT="" />
         </CONNECTIONS>
       </DIAGRAM>
     </DIAGRAMS>

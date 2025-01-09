@@ -24,8 +24,8 @@ float ADC_Nadel_Oben(ADC_HandleTypeDef *adc_handle) {
 
 	HAL_ADC_Start(adc_handle);                     // ADC starten
 	HAL_ADC_PollForConversion(adc_handle, 2000); // Auf Abschluss warten
-	uint32_t value1 = HAL_ADC_GetValue(adc_handle); // Wert lesen
-	return value1 * (5.0f / 4095.0f);
+	uint16_t value1 = HAL_ADC_GetValue(adc_handle); // Wert lesen
+	return value1;             // Umrechnen in Spannung  * (5.0f / 4095.0f);
 
 }
 
@@ -39,8 +39,8 @@ float ADC_Drucksensor(ADC_HandleTypeDef *adc_handle) {
 
 	HAL_ADC_Start(adc_handle);                     // ADC starten
 	HAL_ADC_PollForConversion(adc_handle, 2000); 	// Auf Abschluss warten
-	uint32_t value = HAL_ADC_GetValue(adc_handle); // Wert lesen
-	return value * (5.0f / 4095.0f);             // Umrechnen in Spannung
+	uint16_t value = HAL_ADC_GetValue(adc_handle); // Wert lesen
+	return value;             // Umrechnen in Spannung  * (5.0f / 4095.0f);
 
 }
 

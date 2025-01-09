@@ -47,17 +47,6 @@ void A_Axis_PIDControl(ad5684_dac_t *dac, uint32_t A_Axis_TargetPosition) {
 
 	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
 	int error = encoder_value - A_Axis_TargetPosition;
-
-	/* -- Optional: Toleranz-Prüfung auskommentiert --
-	 if (abs(error) <= POSITION_TOLERANCE) {
-	 // Motor stoppen
-	 ad5684_set_voltage(dac, NEUTRAL_VOLTAGE, A_MOT);
-	 integral = 0.0f;
-	 previous_error = 0.0f;
-	 return;
-	 }
-	 */
-
 	/* Integral-Anteil mit Zeitbezug */
 	integral += error * DT;
 
