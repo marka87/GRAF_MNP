@@ -161,13 +161,19 @@ void handle_button_down() {
 }
 /* Update Display */
 void update_display() {
-	uint32_t no_sen_value = ADC_Nadel_Oben(&hadc1);
-	uint32_t druck_sen_value = ADC_Drucksensor(&hadc1);
+	uint16_t no_sen_value = ADC_Nadel_Oben(&hadc1);
+	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
 	uint32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	uint32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
 
-	sprintf(display_buffer[0], "Nadel oben: %4lu", no_sen_value);
-	sprintf(display_buffer[1], "Drucksensor: %4lu", druck_sen_value);
+    // Prüfen, ob ADC-Werte gültig sind (nicht 0xFFFF)
+    if (no_sen_value != 0xFFFF && druck_sen_value != 0xFFFF) {
+        sprintf(display_buffer[0], "Nadel oben: %4u", no_sen_value);
+        sprintf(display_buffer[1], "Drucksensor: %4u", druck_sen_value);
+    } else {
+        sprintf(display_buffer[0], "Nadel oben: ERR");
+        sprintf(display_buffer[1], "Drucksensor: ERR");
+    }
 	sprintf(display_buffer[2], "AAX:%5lu", a_axis_position);
 	sprintf(display_buffer[3], "ZAX:%5lu", z_axis_position);
 	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition);
