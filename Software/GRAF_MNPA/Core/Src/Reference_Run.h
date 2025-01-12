@@ -14,8 +14,8 @@
 
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-extern uint32_t encoder_start;
-extern uint32_t encoder_end;
+extern uint32_t a_encoder_start;
+extern uint32_t a_encoder_end;
 extern uint32_t z_encoder_start;
 extern uint32_t z_encoder_end;
 

@@ -33,7 +33,7 @@ float ADC_Nadel_Oben(ADC_HandleTypeDef *adc_handle) {
 float ADC_Drucksensor(ADC_HandleTypeDef *adc_handle) {
 	ADC_ChannelConfTypeDef sConfig = { 0 };
 	sConfig.Channel = ADC_CHANNEL_3;       // Kanal 3 (ADC1_IN3) für Drucksensor
-	sConfig.Rank = ADC_REGULAR_RANK_1;             // Standard-Rank
+	sConfig.Rank = ADC_REGULAR_RANK_2;             // Standard-Rank
 	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Abtastzeit
 	HAL_ADC_ConfigChannel(adc_handle, &sConfig);   // Kanal konfigurieren
 

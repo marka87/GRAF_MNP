@@ -78,8 +78,8 @@ run_state_t current_state = IDLE_START;
 // Funktionsprototyp für Referenzlauf
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-extern uint32_t encoder_start;
-extern uint32_t encoder_end;
+extern uint32_t a_encoder_start;
+extern uint32_t a_encoder_end;
 extern uint32_t z_encoder_start;
 extern uint32_t z_encoder_end;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
@@ -279,7 +279,7 @@ int main(void)
 
 	/* Encoder Initialization */
 	Encoder_Init();
-
+//	ADC_Init(&hadc1);
 
 
 
