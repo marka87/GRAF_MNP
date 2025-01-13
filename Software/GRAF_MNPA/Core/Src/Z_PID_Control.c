@@ -18,7 +18,7 @@
 /* PID-Parameter */
 #define KP 0.0003f	//0.00045f
 #define KI 0.000067f	//0.00008f
-#define KD 0.0000066f //0.000005f
+#define KD 0.0000066f //0.0000066f
 
 /* Limitierung für den Integral-Anteil */
 #define INTEGRAL_LIMIT  1000.0f
@@ -35,8 +35,8 @@
 #define z_mot 0x02		//DAC-B...
 
 
-/* Abtastzeit: 10 ms (Timer-Intervall) */
-#define DT 0.01f
+/* Abtastzeit: x ms (Timer-Intervall) */
+#define DT 0.001f
 
 /* Statische Variablen für PID-Zustände */
 static float integral = 0.0f;
