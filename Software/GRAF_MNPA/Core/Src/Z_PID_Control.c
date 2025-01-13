@@ -36,7 +36,7 @@
 
 
 /* Abtastzeit: x ms (Timer-Intervall) */
-#define DT 0.001f
+#define DT 0.01f
 
 /* Statische Variablen für PID-Zustände */
 static float integral = 0.0f;

@@ -59,7 +59,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
 
 SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi4;
@@ -104,7 +103,6 @@ uint32_t next_1ms_tick = 0;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
@@ -162,30 +160,46 @@ void handle_button_down() {
 	}
 	last_btn_down_state = btn_down_state;
 }
-/* Update Display */
+
 void update_display() {
-	uint16_t no_sen_value = ADC_Nadel_Oben(&hadc1);
-	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
+// Digitale Zustände einlesen
+	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
+//    GPIO_PinState druck_sen_state = HAL_GPIO_ReadPin(DRUCK_SEN_GPIO_Port, DRUCK_SEN_Pin);
+// Encoder-Positionen
 	uint32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	uint32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
 
-	// Prüfen, ob ADC-Werte gültig sind (nicht 0xFFFF)
-	if (no_sen_value != 0xFFFF && druck_sen_value != 0xFFFF) {
-		sprintf(display_buffer[0], "Nadel oben: %4u", no_sen_value);
-		sprintf(display_buffer[1], "Drucksensor: %4u", druck_sen_value);
+// Zeile 0: Nadel oben (High/Low)
+	if (no_sen_state == GPIO_PIN_SET) {
+		sprintf(display_buffer[0], "Nadel oben:  HIGH");
 	} else {
-		sprintf(display_buffer[0], "Nadel oben: ERR");
-		sprintf(display_buffer[1], "Drucksensor: ERR");
+		sprintf(display_buffer[0], "Nadel oben:  LOW ");
 	}
-	sprintf(display_buffer[2], "AAX:%5lu", a_axis_position);
-	sprintf(display_buffer[3], "ZAX:%5lu", z_axis_position);
-	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition);
-//		sprintf(display_buffer[4], "Relais A: %s",
-//				HAL_GPIO_ReadPin(GPIOB, A_AX_REL_EN_Pin) ? "ON" : "OFF");
-	sprintf(display_buffer[5], "Relais Z: %s",
-			HAL_GPIO_ReadPin(GPIOB, Z_AX_REL_EN_Pin) ? "ON" : "OFF");
-	sprintf(display_buffer[6], "Status: OK");
+// Zeile 1: Drucksensor (ADC-Wert)
+	uint16_t raw_value = ADC_Drucksensor(&hadc1);
+	float sensorVoltage = (float) raw_value * (5.0f / 4095.0f);
+	sprintf(display_buffer[1], "Drucksensor: %.2f V", sensorVoltage);
+	if(raw_value>3000){
+		sprintf(display_buffer[2], "Drucksensor: HIGH");
+	}else{
 
+		sprintf(display_buffer[2], "Drucksensor: LOW ");
+	}
+// Zeile 2 & 3: Achspositionen
+	sprintf(display_buffer[3], "A-AX:%5lu", a_axis_position);
+	sprintf(display_buffer[4], "Z-Ist:%5lu", z_axis_position);
+
+// Zeile 4: Sollwert der Z-Achse
+	sprintf(display_buffer[5], "Z-Soll:%5lu", Z_Axis_TargetPosition);
+
+// Zeile 5: Relais-Status (Z-Achse)
+	sprintf(display_buffer[6], "Relais Z: %s",
+			HAL_GPIO_ReadPin(GPIOB, Z_AX_REL_EN_Pin) ? "ON" : "OFF");
+
+// Zeile 6: Status (z. B. OK)
+	sprintf(display_buffer[7], "Start: OK/S(PC)");
+
+// Ausgeben auf das Display
 	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
@@ -252,7 +266,6 @@ int main(void) {
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
-	MX_DMA_Init();
 	MX_TIM2_Init();
 	MX_TIM3_Init();
 	MX_ADC1_Init();
@@ -264,21 +277,21 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 
 	/* GPIO Enables Voltages */
-	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET);	//Enables 5V
-	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET);//Enables 12V
+	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET); //Enables 5V
+	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET); //Enables 12V
 
 	/* DAC Initialization */
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
-	ad5684_dac_t dac = { .spi_handle = &hspi4,
-			.spi_cs_port = SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,	// SPI-Handle deines Systems
+	ad5684_dac_t dac = { .spi_handle = &hspi4, .spi_cs_port =
+	SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin, // SPI-Handle deines Systems
 			};
 	ad5684_init(&dac);
 
 	display_jazz_init(&display1);
 //	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
-	HAL_GPIO_WritePin(GPIOD, EN_R_Pin, GPIO_PIN_SET);	//Display background ON
+	HAL_GPIO_WritePin(GPIOD, EN_R_Pin, GPIO_PIN_SET); //Display background ON
 //	display_jazz_clear(&display1);
 
 	/* Encoder Initialization */
@@ -286,7 +299,6 @@ int main(void) {
 //	ADC_Init(&hadc1);
 
 	bool z_axis_success = false;
-
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
 	int mode = 0; // 0: DEMO, 1: KURZ, 2: LANG
 	/* USER CODE END 2 */
@@ -398,7 +410,7 @@ int main(void) {
 			// Continuously run PID control
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
-			ADC_Nadel_Oben(&hadc1);
+//			ADC_Nadel_Oben(&hadc1);
 			ADC_Drucksensor(&hadc1);
 
 		}
@@ -483,14 +495,14 @@ static void MX_ADC1_Init(void) {
 	hadc1.Instance = ADC1;
 	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
 	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-	hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
 	hadc1.Init.ContinuousConvMode = ENABLE;
 	hadc1.Init.DiscontinuousConvMode = DISABLE;
 	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
 	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	hadc1.Init.NbrOfConversion = 2;
-	hadc1.Init.DMAContinuousRequests = ENABLE;
+	hadc1.Init.NbrOfConversion = 1;
+	hadc1.Init.DMAContinuousRequests = DISABLE;
 	hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
 	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
 		Error_Handler();
@@ -498,17 +510,9 @@ static void MX_ADC1_Init(void) {
 
 	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
 	 */
-	sConfig.Channel = ADC_CHANNEL_2;
+	sConfig.Channel = ADC_CHANNEL_3;
 	sConfig.Rank = ADC_REGULAR_RANK_1;
 	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
-		Error_Handler();
-	}
-
-	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-	 */
-	sConfig.Channel = ADC_CHANNEL_3;
-	sConfig.Rank = ADC_REGULAR_RANK_2;
 	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
 		Error_Handler();
 	}
@@ -816,21 +820,6 @@ static void MX_USART1_UART_Init(void) {
 }
 
 /**
- * Enable DMA controller clock
- */
-static void MX_DMA_Init(void) {
-
-	/* DMA controller clock enable */
-	__HAL_RCC_DMA2_CLK_ENABLE();
-
-	/* DMA interrupt init */
-	/* DMA2_Stream0_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-
-}
-
-/**
  * @brief GPIO Initialization Function
  * @param None
  * @retval None
@@ -873,8 +862,8 @@ static void MX_GPIO_Init(void) {
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOJ,
-	LED_GREEN_Pin | LED_RED_Pin | LED_YELLOW_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOJ, LED_GREEN_Pin | LED_RED_Pin | LED_YELLOW_Pin,
+			GPIO_PIN_RESET);
 
 	/*Configure GPIO pin : SPI4_NSS_Pin */
 	GPIO_InitStruct.Pin = SPI4_NSS_Pin;
@@ -919,6 +908,12 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : NO_SEN_Pin */
+	GPIO_InitStruct.Pin = NO_SEN_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(NO_SEN_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin LED_YELLOW_Pin */
 	GPIO_InitStruct.Pin = LED_GREEN_Pin | LED_RED_Pin | LED_YELLOW_Pin;
