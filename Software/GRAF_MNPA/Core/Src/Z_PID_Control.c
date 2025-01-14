@@ -16,7 +16,7 @@
 //#define KI 0.00027f
 //#define KD 0.000002f
 /* PID-Parameter */
-#define KP 0.0003f	//0.00045f
+#define KP 0.0005f	//0.00045f
 #define KI 0.000067f	//0.00008f
 #define KD 0.0000066f //0.0000066f
 
@@ -57,8 +57,6 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
     if (abs(error) <= POSITION_TOLERANCE) {
         integral = 0.0f;
     }
-
-
     /* Integral-Anteil mit Zeitbezug */
     integral += error * DT;
 

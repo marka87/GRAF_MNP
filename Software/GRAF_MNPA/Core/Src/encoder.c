@@ -9,7 +9,6 @@
 #include "encoder.h"
 #include <stm32f7xx_hal_tim.h>
 extern TIM_HandleTypeDef htim2;
-extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim5;
 
 // Initialize the Encoders
