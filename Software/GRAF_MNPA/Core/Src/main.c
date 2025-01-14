@@ -62,6 +62,7 @@ ADC_HandleTypeDef hadc1;
 SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi4;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -92,6 +93,7 @@ extern uint32_t a_encoder_end;
 extern uint32_t z_encoder_start;
 extern uint32_t z_encoder_end;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
+extern float voltage;
 
 /* Button States */
 uint8_t btn_up_state = 0, last_btn_up_state = 1;
@@ -120,6 +122,7 @@ static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_SPI4_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -137,6 +140,18 @@ void handle_button_down(void);
 void handle_button_ok(void);
 void update_display(void);
 int Test_Run_Demo(uint32_t z_encoder_start, uint32_t z_encoder_end, ad5684_dac_t *dac);
+
+
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//    if (htim == &htim1) {
+//        // Hier bist du jetzt alle 10 µs (100 kHz):
+//        // → PID für Z-Achse
+//        Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+//
+//        // So kurz wie möglich halten!
+//    }
+//}
 
 /* Handle BTN_UP */
 void handle_button_ok() {
@@ -196,8 +211,7 @@ void update_display() {
 	sprintf(display_buffer[5], "Z-Soll:%5lu", Z_Axis_TargetPosition);
 
 // Zeile 5: Relais-Status (Z-Achse)
-	sprintf(display_buffer[6], "Relais Z: %s",
-			HAL_GPIO_ReadPin(GPIOB, Z_AX_REL_EN_Pin) ? "ON" : "OFF");
+	sprintf(display_buffer[6], "PID_V: %.3f V", voltage);
 
 // Zeile 6: Status (z. B. OK)
 	sprintf(display_buffer[7], "Start: OK/S(PC)");
@@ -336,6 +350,7 @@ int main(void)
   MX_TIM5_Init();
   MX_USART1_UART_Init();
   MX_SPI4_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
 	/* GPIO Enables Voltages */
@@ -358,6 +373,8 @@ int main(void)
 
 	/* Encoder Initialization */
 	Encoder_Init();
+//	HAL_TIM_Base_Start_IT(&htim1);
+
 //	ADC_Init(&hadc1);
 
 	bool z_axis_success = false;
@@ -655,6 +672,53 @@ static void MX_SPI4_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 215;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 999;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -821,7 +885,7 @@ static void MX_TIM5_Init(void)
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
   htim5.Init.Prescaler = 0;
-  htim5.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 4294967295;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;

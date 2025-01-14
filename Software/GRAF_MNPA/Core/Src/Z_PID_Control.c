@@ -16,7 +16,7 @@
 //#define KI 0.00027f
 //#define KD 0.000002f
 /* PID-Parameter */
-#define KP 0.0005f	//0.00045f
+#define KP 0.0006f	//0.00045f
 #define KI 0.000067f	//0.00008f
 #define KD 0.0000066f //0.0000066f
 
@@ -41,6 +41,7 @@
 /* Statische Variablen für PID-Zustände */
 static float integral = 0.0f;
 static float previous_error = 0.0f;
+float voltage;
 
 /* Skalierungsfaktor für den Output (optional) */
 static float scale_factor = 1.0f;  // Beispiel: 1.0f = keine Skalierung
@@ -74,7 +75,7 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
     output *= scale_factor;
 
     /* Spannung berechnen */
-    float voltage = NEUTRAL_VOLTAGE + output;
+     voltage = NEUTRAL_VOLTAGE + output;
 
     /* Begrenzen der Spannung */
     if (voltage < VOLTAGE_MIN)  voltage = VOLTAGE_MIN;
