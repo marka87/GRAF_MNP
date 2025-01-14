@@ -135,9 +135,9 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
     HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET); // Relais aktivieren
 
     // Schritt 1: Motor nach unten (2,8V)
-    ad5684_set_voltage(dac, 2.8f, z_mot);
+    ad5684_set_voltage(dac, 2.6f, z_mot);
     // Druck gegen Drucksensor (2,8V)
-    ad5684_set_voltage(dac, 2.8f, d_mot);
+    ad5684_set_voltage(dac, 2.6f, d_mot);
     HAL_Delay(500);
 
     // Anfangsposition speichern
@@ -145,7 +145,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
 
     // Schritt 2: Motor nach oben (2,1V)
     start_tick = HAL_GetTick();
-    ad5684_set_voltage(dac, 2.1f, z_mot);
+    ad5684_set_voltage(dac, 2.05f, z_mot);
     HAL_Delay(100);
 
     bool nadel_oben_reached = false;

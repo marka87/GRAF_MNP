@@ -1,5 +1,5 @@
-/*
- * Z_PID_Control.c
+
+/* Z_PID_Control.c
  *
  *  Created on: Jan 3, 2025
  *      Author: Mark
@@ -11,17 +11,20 @@
 #include "AD5684RARUZ.h"
 #include <stdlib.h>
 #include <stdio.h>
-
-//#define KP 0.00077f
-//#define KI 0.00027f
-//#define KD 0.000002f
+//#define KP 0.0006f	//0.0006f Aggressive
+//#define KI 0.0005f	//0.000067f
+//#define KD 0.00005f 	//0.0000066f
 /* PID-Parameter */
-#define KP 0.0006f	//0.00045f
-#define KI 0.000067f	//0.00008f
-#define KD 0.0000066f //0.0000066f
+#define KP 0.0006f		//Mitte
+#define KI 0.001f
+#define KD 0.00001f
+
+//#define KP 0.00065f	//Sanft
+//#define KI 0.000065f
+//#define KD 0.0000065f
 
 /* Limitierung für den Integral-Anteil */
-#define INTEGRAL_LIMIT  1000.0f
+#define INTEGRAL_LIMIT  10000.0f //10000 aggressive
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
@@ -35,8 +38,8 @@
 #define z_mot 0x02		//DAC-B...
 
 
-/* Abtastzeit: x ms (Timer-Intervall) */
-#define DT 0.01f
+/* Abtastzeit: n ms (Timer-Intervall) */
+#define DT 0.001f
 
 /* Statische Variablen für PID-Zustände */
 static float integral = 0.0f;
@@ -56,16 +59,16 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 
     /* -- Optional: Toleranz-Prüfung --*/
     if (abs(error) <= POSITION_TOLERANCE) {
-        integral = 0.0f;
+        integral = 0.02f;
     }
-    /* Integral-Anteil mit Zeitbezug */
+    // Integralanteil
     integral += error * DT;
 
     /* Integralbegrenzung */
     if (integral > INTEGRAL_LIMIT)  integral = INTEGRAL_LIMIT;
     if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
 
-    /* Differential-Anteil mit Zeitbezug */
+    /* Differentialanteil */
     float derivative = (error - previous_error) / DT;
 
     /* PID-Berechnung */
@@ -75,7 +78,7 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
     output *= scale_factor;
 
     /* Spannung berechnen */
-     voltage = NEUTRAL_VOLTAGE + output;
+    voltage = NEUTRAL_VOLTAGE + output;
 
     /* Begrenzen der Spannung */
     if (voltage < VOLTAGE_MIN)  voltage = VOLTAGE_MIN;
@@ -83,10 +86,6 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 
     /* Spannung an den DAC senden */
     ad5684_set_voltage(dac, voltage, z_mot);
-
-    /* Debug-Ausgabe */
-    printf("Encoder: %d, Error: %d, Integral: %.2f, Deriv: %.2f, Out: %.6f, Voltage: %.3f\n",
-           encoder_value, error, integral, derivative, output, voltage);
 
     /* Fehler für den nächsten Zyklus speichern */
     previous_error = (float)error;
