@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
+extern DMA_HandleTypeDef hdma_tim5_up;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
@@ -396,6 +397,25 @@ void HAL_TIM_Encoder_MspInit(TIM_HandleTypeDef* htim_encoder)
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM5;
     HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
+    /* TIM5 DMA Init */
+    /* TIM5_UP Init */
+    hdma_tim5_up.Instance = DMA1_Stream6;
+    hdma_tim5_up.Init.Channel = DMA_CHANNEL_6;
+    hdma_tim5_up.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_tim5_up.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_tim5_up.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_tim5_up.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    hdma_tim5_up.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    hdma_tim5_up.Init.Mode = DMA_NORMAL;
+    hdma_tim5_up.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_tim5_up.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if (HAL_DMA_Init(&hdma_tim5_up) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(htim_encoder,hdma[TIM_DMA_ID_UPDATE],hdma_tim5_up);
+
     /* TIM5 interrupt Init */
     HAL_NVIC_SetPriority(TIM5_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(TIM5_IRQn);
@@ -510,6 +530,9 @@ void HAL_TIM_Encoder_MspDeInit(TIM_HandleTypeDef* htim_encoder)
     PH10     ------> TIM5_CH1
     */
     HAL_GPIO_DeInit(GPIOH, Z_AXIS_CH2_Pin|Z_AXIS_CH1_Pin);
+
+    /* TIM5 DMA DeInit */
+    HAL_DMA_DeInit(htim_encoder->hdma[TIM_DMA_ID_UPDATE]);
 
     /* TIM5 interrupt DeInit */
     HAL_NVIC_DisableIRQ(TIM5_IRQn);

@@ -67,6 +67,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+DMA_HandleTypeDef hdma_tim5_up;
 
 UART_HandleTypeDef huart1;
 
@@ -114,6 +115,7 @@ uint32_t next_1ms_tick = 0;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
@@ -140,10 +142,8 @@ void handle_button_down(void);
 void handle_button_ok(void);
 void update_display(void);
 
-
-
 /* Handle BTN_UP */
- void handle_button_ok() {
+void handle_button_ok() {
 	btn_ok_state = HAL_GPIO_ReadPin(GPIOE, BTN_OK_Pin);
 	if (btn_ok_state == GPIO_PIN_RESET && last_btn_ok_state == GPIO_PIN_SET) {
 		btn_ok_pressed = 1;
@@ -230,7 +230,7 @@ void Change_Z_Axis_TargetPosition_Stepwise(uint32_t step) {
 	Z_Axis_TargetPosition = (uint32_t) current_position;
 }
 
-static char uart_rx_buffer[32] = {0}; // Empfangspuffer
+static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
 static uint8_t uart_rx_index = 0;
 
 /* UART Callback */
@@ -244,100 +244,55 @@ static volatile uint8_t byte_received = 0;
 //	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
 //}
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart == &huart1) {
-        char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
-        HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1); // Empfang erneut aktivieren
+	if (huart == &huart1) {
+		char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
+		HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1); // Empfang erneut aktivieren
 
-        // Verarbeite das empfangene Zeichen direkt
-        char command[2] = {received_char, '\0'}; // Zeichen in String umwandeln
-        Process_UART_Command(command);
-    }
-}
-void Move_Z_Axis_With_Voltage(ad5684_dac_t *dac, uint32_t target_position) {
-    static uint8_t phase = 0; // 0: Bewegen mit Spannung, 1: Halten mit PID
-    static uint32_t current_position = 0;
-
-    // Ist-Position auslesen
-    current_position = Encoder_GetPosition_Z_AXIS();
-
-    // Bewegungsphase: Spannung steuern
-    if (phase == 0) {
-        if (current_position < target_position) {
-            // Nach oben fahren (Spannung zwischen 2.5V und 0V)
-            float voltage = 2.5f - ((float)(target_position - current_position) / 3500.0f) * 2.5f;
-            if (voltage < 0.0f) voltage = 0.0f; // Begrenzung
-            ad5684_set_voltage(dac, voltage, z_mot);
-        } else if (current_position > target_position) {
-            // Nach unten fahren (Spannung zwischen 2.5V und 5V)
-            float voltage = 2.5f + ((float)(current_position - target_position) / 3500.0f) * 2.5f;
-            if (voltage > 5.0f) voltage = 5.0f; // Begrenzung
-            ad5684_set_voltage(dac, voltage, z_mot);
-        } else {
-            // Ziel erreicht, in die Haltephase wechseln
-            phase = 1;
-        }
-    }
-
-    // Haltephase: PID-Regelung aktivieren
-    if (phase == 1) {
-     Z_Axis_PIDControl(dac, target_position);
-    }
-}
-
-void Move_Z_Axis_With_Fixed_Voltage(ad5684_dac_t *dac, uint32_t target_position) {
-    static uint8_t phase = 0; // 0: Bewegen mit Spannung, 1: Halten mit PID
-    static uint32_t current_position = 0;
-
-    // Ist-Position auslesen
-    current_position = Encoder_GetPosition_Z_AXIS();
-
-    // Bewegungsphase: Spannung steuern
-    if (phase == 0) {
-        if (current_position < target_position) {
-            // Nach oben fahren: Fix 0V
-            ad5684_set_voltage(dac, 0.0f, z_mot);
-        } else if (current_position > target_position) {
-            // Nach unten fahren: Fix 5V
-            ad5684_set_voltage(dac, 5.0f, z_mot);
-        } else {
-            // Ziel erreicht, in die Haltephase wechseln
-            phase = 1;
-        }
-    }
-
-    // Haltephase: PID-Regelung aktivieren
-    if (phase == 1) {
-        Z_Axis_PIDControl(dac, target_position);
-    }
+		// Verarbeite das empfangene Zeichen direkt
+		char command[2] = { received_char, '\0' }; // Zeichen in String umwandeln
+		Process_UART_Command(command);
+	}
 }
 
 void Process_UART_Command(const char *command) {
-    static const uint32_t step_size = 875; // Schrittgröße
-    uint32_t lower_limit = z_encoder_start;             // Untere Grenze
-    uint32_t upper_limit = z_encoder_end;          // Obere Grenze
+	static const uint32_t step_size = 175; // Schrittgröße
+	uint32_t lower_limit = z_encoder_start;             // Untere Grenze
+	uint32_t upper_limit = z_encoder_end;          // Obere Grenze
 
-    if (strcmp(command, "+") == 0) {
-        // Zielposition erhöhen
-        if (Z_Axis_TargetPosition + step_size <= upper_limit) {
-            Z_Axis_TargetPosition += step_size;
-        } else {
-            Z_Axis_TargetPosition = upper_limit;
-        }
-    } else if (strcmp(command, "-") == 0) {
-        // Zielposition verringern
-        if (Z_Axis_TargetPosition >= step_size + lower_limit) {
-            Z_Axis_TargetPosition -= step_size;
-        } else {
-            Z_Axis_TargetPosition = lower_limit;
-        }
-    }
+	if (strcmp(command, "+") == 0) {
+		// Zielposition erhöhen
+		if (Z_Axis_TargetPosition + step_size <= upper_limit) {
+			Z_Axis_TargetPosition += step_size;
+		} else {
+			Z_Axis_TargetPosition = upper_limit;
+		}
+	} else if (strcmp(command, "-") == 0) {
+		// Zielposition verringern
+		if (Z_Axis_TargetPosition >= step_size + lower_limit) {
+			Z_Axis_TargetPosition -= step_size;
+		} else {
+			Z_Axis_TargetPosition = lower_limit;
+		}
+	} else if (strcmp(command, "r") == 0) {
+		HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin);
+		ad5684_set_voltage(&dac, 2.5f, z_mot);
+	} else if (strcmp(command, "s") == 0) {
+		current_state = EXEC_REFERENCE_RUN;
+	} else if (strcmp(command, "1") == 0) {
+		current_state = TEST_RUN_DEMO;
+	} else if (strcmp(command, "2") == 0) {
+		current_state = TEST_RUN_SHORT;
+	} else if (strcmp(command, "3") == 0) {
+		current_state = TEST_RUN_LONG;
+	}
 
-    // Rückmeldung senden
-    char response[64];
-    snprintf(response, sizeof(response), "Z-Axis Ziel: %lu\r\n", Z_Axis_TargetPosition);
-    HAL_UART_Transmit(&huart1, (uint8_t *)response, strlen(response), HAL_MAX_DELAY);
+	// Rückmeldung senden
+	char response[64];
+	snprintf(response, sizeof(response), "Z-Axis Ziel: %lu\r\n",
+			Z_Axis_TargetPosition);
+	HAL_UART_Transmit(&huart1, (uint8_t*) response, strlen(response),
+			HAL_MAX_DELAY);
 }
-
 
 /* USER CODE END 0 */
 
@@ -372,6 +327,7 @@ int main(void) {
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
+	MX_DMA_Init();
 	MX_TIM2_Init();
 	MX_TIM3_Init();
 	MX_ADC1_Init();
@@ -411,7 +367,6 @@ int main(void) {
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
 	int mode = -1; // 0: DEMO, 1: KURZ, 2: LANG
 
-
 //	A_Axis_ReferenceRun(&dac);
 //	HAL_Delay(1000);
 //	Z_Axis_ReferenceRun(&dac, &z_axis_success);
@@ -442,7 +397,7 @@ int main(void) {
 						(uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
 			}
 
-			A_Axis_ReferenceRun(&dac);
+//			A_Axis_ReferenceRun(&dac);
 			HAL_Delay(1000);
 			current_state = TEST_START;
 
@@ -458,34 +413,42 @@ int main(void) {
 				btn_down_pressed = 0;
 				current_state = TEST_RUN_LONG; // LANG-Modus
 			}
-
-			// Modusauswahl per UART
-			if (!byte_handled) {
-				if (byte_received == '1') {
-					current_state = TEST_RUN_DEMO; // DEMO-Modus
-				} else if (byte_received == '2') {
-					current_state = TEST_RUN_SHORT; // KURZ-Modus
-				} else if (byte_received == '3') {
-					current_state = TEST_RUN_LONG; // LANG-Modus
-				}
-				byte_handled = true;
-			}
+//
+//			// Modusauswahl per UART
+//			if (!byte_handled) {
+//				if (byte_received == '1') {
+//					current_state = TEST_RUN_DEMO; // DEMO-Modus
+//				} else if (byte_received == '2') {
+//					current_state = TEST_RUN_SHORT; // KURZ-Modus
+//				} else if (byte_received == '3') {
+//					current_state = TEST_RUN_LONG; // LANG-Modus
+//				}
+//				byte_handled = true;
+//			}
 
 		} else if (current_state == TEST_RUN_DEMO) {
-		    // Beispiel: Fahre mit 200 Inkrementen/s nach unten
+		    static int iteration_count = 0; // Zählt die Iterationen
+		    if (HAL_GetTick() >= next_10ms_tick) {
+		        next_10ms_tick = HAL_GetTick() + 10;
 
-					current_state = COMPLETED; // Test abgeschlossen
+		        Change_Z_Axis_TargetPosition_Stepwise(10);
+		        iteration_count++; // Erhöht den Zähler
 
+		        if (iteration_count >= 1000) {
+		            current_state = COMPLETED; // Test abgeschlossen
+		            iteration_count = 0; // Zurücksetzen für den nächsten Test
+		        }
+		    }
 		} else if (current_state == COMPLETED) {
 			// Test abgeschlossen
 			display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
 			HAL_Delay(2000);
 			current_state = IDLE_START;
 		}
-	    if (!byte_handled) {
-	        Process_UART_Command(uart_rx_buffer);
-	        byte_handled = true;
-	    }
+		if (!byte_handled) {
+			Process_UART_Command(uart_rx_buffer);
+			byte_handled = true;
+		}
 
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;
@@ -502,9 +465,9 @@ int main(void) {
 			next_1ms_tick = HAL_GetTick() + 1;
 			// Continuously run PID control
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
-//			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 //		    Move_Z_Axis_With_Voltage(&dac, Z_Axis_TargetPosition);
-		    Move_Z_Axis_With_Fixed_Voltage(&dac, Z_Axis_TargetPosition);
+//		    Move_Z_Axis_With_Fixed_Voltage(&dac, Z_Axis_TargetPosition);
 			ADC_Drucksensor(&hadc1);
 		}
 
@@ -953,6 +916,21 @@ static void MX_USART1_UART_Init(void) {
 	/* USER CODE BEGIN USART1_Init 2 */
 
 	/* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+ * Enable DMA controller clock
+ */
+static void MX_DMA_Init(void) {
+
+	/* DMA controller clock enable */
+	__HAL_RCC_DMA1_CLK_ENABLE();
+
+	/* DMA interrupt init */
+	/* DMA1_Stream6_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
 }
 

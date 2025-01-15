@@ -145,7 +145,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
 
     // Schritt 2: Motor nach oben (2,1V)
     start_tick = HAL_GetTick();
-    ad5684_set_voltage(dac, 2.05f, z_mot);
+    ad5684_set_voltage(dac, 2.0f, z_mot);
     HAL_Delay(100);
 
     bool nadel_oben_reached = false;
