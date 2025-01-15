@@ -23,10 +23,10 @@ void Encoder_Init(void) {
 }
 
 
-uint32_t Encoder_GetPosition_Z_AXIS(void) {
+int32_t Encoder_GetPosition_Z_AXIS(void) {
     return __HAL_TIM_GET_COUNTER(&htim5);
 }
 
-uint32_t Encoder_GetPosition_A_AXIS(void) {
+int32_t Encoder_GetPosition_A_AXIS(void) {
     return __HAL_TIM_GET_COUNTER(&htim2);
 }

@@ -13,7 +13,7 @@
 
 
 void Encoder_Init(void);
-uint32_t Encoder_GetPosition_A_AXIS(void);
-uint32_t Encoder_GetPosition_Z_AXIS(void);
+int32_t Encoder_GetPosition_A_AXIS(void);
+int32_t Encoder_GetPosition_Z_AXIS(void);
 
 #endif /* SRC_ENCODER_H_ */
