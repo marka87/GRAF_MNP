@@ -30,6 +30,8 @@ uint32_t a_encoder_start = 0;
 uint32_t a_encoder_end = 0;
 uint32_t z_encoder_start = 0;
 uint32_t z_encoder_end = 0;
+uint32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
+
 
 //void A_Axis_ReferenceRun(ad5684_dac_t *dac) {
 //    display_jazz_clear(&display1);
@@ -125,7 +127,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac)
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
 {
-    uint32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
+
     uint32_t start_tick = 0;
 
     *success = true;
@@ -180,7 +182,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
 
     // ggf. langsamer fahren oder Feinposition
     if (Encoder_GetPosition_Z_AXIS() > (z_encoder_start + 500)) {
-        ad5684_set_voltage(dac, 2.35f, z_mot); // Langsam
+        ad5684_set_voltage(dac, 2.4f, z_mot); // Langsam
     }
     else if (Encoder_GetPosition_Z_AXIS() > (z_encoder_start + 200)) {
         ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot); // Minimal
@@ -191,7 +193,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
     // Schritt 4: Mitte / oder Position wählen
     // Hier nimmst du die Position beim Erreichen der Nadel-oben-Sensierung
     // oder eine andere Position:
-    Z_Axis_TargetPosition = z_ax_no_pos + 50;  // // (z_encoder_start + z_encoder_end) / 2 ;
+    Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;  // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
 
     *success = true;
 }

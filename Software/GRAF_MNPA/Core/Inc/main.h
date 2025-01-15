@@ -105,10 +105,9 @@ void Error_Handler(void);
 #define LED_GREEN_GPIO_Port GPIOJ
 #define Z_AXIS_CH1_Pin GPIO_PIN_10
 #define Z_AXIS_CH1_GPIO_Port GPIOH
-#define ADC_Drucksensor_Pin GPIO_PIN_3
-#define ADC_Drucksensor_GPIO_Port GPIOA
-#define ADC1_IN7_Pin GPIO_PIN_7
-#define ADC1_IN7_GPIO_Port GPIOA
+#define DS_ACTIVATED_Pin GPIO_PIN_3
+#define DS_ACTIVATED_GPIO_Port GPIOA
+#define DS_ACTIVATED_EXTI_IRQn EXTI3_IRQn
 #define DRUCK_REL_EN_Pin GPIO_PIN_1
 #define DRUCK_REL_EN_GPIO_Port GPIOB
 #define DAC_RESET_Pin GPIO_PIN_0
