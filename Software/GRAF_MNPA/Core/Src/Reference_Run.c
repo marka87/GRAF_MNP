@@ -20,6 +20,7 @@
 
 #define TARGET_VOLTAGE_NEUTRAL 2.5f
 #define ENCODER_TOLERANCE 100
+extern bool ds_was_activated;
 extern ADC_HandleTypeDef hadc1;
 extern display_info_t display1;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
@@ -32,102 +33,75 @@ uint32_t z_encoder_start = 0;
 uint32_t z_encoder_end = 0;
 uint32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
 
+void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
+    uint32_t start_tick = 0;
+    *success = true;
 
-//void A_Axis_ReferenceRun(ad5684_dac_t *dac) {
-//    display_jazz_clear(&display1);
-//    display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenz");
-//    HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET); // Relais aktivieren
-//
-//    // Schritt 1: Motor im Uhrzeigersinn (3V) für 2,5 Sekunden
-//    ad5684_set_voltage(dac, 3.0f, a_mot); // Richtung: Uhrzeigersinn auf Position 0
-//    HAL_Delay(2500);
-//
-//    // Überwache den Drucksensor
-//    uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
-//    if (druck_sen_value > 20) {
-//        display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
-//        ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot); // Motor stoppen
-//        HAL_Delay(100);
-//        return; // Funktion abbrechen
-//    }
-//
-//    a_encoder_start = Encoder_GetPosition_A_AXIS(); // Anfangsposition speichern
-//
-//    // Schritt 2: Motor in entgegengesetzter Richtung (2V) für 2,5 Sekunden
-//    ad5684_set_voltage(dac, 2.0f, a_mot); // Richtung: Gegen Uhrzeigersinn auf Position 24000
-//    HAL_Delay(2500);
-//
-//    // Überwache den Drucksensor erneut
-//    druck_sen_value = ADC_Drucksensor(&hadc1);
-//    if (druck_sen_value > 20) {
-//        display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
-//        ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot); // Motor stoppen
-//        HAL_Delay(100);
-//        return; // Funktion abbrechen
-//    }
-//
-//    a_encoder_end = Encoder_GetPosition_A_AXIS(); // Endposition speichern
-//    HAL_Delay(100);
-//
-//    // Schritt 3: Mitte berechnen
-//    A_Axis_TargetPosition = (a_encoder_start + a_encoder_end) / 2;
-//
-//    // Motor stoppen
-//    ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
-//    HAL_Delay(100);
-//}
-void A_Axis_ReferenceRun(ad5684_dac_t *dac)
-{
+    // Anzeige initialisieren
     display_jazz_clear(&display1);
     display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenz");
-    HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET); // Relais aktivieren
 
-    // Schritt 1: Motor im Uhrzeigersinn (3V) für 2,5 Sekunden
-    ad5684_set_voltage(dac, 3.0f, a_mot); // Richtung: Uhrzeigersinn auf Position 0
-    HAL_Delay(2500);
+    // Relais aktivieren
+    HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
 
-    // Drucksensor per ADC abfragen
-    uint16_t druck_value = ADC_Drucksensor(&hadc1);
-    // Beispiel: Schwellwert 3000 (nahe 5V, je nach Auflösung / Spannungsteiler)
-    if (druck_value > 3000) {
-        display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
-        ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot); // Motor stoppen
-        HAL_Delay(100);
-        return; // Funktion abbrechen
+    // Schritt 1: Motor im Uhrzeigersinn (3V) drehen
+    ad5684_set_voltage(dac, 3.0f, a_mot);
+    start_tick = HAL_GetTick();
+    bool drucksensor_error = false;
+
+    // Überprüfe Drucksensor während der Bewegung
+    while (HAL_GetTick() < (start_tick + 2000)) {
+        if (ds_was_activated) {
+            // Fehler: Drucksensor ausgelöst
+            display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
+            ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
+            *success = false;
+            return;
+        }
     }
 
-    // Anfangsposition speichern
+    // Startposition speichern
     a_encoder_start = Encoder_GetPosition_A_AXIS();
-
-    // Schritt 2: Motor in entgegengesetzter Richtung (2V) für 2,5 Sekunden
-    ad5684_set_voltage(dac, 2.0f, a_mot); // Richtung: Gegen Uhrzeigersinn
-    HAL_Delay(2500);
-
-    // Drucksensor erneut abfragen
-    druck_value = ADC_Drucksensor(&hadc1);
-    if (druck_value > 3000) {
-        display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
-        ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot); // Motor stoppen
-        HAL_Delay(100);
-        return; // Funktion abbrechen
-    }
-
-    // Endposition speichern
-    a_encoder_end = Encoder_GetPosition_A_AXIS();
-    HAL_Delay(100);
-
-    // Schritt 3: Mitte berechnen
-    A_Axis_TargetPosition = (a_encoder_start + a_encoder_end) / 2;
+    display_jazz_write_string_5x7(&display1, 1, "Start.Pos: OK");
 
     // Motor stoppen
     ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
     HAL_Delay(100);
+
+    // Schritt 2: Motor gegen den Uhrzeigersinn (2V) drehen
+    ad5684_set_voltage(dac, 2.0f, a_mot);
+    start_tick = HAL_GetTick();
+
+    // Überprüfe Drucksensor während der Bewegung
+    while (HAL_GetTick() < (start_tick + 2000)) {
+        if (ds_was_activated) {
+            // Fehler: Drucksensor ausgelöst
+            display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
+            ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
+            *success = false;
+            return;
+        }
+    }
+
+    // Endposition speichern
+    a_encoder_end = Encoder_GetPosition_A_AXIS();
+    display_jazz_write_string_5x7(&display1, 2, "End.Pos: OK");
+
+    // Motor stoppen
+    ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
+    HAL_Delay(100);
+
+    // Schritt 3: Mitte berechnen
+    A_Axis_TargetPosition = (a_encoder_start + a_encoder_end) / 2;
+    display_jazz_write_string_5x7(&display1, 3, "Referenzlauf OK");
+    *success = true;
 }
+
+
 
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
 {
-
     uint32_t start_tick = 0;
 
     *success = true;
@@ -139,7 +113,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
     // Schritt 1: Motor nach unten (2,8V)
     ad5684_set_voltage(dac, 2.6f, z_mot);
     // Druck gegen Drucksensor (2,8V)
-    ad5684_set_voltage(dac, 2.6f, d_mot);
+    ad5684_set_voltage(dac, 2.8f, d_mot);
     HAL_Delay(500);
 
     // Anfangsposition speichern
@@ -191,8 +165,6 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success)
     HAL_Delay(200);
 
     // Schritt 4: Mitte / oder Position wählen
-    // Hier nimmst du die Position beim Erreichen der Nadel-oben-Sensierung
-    // oder eine andere Position:
     Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;  // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
 
     *success = true;

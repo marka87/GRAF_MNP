@@ -217,6 +217,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		ds_was_activated = true;
 	}
 }
+static bool is_pa3_adc = false; // Status: ADC oder GPIO
 
 static void ConfigPa3AsAdc(void) {
 	ADC_ChannelConfTypeDef sConfig = { 0 };
@@ -243,25 +244,51 @@ static void ConfigPa3AsAdc(void) {
 	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
 		Error_Handler();
 	}
+	is_pa3_adc = true;
 }
+static void ConfigPa3AsGpio(void) {	//Drucksensor als GPIO
+	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+	/* USER CODE BEGIN MX_GPIO_Init_1 */
+	GPIO_InitStruct.Pin = DS_ACTIVATED_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(DS_ACTIVATED_GPIO_Port, &GPIO_InitStruct);
 
-void Change_Z_Axis_TargetPosition_Stepwise(uint32_t step) {
-	static int32_t current_position = 0;
-	static int32_t direction = 1; 			// 1: aufwärts, -1: abwärts
-	ad5684_set_voltage(&dac, 2.8f, d_mot);  // Druck gegen Drucksensor
-	current_position += step * direction;
+	HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	is_pa3_adc = false;
+}
+void SwitchPa3ModeIfNeeded(bool target_adc_mode) {
+	if (target_adc_mode && !is_pa3_adc) {
+		HAL_NVIC_DisableIRQ(EXTI3_IRQn);
+		HAL_GPIO_DeInit(DS_ACTIVATED_GPIO_Port, DS_ACTIVATED_Pin); // Entferne GPIO-Konfiguration
+		ConfigPa3AsAdc(); // Konfiguriere PA3 als ADC
 
-	// Begrenzung und Richtungswechsel
-	if (current_position >= 3500) {
-		current_position = 3500;
-		direction = -1; // Richtung umkehren
-	} else if (current_position <= 0) {
-		current_position = 0;
-		direction = 1; // Richtung umkehren
+		is_pa3_adc = true;
+	} else if (!target_adc_mode && is_pa3_adc) {
+		HAL_ADC_Stop(&hadc1); // Stoppe ADC
+		HAL_ADC_DeInit(&hadc1); // Entferne ADC-Konfiguration
+		ConfigPa3AsGpio(); // Konfiguriere PA3 als GPIO
+		is_pa3_adc = false;
 	}
-
-	Z_Axis_TargetPosition = (uint32_t) current_position;
 }
+//void Change_Z_Axis_TargetPosition_Stepwise(uint32_t step) {
+//	static int32_t current_position = 0;
+//	static int32_t direction = 1; 			// 1: aufwärts, -1: abwärts
+//	ad5684_set_voltage(&dac, 2.8f, d_mot);  // Druck gegen Drucksensor
+//	current_position += step * direction;
+//
+//	// Begrenzung und Richtungswechsel
+//	if (current_position >= 3500) {
+//		current_position = 3500;
+//		direction = -1; // Richtung umkehren
+//	} else if (current_position <= 0) {
+//		current_position = 0;
+//		direction = 1; // Richtung umkehren
+//	}
+//
+//	Z_Axis_TargetPosition = (uint32_t) current_position;
+//}
 
 static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
 static uint8_t uart_rx_index = 0;
@@ -289,39 +316,64 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 void Process_UART_Command(const char *command) {
-	static const uint32_t step_size = 350; 			// Schrittgröße
-	uint32_t lower_limit = z_encoder_start;        // Untere Grenze
-	uint32_t upper_limit = z_encoder_end;          // Obere Grenze
+	static const uint32_t step_size = 350; 	// Schrittgröße
+	uint32_t lower_limit = z_encoder_start; // Untere Grenze
+	uint32_t upper_limit = z_encoder_end;   // Obere Grenze
+	char response[64] = { 0 }; 				// Rückmeldungspuffer
 
-	if (strcmp(command, "+") == 0) {		// Zielposition erhöhen
+	if (command[0] == '+' && command[1] == '\0') { // Zielposition erhöhen
 		if (Z_Axis_TargetPosition + step_size <= upper_limit) {
 			Z_Axis_TargetPosition += step_size;
 		} else {
 			Z_Axis_TargetPosition = upper_limit;
 		}
-	} else if (strcmp(command, "-") == 0) { // Zielposition verringern
+		snprintf(response, sizeof(response), "Erhöht: Ziel = %lu\r\n", Z_Axis_TargetPosition);
+
+	} else if (command[0] == '-' && command[1] == '\0') { // Zielposition verringern
 		if (Z_Axis_TargetPosition >= step_size + lower_limit) {
 			Z_Axis_TargetPosition -= step_size;
 		} else {
 			Z_Axis_TargetPosition = lower_limit;
 		}
-	} else if (strcmp(command, "r") == 0) {		//r für Relais an/aus
+		snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n", Z_Axis_TargetPosition);
+
+	} else if (strcmp(command, "r") == 0) { // Relais an/aus
 		HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin);
 		ad5684_set_voltage(&dac, 2.5f, z_mot);
-	} else if (strcmp(command, "s") == 0) {		//s für referenz start
+		snprintf(response, sizeof(response), "Relais toggled und Spannung gesetzt.\r\n");
+
+	} else if (strcmp(command, "s") == 0) { // Referenzlauf starten
 		current_state = EXEC_REFERENCE_RUN;
-	} else if (strcmp(command, "1") == 0) {		//1 für DEMO
+		snprintf(response, sizeof(response), "Referenzlauf gestartet.\r\n");
+
+	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
 		num_total_cycles = 10;
 		current_cycle = 0;
 		current_state = TEST_RUN;
-//		test_run_mode = GOTO_REFERENCE;
-	} else if (strcmp(command, "x") == 0) {		//x für position 3000
+		snprintf(response, sizeof(response), "Demo-Modus gestartet (10 Zyklen).\r\n");
+
+    } else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 100 Zyklen
+        num_total_cycles = 100;
+        current_cycle = 0;
+        current_state = TEST_RUN;
+        snprintf(response, sizeof(response), "Kurz-Modus gestartet (100 Zyklen).\r\n");
+
+    } else if (strcmp(command, "3") == 0) { // Lang-Modus mit 1000 Zyklen
+        num_total_cycles = 1000;
+        current_cycle = 0;
+        current_state = TEST_RUN;
+        snprintf(response, sizeof(response), "Lang-Modus gestartet (1000 Zyklen).\r\n");
+
+	} else if (strcmp(command, "x") == 0) { // Position auf 3000 setzen
 		Z_Axis_TargetPosition = 3000;
+		snprintf(response, sizeof(response), "Position auf 3000 gesetzt.\r\n");
+
+	} else {
+		snprintf(response, sizeof(response), "Unbekanntes Kommando: %s\r\n",
+				command);
 	}
-// Rückmeldung senden
-	char response[64];
-	snprintf(response, sizeof(response), "Z-Axis Ziel: %lu\r\n",
-			Z_Axis_TargetPosition);
+
+	// Rückmeldung senden
 	HAL_UART_Transmit(&huart1, (uint8_t*) response, strlen(response),
 	HAL_MAX_DELAY);
 }
@@ -391,11 +443,11 @@ int main(void) {
 
 	/* Encoder Initialization */
 	Encoder_Init();
-//	HAL_TIM_Base_Start_IT(&htim1);
 
-//	ADC_Init(&hadc1);
 
 	bool z_axis_success = false;
+	bool a_axis_success = false;
+
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
 	int mode = -1; // 0: DEMO, 1: KURZ, 2: LANG
 
@@ -408,161 +460,138 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-//		Change_Z_Axis_TargetPosition_Stepwise(10);
-
 		if (current_state == IDLE_START) {
-			if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				current_state = EXEC_REFERENCE_RUN;
-			} else if (!byte_handled && byte_received == 's') {
-				byte_handled = true;
-				current_state = EXEC_REFERENCE_RUN;
-			}
+					SwitchPa3ModeIfNeeded(true); // Drucksensor als ADC
 
-		} else if (current_state == EXEC_REFERENCE_RUN) {
-			/* Reference Run */
-			Z_Axis_ReferenceRun(&dac, &z_axis_success);
-			HAL_Delay(1000);
-
-			if (z_axis_success) {
-				HAL_UART_Transmit(&huart1,
-						(uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
-			}
-
-//			A_Axis_ReferenceRun(&dac);
-			HAL_Delay(1000);
-			current_state = TEST_START;
-
-		} else if (current_state == TEST_START) {
-			// Modusauswahl per Tasten
-			if (btn_up_pressed) {
-				btn_up_pressed = 0;
-				num_total_cycles = 10;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // DEMO-Modus
-			} else if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				num_total_cycles = 100;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // KURZ-Modus
-			} else if (btn_down_pressed) {
-				btn_down_pressed = 0;
-				num_total_cycles = 1000;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // LANG-Modus
-			}
-//
-//			// Modusauswahl per UART
-//			if (!byte_handled) {
-//				if (byte_received == '1') {
-//					current_state = TEST_RUN_DEMO; // DEMO-Modus
-//				} else if (byte_received == '2') {
-//					current_state = TEST_RUN_SHORT; // KURZ-Modus
-//				} else if (byte_received == '3') {
-//					current_state = TEST_RUN_LONG; // LANG-Modus
-//				}
-//				byte_handled = true;
-//			}
-
-		} else if (current_state == TEST_RUN) {
-
-			if (current_cycle >= num_total_cycles) {
-				current_state = COMPLETED;
-			}
-
-			if (tick_100ms_testrun_elapsed) {
-				tick_100ms_testrun_elapsed = false;
-
-				if (test_run_mode == GO_UP) {
-
-					Z_Axis_TargetPosition = z_ax_no_pos + 200;
-
-//						target_position_running += 10;
-//						if (target_position_running > target_position_final) {
-//							target_position_running = target_position_final;
-//						}
-
-					if (Encoder_GetPosition_Z_AXIS() > z_ax_no_pos + 100) {
-						// Sensor activated?
-						if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin)
-								== GPIO_PIN_RESET) {
-							//target_position_final = z_encoder_start + 200;
-							test_run_mode = GO_DOWN;
-						} else {
-							test_run_mode = COMPLETED;
-						}
+					if (btn_ok_pressed) {
+						btn_ok_pressed = 0;
+						current_state = EXEC_REFERENCE_RUN;
+					} else if (!byte_handled && byte_received == 's') {
+						byte_handled = true;
+						current_state = EXEC_REFERENCE_RUN;
 					}
-				} else if (test_run_mode == GO_DOWN) {
-					//target_position_running -= 10;
+				} else if (current_state == EXEC_REFERENCE_RUN) {
+			        SwitchPa3ModeIfNeeded(false); 	    // Drucksensor als GPIO IT
 
-					Z_Axis_TargetPosition = z_encoder_start + 300;
+					Z_Axis_ReferenceRun(&dac, &z_axis_success);
+					HAL_Delay(1000);
 
-					if (Encoder_GetPosition_Z_AXIS()
-							<= (z_encoder_start + 400)) {
+					if (z_axis_success) {
+						HAL_UART_Transmit(&huart1, (uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
+					}
+					A_Axis_ReferenceRun(&dac, &a_axis_success);
+					if (a_axis_success){
+						HAL_UART_Transmit(&huart1, (uint8_t*) "A Reference Run successful\r\n", 28, 1000);
+					}
+					HAL_Delay(1000);
+					current_state = TEST_START;
+				} else if (current_state == TEST_START) {
 
-						current_cycle++;
-						HAL_Delay(500);
+					if (btn_up_pressed) {
+						btn_up_pressed = 0;
+						num_total_cycles = 10;
+						current_cycle = 0;
+						target_position_final = z_ax_no_pos + 200;
+						target_position_running = Encoder_GetPosition_Z_AXIS();
+						current_state = TEST_RUN; // DEMO-Modus
+					} else if (btn_ok_pressed) {
+						btn_ok_pressed = 0;
+						num_total_cycles = 100;
+						current_cycle = 0;
+						target_position_final = z_ax_no_pos + 200;
+						target_position_running = Encoder_GetPosition_Z_AXIS();
+						current_state = TEST_RUN; // KURZ-Modus
+					} else if (btn_down_pressed) {
+						btn_down_pressed = 0;
+						num_total_cycles = 1000;
+						current_cycle = 0;
+						target_position_final = z_ax_no_pos + 200;
+						target_position_running = Encoder_GetPosition_Z_AXIS();
+						current_state = TEST_RUN; // LANG-Modus
+					}
+				} else if (current_state == TEST_RUN) {
+					display_jazz_write_string_5x7(&display1, 0, "Test...");
 
-						test_run_mode = GO_UP;
+					if (current_cycle >= num_total_cycles) {
+						current_state = COMPLETED;
+					}
 
-						if (current_cycle > num_total_cycles) {
-							current_state = COMPLETED;
+					if (tick_100ms_testrun_elapsed) {
+						tick_100ms_testrun_elapsed = false;
 
-							if (ds_was_activated) {
-								// Fail
+						if (test_run_mode == GO_UP) {
+
+							Z_Axis_TargetPosition = z_ax_no_pos + 200;
+
+							if (Encoder_GetPosition_Z_AXIS() > z_ax_no_pos + 100) { // Sensor activated?
+								if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin)== GPIO_PIN_RESET) {
+									test_run_mode = GO_DOWN;
+								} else {
+									test_run_mode = COMPLETED;
+								}
 							}
+						} else if (test_run_mode == GO_DOWN) {
+
+							Z_Axis_TargetPosition = z_encoder_start + 300;
+
+							if (Encoder_GetPosition_Z_AXIS()<= (z_encoder_start + 400)) {
+
+								current_cycle++;
+
+								test_run_mode = GO_UP;
+
+								if (current_cycle > num_total_cycles) {
+									current_state = COMPLETED;
+
+									if (ds_was_activated) {
+										display_jazz_write_string_5x7(&display1, 0, "Fehler: Drucksensor");
+										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
+
+									}
+
+								}
+
+							}
+						} else if (current_state == COMPLETED) {
+		//					while (1)
+		//                        ;
 
 						}
 
 					}
-				} else if (test_run_mode == COMPLETED) {
-					while (1)
-						;
+
+				} else if (current_state == COMPLETED) {
+					// Test abgeschlossen
+					display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
+					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
+					SwitchPa3ModeIfNeeded(true);
+					HAL_Delay(2000);
+					current_state = IDLE_START;
+				}
+				if (!byte_handled) {
+					Process_UART_Command(uart_rx_buffer);
+					byte_handled = true;
 				}
 
-			}
+				if (HAL_GetTick() >= next_100ms_tick) {
+					next_100ms_tick = HAL_GetTick() + 100;
 
-		} else if (current_state == COMPLETED) {
-			// Test abgeschlossen
-			display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
-			HAL_Delay(2000);
-			current_state = IDLE_START;
-		}
-		if (!byte_handled) {
-			Process_UART_Command(uart_rx_buffer);
-			byte_handled = true;
-		}
+					update_display();
+				}
+				if (HAL_GetTick() >= next_10ms_tick) {
+					next_10ms_tick = HAL_GetTick() + 10;
+					handle_button_ok();
+					handle_button_up();
+					handle_button_down();
+					tick_100ms_testrun_elapsed = true;
 
-		if (HAL_GetTick() >= next_100ms_tick) {
-			next_100ms_tick = HAL_GetTick() + 100;
-
-			update_display();
-		}
-		if (HAL_GetTick() >= next_10ms_tick) {
-			next_10ms_tick = HAL_GetTick() + 10;
-			handle_button_ok();
-			handle_button_up();
-			handle_button_down();
-			tick_100ms_testrun_elapsed = true;
-
-//			Change_Z_Axis_TargetPosition_Stepwise(1);
-		}
-		if (HAL_GetTick() >= next_1ms_tick) {
-			next_1ms_tick = HAL_GetTick() + 1;
-			// Continuously run PID control
-//			bool z_holding = abs(Z_Axis_TargetPosition - Encoder_GetPosition_Z_AXIS()) < 350;
-//			Z_Axis_Control(&dac, Z_Axis_TargetPosition, z_holding);
-
-			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
-			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
-			ADC_Drucksensor(&hadc1);
-		}
+				}
+				if (HAL_GetTick() >= next_1ms_tick) {
+					next_1ms_tick = HAL_GetTick() + 1;
+					A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
+					Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+					ADC_Drucksensor(&hadc1);
+				}
 
 		/* USER CODE END WHILE */
 
@@ -645,14 +674,14 @@ static void MX_ADC1_Init(void) {
 	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
 	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
 	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-	hadc1.Init.ContinuousConvMode = DISABLE;
+	hadc1.Init.ContinuousConvMode = ENABLE;
 	hadc1.Init.DiscontinuousConvMode = DISABLE;
 	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
 	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
 	hadc1.Init.NbrOfConversion = 1;
 	hadc1.Init.DMAContinuousRequests = DISABLE;
-	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
 	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
 		Error_Handler();
 	}

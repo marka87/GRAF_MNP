@@ -19,7 +19,8 @@ extern uint32_t a_encoder_end;
 extern uint32_t z_encoder_start;
 extern uint32_t z_encoder_end;
 
-void A_Axis_ReferenceRun(ad5684_dac_t* dac);
+//void A_Axis_ReferenceRun(ad5684_dac_t* dac);
+void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success);
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success);
 
 #endif /* SRC_REFERENCE_RUN_H_ */

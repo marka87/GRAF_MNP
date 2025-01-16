@@ -100,18 +100,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-//#define KP 0.007f			//Wow
-//#define KI 0.00007f
-//#define KD 0.075f
+#define KP 0.007f			//Wow
+#define KI 0.00006f
+#define KD 0.05f
 
 
 //#define KP 0.00045f		//Sanft
 //#define KI 0.00000151f
 //#define KD 0.00000012f
 
-#define KP 0.00045f			//Wow
-#define KI 0.000000151f
-#define KD 0.00012f
+//#define KP 0.00045f			//Thomas
+//#define KI 0.00000151f
+//#define KD 0.00012f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
