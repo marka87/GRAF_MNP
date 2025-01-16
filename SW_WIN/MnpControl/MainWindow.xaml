@@ -1,0 +1,20 @@
+﻿<Window x:Class="MnpControl.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MnpControl"
+        mc:Ignorable="d"
+        Title="MpnControl" Height="450" Width="800"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        >
+    <Grid>
+        <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" HorizontalAlignment="Left" Height="34" Margin="128,53,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartReferenceRun_Click"/>
+        <Label Content="Nadel oben:" HorizontalAlignment="Left" Margin="31,138,0,0" VerticalAlignment="Top" Width="96"/>
+        <TextBox x:Name="TxtNadelOben" HorizontalAlignment="Left" Margin="128,142,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Label Content="Drucksensor" HorizontalAlignment="Left" Margin="41,169,0,0" VerticalAlignment="Top" Width="86"/>
+        <TextBox x:Name="TxtDrucksensor" HorizontalAlignment="Left" Margin="128,173,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+
+    </Grid>
+</Window>
