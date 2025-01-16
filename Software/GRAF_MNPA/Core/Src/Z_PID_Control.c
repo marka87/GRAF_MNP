@@ -100,10 +100,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define KP 0.007f			//Wow
-#define KI 0.00006f
-#define KD 0.05f
-
+//#define KP 0.007f			//Wow
+//#define KI 0.00006f
+//#define KD 0.05f
+#define KP 0.0007f			//Wow
+#define KI 0.000006f
+#define KD 0.005f
 
 //#define KP 0.00045f		//Sanft
 //#define KI 0.00000151f

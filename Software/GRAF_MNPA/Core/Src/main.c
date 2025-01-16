@@ -192,24 +192,23 @@ void update_display() {
 	uint16_t raw_value = ADC_Drucksensor(&hadc1); // Zeile 1: Drucksensor (ADC-Wert)
 	float sensorVoltage = (float) raw_value * (5.0f / 4095.0f);
 	sprintf(display_buffer[1], "Drucksensor: %.3f V", sensorVoltage);
-	if (raw_value > 3000) {
-		sprintf(display_buffer[2], "Drucksensor: HIGH");
-	} else {
-		sprintf(display_buffer[2], "Drucksensor: LOW ");
-	}
-	sprintf(display_buffer[3], "A-AX:%5lu", a_axis_position); // Zeile 2 & 3: Achspositionen
 
-	sprintf(display_buffer[4], "Z-Ist:%5lu", z_axis_position);
+	sprintf(display_buffer[2], "A-AX:%5lu", a_axis_position); // Zeile 2 & 3: Achspositionen
 
-	sprintf(display_buffer[5], "Z-Soll:%5lu", Z_Axis_TargetPosition); // Zeile 4: Sollwert der Z-Achse
+	sprintf(display_buffer[3], "Z-Ist:%5lu", z_axis_position);
 
-	sprintf(display_buffer[6], "PID_V: %.3f V", voltage); // Zeile 5: Relais-Status (Z-Achse)
+	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition); // Zeile 4: Sollwert der Z-Achse
 
-	sprintf(display_buffer[7], "Start: OK/S(PC)"); // Zeile 6: Status (z. B. OK)
+
 
 	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
+
+	char datablock[256];
+	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state, sensorVoltage, a_axis_position, z_axis_position, Z_Axis_TargetPosition);
+
+	HAL_UART_Transmit(&huart1, datablock, strlen(datablock), 2000);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
@@ -217,61 +216,61 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		ds_was_activated = true;
 	}
 }
-static bool is_pa3_adc = false; // Status: ADC oder GPIO
-
-static void ConfigPa3AsAdc(void) {
-	ADC_ChannelConfTypeDef sConfig = { 0 };
-
-	hadc1.Instance = ADC1;
-	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-	hadc1.Init.ContinuousConvMode = ENABLE;
-	hadc1.Init.DiscontinuousConvMode = DISABLE;
-	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	hadc1.Init.NbrOfConversion = 1;
-	hadc1.Init.DMAContinuousRequests = DISABLE;
-	hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
-		Error_Handler();
-	}
-
-	sConfig.Channel = ADC_CHANNEL_3;
-	sConfig.Rank = ADC_REGULAR_RANK_1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
-		Error_Handler();
-	}
-	is_pa3_adc = true;
-}
-static void ConfigPa3AsGpio(void) {	//Drucksensor als GPIO
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
-	/* USER CODE BEGIN MX_GPIO_Init_1 */
-	GPIO_InitStruct.Pin = DS_ACTIVATED_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(DS_ACTIVATED_GPIO_Port, &GPIO_InitStruct);
-
-	HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	is_pa3_adc = false;
-}
-void SwitchPa3ModeIfNeeded(bool target_adc_mode) {
-	if (target_adc_mode && !is_pa3_adc) {
-		HAL_NVIC_DisableIRQ(EXTI3_IRQn);
-		HAL_GPIO_DeInit(DS_ACTIVATED_GPIO_Port, DS_ACTIVATED_Pin); // Entferne GPIO-Konfiguration
-		ConfigPa3AsAdc(); // Konfiguriere PA3 als ADC
-
-		is_pa3_adc = true;
-	} else if (!target_adc_mode && is_pa3_adc) {
-		HAL_ADC_Stop(&hadc1); // Stoppe ADC
-		HAL_ADC_DeInit(&hadc1); // Entferne ADC-Konfiguration
-		ConfigPa3AsGpio(); // Konfiguriere PA3 als GPIO
-		is_pa3_adc = false;
-	}
-}
+//static bool is_pa3_adc = false; // Status: ADC oder GPIO
+//
+//static void ConfigPa3AsAdc(void) {
+//	ADC_ChannelConfTypeDef sConfig = { 0 };
+//
+//	hadc1.Instance = ADC1;
+//	hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+//	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+//	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+//	hadc1.Init.ContinuousConvMode = ENABLE;
+//	hadc1.Init.DiscontinuousConvMode = DISABLE;
+//	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+//	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+//	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+//	hadc1.Init.NbrOfConversion = 1;
+//	hadc1.Init.DMAContinuousRequests = DISABLE;
+//	hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+//	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
+//		Error_Handler();
+//	}
+//
+//	sConfig.Channel = ADC_CHANNEL_3;
+//	sConfig.Rank = ADC_REGULAR_RANK_1;
+//	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+//	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+//		Error_Handler();
+//	}
+//	is_pa3_adc = true;
+//}
+//static void ConfigPa3AsGpio(void) {	//Drucksensor als GPIO
+//	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+//	/* USER CODE BEGIN MX_GPIO_Init_1 */
+//	GPIO_InitStruct.Pin = DS_ACTIVATED_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+//	GPIO_InitStruct.Pull = GPIO_PULLUP;
+//	HAL_GPIO_Init(DS_ACTIVATED_GPIO_Port, &GPIO_InitStruct);
+//
+//	HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+//	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+//	is_pa3_adc = false;
+//}
+//void SwitchPa3ModeIfNeeded(bool target_adc_mode) {
+//	if (target_adc_mode && !is_pa3_adc) {
+//		HAL_NVIC_DisableIRQ(EXTI3_IRQn);
+//		HAL_GPIO_DeInit(DS_ACTIVATED_GPIO_Port, DS_ACTIVATED_Pin); // Entferne GPIO-Konfiguration
+//		ConfigPa3AsAdc(); // Konfiguriere PA3 als ADC
+//
+//		is_pa3_adc = true;
+//	} else if (!target_adc_mode && is_pa3_adc) {
+//		HAL_ADC_Stop(&hadc1); // Stoppe ADC
+//		HAL_ADC_DeInit(&hadc1); // Entferne ADC-Konfiguration
+//		ConfigPa3AsGpio(); // Konfiguriere PA3 als GPIO
+//		is_pa3_adc = false;
+//	}
+//}
 //void Change_Z_Axis_TargetPosition_Stepwise(uint32_t step) {
 //	static int32_t current_position = 0;
 //	static int32_t direction = 1; 			// 1: aufwärts, -1: abwärts
@@ -449,11 +448,8 @@ int main(void) {
 	bool a_axis_success = false;
 
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
-	int mode = -1; // 0: DEMO, 1: KURZ, 2: LANG
 
-//	A_Axis_ReferenceRun(&dac);
-//	HAL_Delay(1000);
-//	Z_Axis_ReferenceRun(&dac, &z_axis_success);
+
 	HAL_Delay(1000);
 	/* USER CODE END 2 */
 
@@ -461,8 +457,9 @@ int main(void) {
 	/* USER CODE BEGIN WHILE */
 	while (1) {
 		if (current_state == IDLE_START) {
-					SwitchPa3ModeIfNeeded(true); // Drucksensor als ADC
-
+//					SwitchPa3ModeIfNeeded(true); // Drucksensor als ADC
+					sprintf(display_buffer[6], "REFERENZLAUF:");
+					sprintf(display_buffer[7], "        START");
 					if (btn_ok_pressed) {
 						btn_ok_pressed = 0;
 						current_state = EXEC_REFERENCE_RUN;
@@ -471,7 +468,7 @@ int main(void) {
 						current_state = EXEC_REFERENCE_RUN;
 					}
 				} else if (current_state == EXEC_REFERENCE_RUN) {
-			        SwitchPa3ModeIfNeeded(false); 	    // Drucksensor als GPIO IT
+//			        SwitchPa3ModeIfNeeded(false); 	    // Drucksensor als GPIO IT
 
 					Z_Axis_ReferenceRun(&dac, &z_axis_success);
 					HAL_Delay(1000);
@@ -483,10 +480,13 @@ int main(void) {
 					if (a_axis_success){
 						HAL_UART_Transmit(&huart1, (uint8_t*) "A Reference Run successful\r\n", 28, 1000);
 					}
+				    display_jazz_clear(&display1);
+
 					HAL_Delay(1000);
 					current_state = TEST_START;
 				} else if (current_state == TEST_START) {
-
+					sprintf(display_buffer[6], "TEST-MODUS");
+					sprintf(display_buffer[7], "DEMO/1  KURZ/2 LANG/3");
 					if (btn_up_pressed) {
 						btn_up_pressed = 0;
 						num_total_cycles = 10;
@@ -510,8 +510,8 @@ int main(void) {
 						current_state = TEST_RUN; // LANG-Modus
 					}
 				} else if (current_state == TEST_RUN) {
-					display_jazz_write_string_5x7(&display1, 0, "Test...");
-
+					sprintf(display_buffer[7], "TEST RUN...");
+					ad5684_set_voltage(&dac, 2.9f, d_mot); // Druck gegen Drucksensor
 					if (current_cycle >= num_total_cycles) {
 						current_state = COMPLETED;
 					}
@@ -564,7 +564,7 @@ int main(void) {
 					// Test abgeschlossen
 					display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
-					SwitchPa3ModeIfNeeded(true);
+//					SwitchPa3ModeIfNeeded(true);
 					HAL_Delay(2000);
 					current_state = IDLE_START;
 				}
@@ -590,7 +590,7 @@ int main(void) {
 					next_1ms_tick = HAL_GetTick() + 1;
 					A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 					Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
-					ADC_Drucksensor(&hadc1);
+//					ADC_Drucksensor(&hadc1);
 				}
 
 		/* USER CODE END WHILE */
@@ -980,7 +980,7 @@ static void MX_TIM5_Init(void) {
 	/* USER CODE END TIM5_Init 1 */
 	htim5.Instance = TIM5;
 	htim5.Init.Prescaler = 0;
-	htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim5.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
 	htim5.Init.Period = 4294967295;
 	htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
