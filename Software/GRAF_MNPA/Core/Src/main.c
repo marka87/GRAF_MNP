@@ -73,7 +73,7 @@ UART_HandleTypeDef huart1;
 ad5684_dac_t dac;
 
 typedef enum {
-	IDLE_START, EXEC_REFERENCE_RUN, TEST_START, TEST_RUN, COMPLETED
+	IDLE_START, EXEC_REFERENCE_RUN, TEST_START, TEST_RUN, STOP, COMPLETED
 } run_state_t;
 
 run_state_t current_state = IDLE_START;
@@ -211,10 +211,8 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 
 	} else if (strcmp(command, "r") == 0) { // Relais an/aus
-		HAL_GPIO_TogglePin(GPIOB, Z_AX_REL_EN_Pin);
-		ad5684_set_voltage(&dac, 2.5f, z_mot);
-		snprintf(response, sizeof(response), "Relais toggled und Spannung gesetzt.\r\n");
-
+        snprintf(response, sizeof(response), "System reset initiated.\r\n");
+        NVIC_SystemReset();
 	} else if (strcmp(command, "s") == 0) { // Referenzlauf starten
 		current_state = EXEC_REFERENCE_RUN;
 		snprintf(response, sizeof(response), "Referenzlauf gestartet.\r\n");
@@ -240,6 +238,11 @@ void Process_UART_Command(const char *command) {
 	} else if (strcmp(command, "x") == 0) { // Position auf 3000 setzen
 		Z_Axis_TargetPosition = 3000;
 		snprintf(response, sizeof(response), "Position auf 3000 gesetzt.\r\n");
+	} else if (strcmp(command, "q") == 0) {
+        current_state = STOP;
+		snprintf(response, sizeof(response), "Testablauf Abbgebrochen. \r\n");
+
+
 
 	} else {
 		snprintf(response, sizeof(response), "Unbekanntes Kommando: %s\r\n",
@@ -322,7 +325,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		if (current_state == IDLE_START) {
-					sprintf(display_buffer[6], "REFERENZLAUF:");
+					sprintf(display_buffer[6], "Bitte Starten:");
 					sprintf(display_buffer[7], "        START");
 					if (btn_ok_pressed) {
 						btn_ok_pressed = 0;
@@ -373,8 +376,15 @@ int main(void)
 					}
 					//Testlauf durchführen
 				} else if (current_state == TEST_RUN) {
+					int16_t ds_value = ADC_Drucksensor(&hadc1);
+					if (ds_value > 3000) {
+					display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
+					HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
+//					current_state = STOP;
+
+					}else{
 					sprintf(display_buffer[7], "TEST RUN...");
-					ad5684_set_voltage(&dac, 2.9f, d_mot); // Druck gegen Drucksensor
+//					ad5684_set_voltage(&dac, 2.5f, d_mot); // Druck gegen Drucksensor
 					if (current_cycle >= num_total_cycles) {
 						current_state = COMPLETED;
 					}
@@ -404,21 +414,35 @@ int main(void)
 								if (current_cycle > num_total_cycles) {
 									current_state = COMPLETED;
 
-									if (ADC_Drucksensor(&hadc1) > 50) {
-										display_jazz_write_string_5x7(&display1, 0, "Fehler: Drucksensor");
-										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
+//									if (ADC_Drucksensor(&hadc1) > 50) {
+//										display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
+//										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
+//										current_state = STOP;
+
 									}
 								}
 							}
 						} else if (current_state == COMPLETED) {
-
 						}
 					}
+					} else if (current_state == STOP) {
+				        // Alles abschalten / neutral setzen:
+						Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
+
+				        display_jazz_write_string_5x7(&display1, 6, "Test abgebrochen");
+				        display_jazz_write_string_5x7(&display1, 7, "Bitte neu starten");
+
+				        // Hier kannst du jetzt warten, bis der User per OK-Taste
+				        // oder neuem UART-Befehl zurück zum IDLE_START will:
+				        if (btn_ok_pressed) {
+				            btn_ok_pressed = 0;
+				            current_state = TEST_START;
+				        }
 				} else if (current_state == COMPLETED) {
 					// Test abgeschlossen
 					display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
-					Z_Axis_TargetPosition = z_ax_no_pos + 100;
+					Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 					HAL_Delay(2000);
 					current_state = IDLE_START;
 				}
@@ -445,6 +469,9 @@ int main(void)
 					A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 					Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 					ADC_Drucksensor(&hadc1);
+//				    bool holding = abs(Z_Axis_TargetPosition - Encoder_GetPosition_Z_AXIS()) < 10;
+//					Z_Axis_Control(&dac, Z_Axis_TargetPosition, holding);
+
 				}
 
     /* USER CODE END WHILE */

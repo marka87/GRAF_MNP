@@ -117,10 +117,9 @@ namespace MnpControl
         {
             _devConnection.Write("-");
         }
-
-        private void BtnStart(object sender, RoutedEventArgs e)
+        private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
-
+            _devConnection.Write("q");
         }
     }
 }

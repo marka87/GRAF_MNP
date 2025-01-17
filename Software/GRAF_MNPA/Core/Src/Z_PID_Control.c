@@ -12,21 +12,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-//#define KP 0.007f			//Wow
-//#define KI 0.00006f
-//#define KD 0.05f
+//#define KP 0.006f			//Wow
+//#define KI 0.00007f
+//#define KD 0.0000075f
 
-#define KP 0.0007f			//Wow light
-#define KI 0.000006f
-#define KD 0.005f
+//#define KP 0.0007f			//Wow light
+//#define KI 0.000006f
+//#define KD 0.000001f
 
 //#define KP 0.00045f		//Sanft
 //#define KI 0.00000151f
 //#define KD 0.00000012f
 
-//#define KP 0.00045f			//Thomas
-//#define KI 0.00000151f
-//#define KD 0.00012f
+#define KP 0.00045f			//Thomas
+#define KI 0.00000151f
+#define KD 0.00012f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
@@ -85,9 +85,9 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 //#include "AD5684RARUZ.h"
 //#include <stdlib.h>
 //#include <stdio.h>
-//#define KP_HOLD 0.007f      // Wow
+//#define KP_HOLD 0.005f      // Wow
 //#define KI_HOLD 0.00007f
-//#define KD_HOLD 0.075f
+//#define KD_HOLD 0.0075f
 //
 //#define KP_MOVE 0.00045f    // Sanft
 //#define KI_MOVE 0.00000151f
@@ -152,9 +152,9 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 //void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 //{
 //    /* Bestimme, ob wir im Haltemodus sind */
-//    bool holding = abs(Z_Axis_TargetPosition - Encoder_GetPosition_Z_AXIS()) < 350;
+//    bool holding = abs(Z_Axis_TargetPosition - Encoder_GetPosition_Z_AXIS()) < 10;
 //
 //    /* Rufe die Steuerungsfunktion auf */
 //    Z_Axis_Control(dac, Z_Axis_TargetPosition, holding);
 //}
-//
+
