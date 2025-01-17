@@ -59,6 +59,9 @@ namespace MnpControl
                 }
 
                 TxtDrucksensor.Text = sSplit[1];
+                TxtAaxisPos.Text = sSplit[2];
+                TxtZaxisPosIst.Text = sSplit[3];
+                TxtZaxisPosSoll.Text = sSplit[4];
             }
 
             Debug.WriteLine(msg);
@@ -89,6 +92,35 @@ namespace MnpControl
         private void BtnStartReferenceRun_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("s");
+        }
+        private void BtnStartDemoRun_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("1");
+        }
+        private void BtnStartShortRun_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("2");
+        }
+        private void BtnStartLongRun_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("3");
+        }
+        private void BtnReset_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("r");
+        }
+        private void BtnUp_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("+");
+        }
+        private void BtnDown_Click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("-");
+        }
+
+        private void BtnStart(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

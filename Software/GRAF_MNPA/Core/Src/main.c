@@ -34,8 +34,7 @@
 #include "Reference_Run.h"
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
-#include "Z_Axis_Test.h"
-
+#include "handle_button.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,7 +80,6 @@ run_state_t current_state = IDLE_START;
 
 typedef enum {
 	GO_DOWN, GO_UP
-
 } test_run_mode_t;
 
 test_run_mode_t test_run_mode = GO_UP;
@@ -93,18 +91,16 @@ extern uint32_t a_encoder_start;
 extern uint32_t a_encoder_end;
 extern uint32_t z_encoder_start;
 extern uint32_t z_encoder_end;
+extern uint32_t z_ax_no_pos;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
 extern float voltage;
-extern uint32_t z_ax_no_pos;
-
-/* Button States */
-uint8_t btn_up_state = 0, last_btn_up_state = 1;
-uint8_t btn_down_state = 0, last_btn_down_state = 1;
-uint8_t btn_ok_state = 0, last_btn_ok_state = 1;
-
-uint8_t btn_ok_pressed = 0;
-uint8_t btn_up_pressed = 0;
-uint8_t btn_down_pressed = 0;
+/* UART Callback */
+static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
+static uint8_t uart_rx_index = 0;
+static volatile uint8_t UART1_rxBuffer[1] = { 0 };
+static volatile bool byte_handled = true;
+static volatile uint8_t byte_received = 0;
+static bool tick_100ms_testrun_elapsed = false;
 
 uint32_t next_100ms_tick = 0;
 uint32_t next_10ms_tick = 0;
@@ -117,7 +113,8 @@ int32_t target_position_final = 0;
 int32_t target_position_running = 0;
 
 volatile bool ds_was_activated = false;
-
+volatile bool z_axis_success = false;
+volatile bool a_axis_success = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,47 +131,16 @@ static void MX_SPI4_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
+void update_display(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 display_info_t display1 = {								//The Display init
 		.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 				.lcd_ram_pages = 8 };
 
-/* Prototypes */
-void handle_button_up(void);
-void handle_button_down(void);
-void handle_button_ok(void);
-void update_display(void);
-
-/* Handle BTN_UP */
-void handle_button_ok() {
-	btn_ok_state = HAL_GPIO_ReadPin(GPIOE, BTN_OK_Pin);
-	if (btn_ok_state == GPIO_PIN_RESET && last_btn_ok_state == GPIO_PIN_SET) {
-		btn_ok_pressed = 1;
-	}
-	last_btn_ok_state = btn_ok_state;
-}
-/* Handle BTN_UP */
-void handle_button_up() {
-	btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
-	if (btn_up_state == GPIO_PIN_RESET && last_btn_up_state == GPIO_PIN_SET) {
-		btn_up_pressed = 1;
-	}
-	last_btn_up_state = btn_up_state;
-}
-/* Handle BTN_DOWN */
-void handle_button_down() {
-	btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin);
-	if (btn_down_state == GPIO_PIN_RESET
-			&& last_btn_down_state == GPIO_PIN_SET) {
-		btn_down_pressed = 1;
-	}
-	last_btn_down_state = btn_down_state;
-}
 /* Update Display */
 void update_display() {
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
@@ -197,34 +163,21 @@ void update_display() {
 
 	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition); // Zeile 4: Sollwert der Z-Achse
 
-
-
 	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
 
 	char datablock[256];
-	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state, sensorVoltage, a_axis_position, z_axis_position, Z_Axis_TargetPosition);
+	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state,
+			sensorVoltage, a_axis_position, z_axis_position,
+			Z_Axis_TargetPosition);
 
 	HAL_UART_Transmit(&huart1, datablock, strlen(datablock), 2000);
 }
 
 
-static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
-static uint8_t uart_rx_index = 0;
 
-/* UART Callback */
-static volatile uint8_t UART1_rxBuffer[1] = { 0 };
-static volatile bool byte_handled = true;
-static volatile uint8_t byte_received = 0;
 
-static bool tick_100ms_testrun_elapsed = false;
-
-//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//	byte_received = UART1_rxBuffer[0];
-//	byte_handled = false;
-//	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
-//}
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart == &huart1) {
 		char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
@@ -357,19 +310,10 @@ int main(void)
 	ad5684_init(&dac);
 
 	display_jazz_init(&display1);
-//	HAL_GPIO_WritePin(GPIOD, EN_G_Pin|EN_B_Pin|EN_R_Pin, GPIO_PIN_SET);	//Display background ON
 	HAL_GPIO_WritePin(GPIOD, EN_R_Pin, GPIO_PIN_SET); //Display background ON
-//	display_jazz_clear(&display1);
-
-	/* Encoder Initialization */
 	Encoder_Init();
 
-
-	bool z_axis_success = false;
-	bool a_axis_success = false;
-
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
-
 
 	HAL_Delay(1000);
   /* USER CODE END 2 */
@@ -378,7 +322,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		if (current_state == IDLE_START) {
-//					SwitchPa3ModeIfNeeded(true); // Drucksensor als ADC
 					sprintf(display_buffer[6], "REFERENZLAUF:");
 					sprintf(display_buffer[7], "        START");
 					if (btn_ok_pressed) {
@@ -388,12 +331,10 @@ int main(void)
 						byte_handled = true;
 						current_state = EXEC_REFERENCE_RUN;
 					}
+					//Referenzlauf starten
 				} else if (current_state == EXEC_REFERENCE_RUN) {
-//			        SwitchPa3ModeIfNeeded(false); 	    // Drucksensor als GPIO IT
-
 					Z_Axis_ReferenceRun(&dac, &z_axis_success);
 					HAL_Delay(1000);
-
 					if (z_axis_success) {
 						HAL_UART_Transmit(&huart1, (uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
 					}
@@ -402,9 +343,9 @@ int main(void)
 						HAL_UART_Transmit(&huart1, (uint8_t*) "A Reference Run successful\r\n", 28, 1000);
 					}
 				    display_jazz_clear(&display1);
-
 					HAL_Delay(1000);
 					current_state = TEST_START;
+					//Testlauf start
 				} else if (current_state == TEST_START) {
 					sprintf(display_buffer[6], "TEST-MODUS");
 					sprintf(display_buffer[7], "DEMO/1  KURZ/2 LANG/3");
@@ -430,16 +371,15 @@ int main(void)
 						target_position_running = Encoder_GetPosition_Z_AXIS();
 						current_state = TEST_RUN; // LANG-Modus
 					}
+					//Testlauf durchführen
 				} else if (current_state == TEST_RUN) {
 					sprintf(display_buffer[7], "TEST RUN...");
 					ad5684_set_voltage(&dac, 2.9f, d_mot); // Druck gegen Drucksensor
 					if (current_cycle >= num_total_cycles) {
 						current_state = COMPLETED;
 					}
-
 					if (tick_100ms_testrun_elapsed) {
 						tick_100ms_testrun_elapsed = false;
-
 						if (test_run_mode == GO_UP) {
 
 							Z_Axis_TargetPosition = z_ax_no_pos + 200;
@@ -467,28 +407,22 @@ int main(void)
 									if (ADC_Drucksensor(&hadc1) > 50) {
 										display_jazz_write_string_5x7(&display1, 0, "Fehler: Drucksensor");
 										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
-
 									}
-
 								}
-
 							}
 						} else if (current_state == COMPLETED) {
-		//					while (1)
-		//                        ;
 
 						}
-
 					}
-
 				} else if (current_state == COMPLETED) {
 					// Test abgeschlossen
 					display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
-//					SwitchPa3ModeIfNeeded(true);
+					Z_Axis_TargetPosition = z_ax_no_pos + 100;
 					HAL_Delay(2000);
 					current_state = IDLE_START;
 				}
+				// UART, Ticks und Display aktualisieren
 				if (!byte_handled) {
 					Process_UART_Command(uart_rx_buffer);
 					byte_handled = true;
@@ -496,6 +430,7 @@ int main(void)
 
 				if (HAL_GetTick() >= next_100ms_tick) {
 					next_100ms_tick = HAL_GetTick() + 100;
+					tick_100ms_testrun_elapsed = true;
 
 					update_display();
 				}
@@ -504,8 +439,6 @@ int main(void)
 					handle_button_ok();
 					handle_button_up();
 					handle_button_down();
-					tick_100ms_testrun_elapsed = true;
-
 				}
 				if (HAL_GetTick() >= next_1ms_tick) {
 					next_1ms_tick = HAL_GetTick() + 1;

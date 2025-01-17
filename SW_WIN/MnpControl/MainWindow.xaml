@@ -10,11 +10,23 @@
         Closing="Window_Closing"
         >
     <Grid>
-        <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" HorizontalAlignment="Left" Height="34" Margin="128,53,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartReferenceRun_Click"/>
-        <Label Content="Nadel oben:" HorizontalAlignment="Left" Margin="31,138,0,0" VerticalAlignment="Top" Width="96"/>
-        <TextBox x:Name="TxtNadelOben" HorizontalAlignment="Left" Margin="128,142,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Label Content="Drucksensor" HorizontalAlignment="Left" Margin="41,169,0,0" VerticalAlignment="Top" Width="86"/>
-        <TextBox x:Name="TxtDrucksensor" HorizontalAlignment="Left" Margin="128,173,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" HorizontalAlignment="Left" Height="34" Margin="593,111,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartReferenceRun_Click"/>
+        <Label Content="Nadel Oben Sensor erreicht:" HorizontalAlignment="Left" Margin="31,136,0,0" VerticalAlignment="Top" Width="166"/>
+        <TextBox x:Name="TxtNadelOben" HorizontalAlignment="Left" Margin="194,144,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Label Content="Drucksensorwerte (V):" HorizontalAlignment="Left" Margin="31,167,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
+        <TextBox x:Name="TxtDrucksensor" HorizontalAlignment="Left" Margin="194,175,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Label Content="A-Achse Position (inc):" HorizontalAlignment="Left" Margin="31,198,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
+        <TextBox x:Name="TxtAaxisPos" HorizontalAlignment="Left" Margin="194,206,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Label Content="Z-Achse Ist Position (inc):" HorizontalAlignment="Left" Margin="31,229,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
+        <TextBox x:Name="TxtZaxisPosIst" HorizontalAlignment="Left" Margin="194,237,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Label Content="Z-Achse Soll Position (inc)" HorizontalAlignment="Left" Margin="31,257,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
+        <TextBox x:Name="TxtZaxisPosSoll" HorizontalAlignment="Left" Margin="194,265,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
+        <Button x:Name="BtnStartDemo" Content="Demo Modus" HorizontalAlignment="Left" Height="34" Margin="593,164,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartDemoRun_Click"/>
+        <Button x:Name="BtnStartShort" Content="Kurz Modus" HorizontalAlignment="Left" Height="34" Margin="593,221,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartShortRun_Click"/>
+        <Button x:Name="BtnStartLong" Content="Lang Modus" HorizontalAlignment="Left" Height="34" Margin="593,274,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartLongRun_Click"/>
+        <Button x:Name="BtnReset" Content="RESET" HorizontalAlignment="Left" Height="53" Margin="70,337,0,0" VerticalAlignment="Top" Width="71" Background="#FFF4B1A9" Click="BtnReset_Click"/>
+        <Button x:Name="BtnUp" Content="▲" HorizontalAlignment="Left" Height="31" Margin="469,168,0,0" VerticalAlignment="Top" Width="41" Click="BtnUp_Click"/>
+        <Button x:Name="BtnDown" Content="▼" HorizontalAlignment="Left" Height="31" Margin="469,230,0,0" VerticalAlignment="Top" Width="41" Click="BtnDown_Click"/>
 
     </Grid>
 </Window>

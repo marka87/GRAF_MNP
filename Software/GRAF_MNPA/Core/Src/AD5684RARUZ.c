@@ -23,12 +23,10 @@
 #include <math.h>
 void ad5684_init(ad5684_dac_t *dac) {
 
-
 	uint8_t tx_buffer[3];
 	tx_buffer[0] = 0x40; //0011 Write to and update DAC Channel n + 0111 EN_DAC A, B, C
 	tx_buffer[1] = 0x00;
 	tx_buffer[2] = 0x00;
-
 
 	//	HAL_SPI_Transmit(dac->spi_handle, tx_buffer, 3, 2000);
 	HAL_GPIO_WritePin(dac->spi_cs_port, dac->spi_cs_pin, GPIO_PIN_RESET);
@@ -38,17 +36,11 @@ void ad5684_init(ad5684_dac_t *dac) {
 	HAL_GPIO_WritePin(dac->spi_cs_port, dac->spi_cs_pin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(dac->spi_handle, tx_buffer, 3, 2000);
 	HAL_GPIO_WritePin(dac->spi_cs_port, dac->spi_cs_pin, GPIO_PIN_SET);
-
-
-
-
 }
 
 void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
 
-
 	uint16_t ad5684_data = (uint16_t)((voltage / 5.0f) * 65535);
-
 
 	HAL_GPIO_WritePin(dac->spi_cs_port, dac->spi_cs_pin, GPIO_PIN_RESET);
 	uint8_t tx_buffer[3];
@@ -56,7 +48,6 @@ void ad5684_set_voltage(ad5684_dac_t *dac, float voltage, uint8_t dac_channel) {
 	tx_buffer[0] = 0x30 | dac_channel;	// 0011 (Write + Update)
 	tx_buffer[1] = (ad5684_data >> 8);	// Obere 8 Bits
 	tx_buffer[2] = (ad5684_data); 		// Untere
-
 
 	// Daten an DAC senden
 	HAL_SPI_Transmit(dac->spi_handle, tx_buffer, sizeof(tx_buffer), 2000); // / sizeof(uint8_t)
