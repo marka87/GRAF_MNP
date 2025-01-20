@@ -218,19 +218,19 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "Referenzlauf gestartet.\r\n");
 
 	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
-		num_total_cycles = 10;
+		num_total_cycles = 100;
 		current_cycle = 0;
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response), "Demo-Modus gestartet (10 Zyklen).\r\n");
 
     } else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 100 Zyklen
-        num_total_cycles = 100;
+        num_total_cycles = 1000;
         current_cycle = 0;
         current_state = TEST_RUN;
         snprintf(response, sizeof(response), "Kurz-Modus gestartet (100 Zyklen).\r\n");
 
     } else if (strcmp(command, "3") == 0) { // Lang-Modus mit 1000 Zyklen
-        num_total_cycles = 1000;
+        num_total_cycles = 10000;
         current_cycle = 0;
         current_state = TEST_RUN;
         snprintf(response, sizeof(response), "Lang-Modus gestartet (1000 Zyklen).\r\n");
@@ -340,10 +340,14 @@ int main(void)
 					HAL_Delay(1000);
 					if (z_axis_success) {
 						HAL_UART_Transmit(&huart1, (uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
+					}else{
+						current_state = STOP;
 					}
 					A_Axis_ReferenceRun(&dac, &a_axis_success);
 					if (a_axis_success){
 						HAL_UART_Transmit(&huart1, (uint8_t*) "A Reference Run successful\r\n", 28, 1000);
+					}else{
+						current_state = STOP;
 					}
 				    display_jazz_clear(&display1);
 					HAL_Delay(1000);
@@ -354,21 +358,21 @@ int main(void)
 					sprintf(display_buffer[7], "DEMO/1  KURZ/2 LANG/3");
 					if (btn_up_pressed) {
 						btn_up_pressed = 0;
-						num_total_cycles = 10;
+						num_total_cycles = 100;
 						current_cycle = 0;
 						target_position_final = z_ax_no_pos + 200;
 						target_position_running = Encoder_GetPosition_Z_AXIS();
 						current_state = TEST_RUN; // DEMO-Modus
 					} else if (btn_ok_pressed) {
 						btn_ok_pressed = 0;
-						num_total_cycles = 100;
+						num_total_cycles = 1000;
 						current_cycle = 0;
 						target_position_final = z_ax_no_pos + 200;
 						target_position_running = Encoder_GetPosition_Z_AXIS();
 						current_state = TEST_RUN; // KURZ-Modus
 					} else if (btn_down_pressed) {
 						btn_down_pressed = 0;
-						num_total_cycles = 1000;
+						num_total_cycles = 10000;
 						current_cycle = 0;
 						target_position_final = z_ax_no_pos + 200;
 						target_position_running = Encoder_GetPosition_Z_AXIS();
@@ -376,13 +380,16 @@ int main(void)
 					}
 					//Testlauf durchführen
 				} else if (current_state == TEST_RUN) {
+					ad5684_set_voltage(&dac, 2.9f, d_mot); // Druck gegen Drucksensor
+
 					int16_t ds_value = ADC_Drucksensor(&hadc1);
 					if (ds_value > 3000) {
 					display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
-//					current_state = STOP;
+					current_state = STOP;
+					}
+//					}else{
 
-					}else{
 					sprintf(display_buffer[7], "TEST RUN...");
 //					ad5684_set_voltage(&dac, 2.5f, d_mot); // Druck gegen Drucksensor
 					if (current_cycle >= num_total_cycles) {
@@ -414,12 +421,11 @@ int main(void)
 								if (current_cycle > num_total_cycles) {
 									current_state = COMPLETED;
 
-//									if (ADC_Drucksensor(&hadc1) > 50) {
+//									if (ADC_Drucksensor(&hadc1) > 100) {
 //										display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
 //										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
 //										current_state = STOP;
-
-									}
+//									}
 								}
 							}
 						} else if (current_state == COMPLETED) {
@@ -429,8 +435,10 @@ int main(void)
 				        // Alles abschalten / neutral setzen:
 						Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 
-				        display_jazz_write_string_5x7(&display1, 6, "Test abgebrochen");
-				        display_jazz_write_string_5x7(&display1, 7, "Bitte neu starten");
+				        display_jazz_write_string_5x7(&display1, 5, "Test abgebrochen");
+				        display_jazz_write_string_5x7(&display1, 6, "Bitte neu starten");
+				        display_jazz_write_string_5x7(&display1, 7, "        START");
+
 
 				        // Hier kannst du jetzt warten, bis der User per OK-Taste
 				        // oder neuem UART-Befehl zurück zum IDLE_START will:
@@ -440,11 +448,11 @@ int main(void)
 				        }
 				} else if (current_state == COMPLETED) {
 					// Test abgeschlossen
-					display_jazz_write_string_5x7(&display1, 0, "Test abgeschlossen");
+					display_jazz_write_string_5x7(&display1, 7, "Test abgeschlossen");
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
 					Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 					HAL_Delay(2000);
-					current_state = IDLE_START;
+					current_state = TEST_START;
 				}
 				// UART, Ticks und Display aktualisieren
 				if (!byte_handled) {
@@ -454,12 +462,13 @@ int main(void)
 
 				if (HAL_GetTick() >= next_100ms_tick) {
 					next_100ms_tick = HAL_GetTick() + 100;
-					tick_100ms_testrun_elapsed = true;
 
 					update_display();
 				}
 				if (HAL_GetTick() >= next_10ms_tick) {
 					next_10ms_tick = HAL_GetTick() + 10;
+					tick_100ms_testrun_elapsed = true;
+
 					handle_button_ok();
 					handle_button_up();
 					handle_button_down();
@@ -577,7 +586,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();

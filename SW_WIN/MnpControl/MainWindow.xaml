@@ -28,6 +28,7 @@
         <Button x:Name="BtnUp" Content="▲" HorizontalAlignment="Left" Height="31" Margin="469,168,0,0" VerticalAlignment="Top" Width="41" Click="BtnUp_Click"/>
         <Button x:Name="BtnDown" Content="▼" HorizontalAlignment="Left" Height="31" Margin="469,230,0,0" VerticalAlignment="Top" Width="41" Click="BtnDown_Click"/>
         <Button x:Name="BtnStop" Content="STOPP" HorizontalAlignment="Left" Height="53" Margin="180,337,0,0" VerticalAlignment="Top" Width="64" Click="BtnStop_Click" Background="#FFFFC700"/>
+        <TextBlock HorizontalAlignment="Left" Height="19" Margin="70,308,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="71"><Run Language="de-de" Text="µC RESET"/></TextBlock>
 
     </Grid>
 </Window>

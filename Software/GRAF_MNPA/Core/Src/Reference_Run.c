@@ -52,7 +52,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 			*success = false;
-			return;
+			break;
 		}
 	}
 	// Startposition speichern
@@ -71,7 +71,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 			*success = false;
-			return;
+			break;
 		}
 	}
 	// Endposition speichern

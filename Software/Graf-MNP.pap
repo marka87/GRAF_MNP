@@ -1,21 +1,31 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="D5A42C88A17448CE">
-  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2025.01.17 14:12:33">
+<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="657639FB83F75CD2">
+  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2025.01.19 17:14:46">
     <DIAGRAMS>
-      <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2024.12.05 09:21:59">
-        <LAYOUT FORMAT="1.00" COLUMNS="5" ROWS="16">
+      <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2025.01.19 17:14:46">
+        <LAYOUT FORMAT="1.00" COLUMNS="5" ROWS="20">
           <ENTRIES>
-            <ENTRY COLUMN="0" ROW="0" ANCHOR="True">
+            <ENTRY COLUMN="0" ROW="9">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="218">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="14">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="208">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="0" ANCHOR="True">
               <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
                 <TEXT><![CDATA[GRAF MNP]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="1">
+            <ENTRY COLUMN="1" ROW="1">
               <FIGURE SUBTYPE="PapStart" FORMAT="1.00" ID="1">
                 <TEXT><![CDATA[Start]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="2">
+            <ENTRY COLUMN="1" ROW="2">
               <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="28">
                 <TEXT><![CDATA[MX_GPIO_Init();
 MX_TIM2_Init();
@@ -28,98 +38,114 @@ MX_USART1_UART_Init();
 MX_SPI4_Init();]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="3">
+            <ENTRY COLUMN="1" ROW="3">
               <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="8">
                 <TEXT><![CDATA[AD5684RARUZ.h]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="4">
+            <ENTRY COLUMN="1" ROW="4">
               <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="10">
                 <TEXT><![CDATA[display_info_t]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="5">
+            <ENTRY COLUMN="1" ROW="5">
               <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="23">
                 <TEXT><![CDATA[encoder.h]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="6">
+            <ENTRY COLUMN="1" ROW="6">
               <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="20">
                 <TEXT><![CDATA[ADC_read.h]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="7">
+            <ENTRY COLUMN="1" ROW="7">
               <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="62">
                 <TEXT><![CDATA[Referenzlauf]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="8">
-              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="59">
-                <TEXT><![CDATA[Prüfprogramm]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="9">
+            <ENTRY COLUMN="1" ROW="8">
               <FIGURE SUBTYPE="PapLoopStart" FORMAT="1.00" ID="4" ASSOCIATE="6">
                 <TEXT><![CDATA[1=1?]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="10">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="64">
-                <TEXT><![CDATA[Mode_count = 0?]]></TEXT>
+            <ENTRY COLUMN="1" ROW="9">
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="161">
+                <TEXT><![CDATA[IDLE_START]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="11">
-              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="71">
-                <TEXT><![CDATA[PC-Modus]]></TEXT>
+            <ENTRY COLUMN="1" ROW="10">
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="154">
+                <TEXT><![CDATA[IDLE_START
+btn_ok_pressed?]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="13">
-              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="104">
-                <TEXT><![CDATA[Prüfprogramm Aufrufen]]></TEXT>
+            <ENTRY COLUMN="1" ROW="12">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="187">
+                <TEXT><![CDATA[]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="14">
+            <ENTRY COLUMN="1" ROW="13">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="190">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="15">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="150">
+                <TEXT><![CDATA[A_PIC_Control]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="16">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="148">
+                <TEXT><![CDATA[Z_PID_Control]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="17">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="152">
+                <TEXT><![CDATA[ADC_Drucksensor]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="18">
               <FIGURE SUBTYPE="PapLoopEnd" FORMAT="1.00" ID="6" ASSOCIATE="4">
                 <TEXT><![CDATA[]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="0" ROW="15">
+            <ENTRY COLUMN="1" ROW="19">
               <FIGURE SUBTYPE="PapEnd" FORMAT="1.00" ID="2">
                 <TEXT><![CDATA[Ende]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="2">
+            <ENTRY COLUMN="2" ROW="2">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="30">
                 <TEXT><![CDATA[initialisierung von Prototypen]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="3">
+            <ENTRY COLUMN="2" ROW="3">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="12">
                 <TEXT><![CDATA[DAC Unterprogramm/SPI für IC AD5684RARUZ]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="4">
+            <ENTRY COLUMN="2" ROW="4">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="13">
                 <TEXT><![CDATA[Display Unterprogramm]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="5">
+            <ENTRY COLUMN="2" ROW="5">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="25">
                 <TEXT><![CDATA[für die Motoren]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="6">
+            <ENTRY COLUMN="2" ROW="6">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="22">
                 <TEXT><![CDATA[Unterprogramm für ADC ( Lichtschranke I/O, Drucksensor skaliert)]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="7">
+            <ENTRY COLUMN="2" ROW="7">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="63">
                 <TEXT><![CDATA[Für die A-Achse ganze drehung von 0-bis n-Wert, dann die Mitte nehmen.
 Z-Achse fährt nach oben bis Nadel Oben sensor auslöst, dann langsam ganz nach unten bis DruckSensor auslöst.]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="8">
+            <ENTRY COLUMN="2" ROW="9">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="37">
                 <TEXT><![CDATA[Programm für Test modus Kurz, 
 Standard, Langzeittest. Wo die 
@@ -127,159 +153,94 @@ Ablauf gleich ist, nur die Zeit/Zyklenanzahl wird
 geändert]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="1" ROW="9">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="145">
-                <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="1" ROW="10">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="81">
-                <TEXT><![CDATA[Manuell_count == 0?
-Kurz]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="1" ROW="13">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="131">
-                <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
             <ENTRY COLUMN="2" ROW="10">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="116">
-                <TEXT><![CDATA[]]></TEXT>
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="162">
+                <TEXT><![CDATA[EXEC_REFERENCE_RUN]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="2" ROW="11">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="86">
-                <TEXT><![CDATA[Manuell_count = 1?
-Lang
-manuell_counter <=1]]></TEXT>
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="167">
+                <TEXT><![CDATA[z_axis_success,
+a_axis_success?]]></TEXT>
               </FIGURE>
             </ENTRY>
-            <ENTRY COLUMN="2" ROW="13">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="87">
+            <ENTRY COLUMN="2" ROW="12">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="185">
                 <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="3" ROW="10">
-              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="58">
-                <TEXT><![CDATA[Prüfprogramm unterprogramm wird aufgerufen mit 3 modis, Kurz, Standard, Lang]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="3" ROW="11">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="119">
-                <TEXT><![CDATA[]]></TEXT>
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="170">
+                <TEXT><![CDATA[TEST_START]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="3" ROW="12">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="94">
-                <TEXT><![CDATA[Manuell_count = 2?
-Dauer
-manuell_counter <=2]]></TEXT>
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="171">
+                <TEXT><![CDATA[btn_up_pressed = 100?
+btn_ok_pressed = 1000
+btn_down_pressed = 10000]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="3" ROW="13">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="122">
-                <TEXT><![CDATA[]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="4" ROW="9">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="142">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="192">
                 <TEXT><![CDATA[]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="4" ROW="12">
-              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="136">
-                <TEXT><![CDATA[]]></TEXT>
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="175">
+                <TEXT><![CDATA[TEST_RUN]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="4" ROW="13">
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="179">
+                <TEXT><![CDATA[ADC_Drucksensor
+NO_SEN_GPIO_Port? OK
+current_cycle >= num_total_cycles]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="4" ROW="14">
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="182">
+                <TEXT><![CDATA[COMPLETED]]></TEXT>
               </FIGURE>
             </ENTRY>
           </ENTRIES>
         </LAYOUT>
         <CONNECTIONS>
           <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="28" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="2" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="223" FROM="152" TO="6" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="21" FROM="20" TO="62" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="9" FROM="8" TO="10" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="11" FROM="10" TO="23" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="79" FROM="104" TO="6" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="225" FROM="148" TO="152" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="24" FROM="23" TO="20" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="128" FROM="81" TO="131" TEXT="ja" />
-          <CONNECTION FORMAT="1.00" ID="70" FROM="59" TO="4" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="174" FROM="171" TO="175" TEXT="ja" />
+          <CONNECTION FORMAT="1.00" ID="61" FROM="62" TO="4" TEXT="" />
           <CONNECTION FORMAT="1.00" ID="29" FROM="28" TO="8" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="61" FROM="62" TO="59" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="65" FROM="64" TO="71" TEXT="0" />
-          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="64" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="82" FROM="64" TO="81" TEXT="1" />
-          <CONNECTION FORMAT="1.00" ID="72" FROM="71" TO="104" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="133" FROM="131" TO="104" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="114" FROM="86" TO="87" TEXT="ja" />
-          <CONNECTION FORMAT="1.00" ID="134" FROM="87" TO="131" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="135" FROM="122" TO="87" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="118" FROM="116" TO="86" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="117" FROM="81" TO="116" TEXT="nein" />
-          <CONNECTION FORMAT="1.00" ID="121" FROM="119" TO="94" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="120" FROM="86" TO="119" TEXT="nein" />
-          <CONNECTION FORMAT="1.00" ID="123" FROM="94" TO="122" TEXT="ja" />
-          <CONNECTION FORMAT="1.00" ID="137" FROM="94" TO="136" TEXT="nein" />
-          <CONNECTION FORMAT="1.00" ID="139" FROM="136" TO="142" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="144" FROM="142" TO="145" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="147" FROM="145" TO="81" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="196" FROM="179" TO="192" TEXT="nein" />
+          <CONNECTION FORMAT="1.00" ID="151" FROM="150" TO="148" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="160" FROM="154" TO="162" TEXT="ja" />
+          <CONNECTION FORMAT="1.00" ID="178" FROM="175" TO="179" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="181" FROM="179" TO="182" TEXT="ja" />
+          <CONNECTION FORMAT="1.00" ID="193" FROM="171" TO="192" TEXT="nein" />
+          <CONNECTION FORMAT="1.00" ID="172" FROM="170" TO="171" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="169" FROM="167" TO="170" TEXT="ja" />
+          <CONNECTION FORMAT="1.00" ID="195" FROM="192" TO="190" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="2" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="191" FROM="187" TO="190" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="166" FROM="162" TO="167" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="184" FROM="154" TO="187" TEXT="nein" />
+          <CONNECTION FORMAT="1.00" ID="186" FROM="167" TO="185" TEXT="nein" />
+          <CONNECTION FORMAT="1.00" ID="189" FROM="185" TO="187" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="204" FROM="190" TO="150" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="161" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="226" FROM="182" TO="208" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="203" FROM="161" TO="154" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="211" FROM="208" TO="218" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="220" FROM="218" TO="161" TEXT="" />
         </CONNECTIONS>
       </DIAGRAM>
-      <DIAGRAM FORMAT="1.00" ID="1" NAME="Prüfprogramm" CREATED="2025.01.08 14:31:13" MODIFIED="2025.01.08 14:31:13">
-        <LAYOUT FORMAT="1.00" COLUMNS="2" ROWS="7">
-          <ENTRIES>
-            <ENTRY COLUMN="0" ROW="0" ANCHOR="True">
-              <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
-                <TEXT><![CDATA[Prüfprogramm]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="1">
-              <FIGURE SUBTYPE="PapStart" FORMAT="1.00" ID="1">
-                <TEXT><![CDATA[Start]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="2">
-              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="4">
-                <TEXT><![CDATA[Ausgabe von START]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="3">
-              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="6">
-                <TEXT><![CDATA[Referenzlauf  Z (NO_SEN + Druck SEN)]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="4">
-              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="11">
-                <TEXT><![CDATA[NO_Sensor erreicht?]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="5">
-              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="9">
-                <TEXT><![CDATA[Referenz A (DruckSensor)]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="0" ROW="6">
-              <FIGURE SUBTYPE="PapEnd" FORMAT="1.00" ID="2">
-                <TEXT><![CDATA[Ende]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-            <ENTRY COLUMN="1" ROW="3">
-              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="8">
-                <TEXT><![CDATA[Erfasst Encoder Start und Endwerte, A-Achse wird in der mitte positioniert.]]></TEXT>
-              </FIGURE>
-            </ENTRY>
-          </ENTRIES>
-        </LAYOUT>
-        <CONNECTIONS>
-          <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="4" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="6" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="11" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="10" FROM="9" TO="2" TEXT="" />
-          <CONNECTION FORMAT="1.00" ID="12" FROM="11" TO="9" TEXT="" />
-        </CONNECTIONS>
-      </DIAGRAM>
-      <DIAGRAM FORMAT="1.00" ID="2" NAME="Referenzlauf" CREATED="2025.01.17 14:10:19" MODIFIED="2025.01.17 14:10:19">
-        <LAYOUT FORMAT="1.00" COLUMNS="1" ROWS="3">
+      <DIAGRAM FORMAT="1.00" ID="2" NAME="Referenzlauf" CREATED="2025.01.17 14:10:19" MODIFIED="2025.01.19 17:14:46">
+        <LAYOUT FORMAT="1.00" COLUMNS="3" ROWS="11">
           <ENTRIES>
             <ENTRY COLUMN="0" ROW="0" ANCHOR="True">
               <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
@@ -292,14 +253,244 @@ manuell_counter <=2]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="0" ROW="2">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="4">
+                <TEXT><![CDATA[uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
+uint32_t start_tick = 0;
+*success = true;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="3">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="7">
+                <TEXT><![CDATA[HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="4">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="10">
+                <TEXT><![CDATA[ad5684_set_voltage(dac, 2.6f, z_mot);
+]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="5">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="13">
+                <TEXT><![CDATA[ad5684_set_voltage(dac, 2.0f, z_mot);
+bool nadel_oben_reached = false;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="6">
+              <FIGURE SUBTYPE="PapCondition" FORMAT="1.00" ID="16">
+                <TEXT><![CDATA[(HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin)?]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="7">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="23">
+                <TEXT><![CDATA[z_encoder_end = Encoder_GetPosition_Z_AXIS();]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="8">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="26">
+                <TEXT><![CDATA[Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="9">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="37">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="10">
               <FIGURE SUBTYPE="PapEnd" FORMAT="1.00" ID="2">
                 <TEXT><![CDATA[Ende]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="2">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="6">
+                <TEXT><![CDATA[Initialisiere Variablen und setze success auf true]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="3">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="9">
+                <TEXT><![CDATA[Aktiviere das Relais für die Z-Achse]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="4">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="12">
+                <TEXT><![CDATA[Fahre den Motor nach unten und messe die Anfangsposition]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="5">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="15">
+                <TEXT><![CDATA[Fahre den Motor nach oben, bis der "Nadel oben"-Sensor LOW wird oder eine Zeitbegrenzung erreicht ist]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="6">
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="20">
+                <TEXT><![CDATA[NO-Sen.: ERR]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="7">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="25">
+                <TEXT><![CDATA[Speichere die Endposition]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="8">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="28">
+                <TEXT><![CDATA[Berechne die Zielposition als Durchschnitt von Start- und Endposition]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="6">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="29">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="9">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="35">
+                <TEXT><![CDATA[]]></TEXT>
               </FIGURE>
             </ENTRY>
           </ENTRIES>
         </LAYOUT>
         <CONNECTIONS>
-          <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="2" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="4" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="7" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="8" FROM="7" TO="10" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="11" FROM="10" TO="13" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="14" FROM="13" TO="16" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="17" FROM="16" TO="23" TEXT="ja" />
+          <CONNECTION FORMAT="1.00" ID="19" FROM="16" TO="20" TEXT="nein" />
+          <CONNECTION FORMAT="1.00" ID="24" FROM="23" TO="26" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="38" FROM="37" TO="2" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="30" FROM="20" TO="29" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="32" FROM="29" TO="35" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="27" FROM="26" TO="37" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="39" FROM="35" TO="37" TEXT="" />
+        </CONNECTIONS>
+      </DIAGRAM>
+      <DIAGRAM FORMAT="1.00" ID="3" NAME="Z_PID_Control" CREATED="2025.01.19 16:55:12" MODIFIED="2025.01.19 16:55:12">
+        <LAYOUT FORMAT="1.00" COLUMNS="3" ROWS="12">
+          <ENTRIES>
+            <ENTRY COLUMN="0" ROW="2">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="38">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="0" ROW="10">
+              <FIGURE SUBTYPE="PapConnector" FORMAT="1.00" ID="22">
+                <TEXT><![CDATA[]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="0" ANCHOR="True">
+              <FIGURE SUBTYPE="PapTitle" FORMAT="1.00" ID="0">
+                <TEXT><![CDATA[Z_PID_Control]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="1">
+              <FIGURE SUBTYPE="PapStart" FORMAT="1.00" ID="1">
+                <TEXT><![CDATA[Start]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="2">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="4">
+                <TEXT><![CDATA[static float integral = 0.0f;
+static float previous_error = 0.0f;
+float voltage;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="3">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="6">
+                <TEXT><![CDATA[int encoder_value = Encoder_GetPosition_Z_AXIS();]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="4">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="8">
+                <TEXT><![CDATA[int error = encoder_value - Z_Axis_TargetPosition;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="5">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="10">
+                <TEXT><![CDATA[integral += error;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="6">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="12">
+                <TEXT><![CDATA[float derivative = (error - previous_error);]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="7">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="14">
+                <TEXT><![CDATA[float output =
+(KP * error) + (KI * integral) + (KD * derivative);]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="8">
+              <FIGURE SUBTYPE="PapOutput" FORMAT="1.00" ID="16">
+                <TEXT><![CDATA[voltage = NEUTRAL_VOLTAGE + output;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="9">
+              <FIGURE SUBTYPE="PapModule" FORMAT="1.00" ID="18">
+                <TEXT><![CDATA[ad5684_set_voltage(dac, voltage, z_mot);
+]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="10">
+              <FIGURE SUBTYPE="PapActivity" FORMAT="1.00" ID="20">
+                <TEXT><![CDATA[previous_error = (float)error;]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="1" ROW="11">
+              <FIGURE SUBTYPE="PapEnd" FORMAT="1.00" ID="2">
+                <TEXT><![CDATA[Ende]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="3">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="41">
+                <TEXT><![CDATA[Hole den aktuellen Istwert von der Z-Achsen-Encoder-Position]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="4">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="42">
+                <TEXT><![CDATA[Berechne den Fehler als Differenz zwischen Istwert und Sollwert]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="5">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="43">
+                <TEXT><![CDATA[Aktualisiere den Integralanteil]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="6">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="44">
+                <TEXT><![CDATA[Berechne den Differentialanteil]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="7">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="45">
+                <TEXT><![CDATA[Berechne das PID-Ausgangssignal]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="9">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="46">
+                <TEXT><![CDATA[Sende die Spannung an den DAC]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+            <ENTRY COLUMN="2" ROW="10">
+              <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="47">
+                <TEXT><![CDATA[Speichere den Fehler für den nächsten Zyklus]]></TEXT>
+              </FIGURE>
+            </ENTRY>
+          </ENTRIES>
+        </LAYOUT>
+        <CONNECTIONS>
+          <CONNECTION FORMAT="1.00" ID="3" FROM="1" TO="4" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="5" FROM="4" TO="6" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="7" FROM="6" TO="8" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="9" FROM="8" TO="10" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="11" FROM="10" TO="12" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="13" FROM="12" TO="14" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="15" FROM="14" TO="16" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="17" FROM="16" TO="18" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="19" FROM="18" TO="20" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="23" FROM="20" TO="22" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="40" FROM="38" TO="4" TEXT="" />
+          <CONNECTION FORMAT="1.00" ID="25" FROM="22" TO="38" TEXT="" />
         </CONNECTIONS>
       </DIAGRAM>
     </DIAGRAMS>

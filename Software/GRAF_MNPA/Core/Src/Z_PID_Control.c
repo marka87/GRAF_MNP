@@ -24,6 +24,10 @@
 //#define KI 0.00000151f
 //#define KD 0.00000012f
 
+//#define KP 0.00047f			//Testlauf
+//#define KI 0.0000015f
+//#define KD 0.000000012f
+
 #define KP 0.00045f			//Thomas
 #define KI 0.00000151f
 #define KD 0.00012f
