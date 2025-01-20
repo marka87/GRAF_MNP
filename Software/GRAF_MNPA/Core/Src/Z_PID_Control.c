@@ -12,31 +12,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-//#define KP 0.006f			//Wow
+//#define KP 0.007f			//Wow
 //#define KI 0.00007f
-//#define KD 0.0000075f
+//#define KD 0.075f
 
-//#define KP 0.0007f			//Wow light
-//#define KI 0.000006f
-//#define KD 0.000001f
-
-//#define KP 0.00045f		//Sanft
-//#define KI 0.00000151f
-//#define KD 0.00000012f
-
-//#define KP 0.00047f			//Testlauf
-//#define KI 0.0000015f
-//#define KD 0.000000012f
-
-#define KP 0.00045f			//Thomas
-#define KI 0.00000151f
-#define KD 0.00012f
+#define KP 0.00045f			//Sanft für ablauf
+#define KI 0.000000151f
+#define KD 0.000012f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
 #define NEUTRAL_VOLTAGE 2.5f
-
+//#define DT 0.1f
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
 

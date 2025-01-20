@@ -24,11 +24,14 @@
         <Button x:Name="BtnStartDemo" Content="Demo Modus" HorizontalAlignment="Left" Height="34" Margin="593,164,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartDemoRun_Click"/>
         <Button x:Name="BtnStartShort" Content="Kurz Modus" HorizontalAlignment="Left" Height="34" Margin="593,221,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartShortRun_Click"/>
         <Button x:Name="BtnStartLong" Content="Lang Modus" HorizontalAlignment="Left" Height="34" Margin="593,274,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartLongRun_Click"/>
-        <Button x:Name="BtnReset" Content="RESET" HorizontalAlignment="Left" Height="53" Margin="70,337,0,0" VerticalAlignment="Top" Width="71" Background="#FFF4B1A9" Click="BtnReset_Click"/>
+        <Button x:Name="BtnReset" Content="µC RESET" HorizontalAlignment="Left" Height="53" Margin="70,337,0,0" VerticalAlignment="Top" Width="71" Background="#FFF4B1A9" Click="BtnReset_Click"/>
         <Button x:Name="BtnUp" Content="▲" HorizontalAlignment="Left" Height="31" Margin="469,168,0,0" VerticalAlignment="Top" Width="41" Click="BtnUp_Click"/>
         <Button x:Name="BtnDown" Content="▼" HorizontalAlignment="Left" Height="31" Margin="469,230,0,0" VerticalAlignment="Top" Width="41" Click="BtnDown_Click"/>
         <Button x:Name="BtnStop" Content="STOPP" HorizontalAlignment="Left" Height="53" Margin="180,337,0,0" VerticalAlignment="Top" Width="64" Click="BtnStop_Click" Background="#FFFFC700"/>
-        <TextBlock HorizontalAlignment="Left" Height="19" Margin="70,308,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="71"><Run Language="de-de" Text="µC RESET"/></TextBlock>
+        <Label Content="Label" HorizontalAlignment="Left" Height="13" Margin="627,72,0,0" VerticalAlignment="Top" Width="109"/>
+        <Button x:Name="BtnTestStart" Content="⭮" HorizontalAlignment="Left" Height="27" Margin="652,327,0,0" VerticalAlignment="Top" Width="37" Click="BtnTestStart_click"/>
+        <TextBox x:Name="TxtStatus" HorizontalAlignment="Left" Margin="170,78,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="266" IsReadOnly="True" IsEnabled="False" Height="26" FontSize="16"/>
+        <Label Content="STATUS" HorizontalAlignment="Left" Height="26" Margin="170,47,0,0" VerticalAlignment="Top" Width="128"/>
 
     </Grid>
 </Window>

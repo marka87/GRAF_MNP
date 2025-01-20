@@ -45,6 +45,7 @@ namespace MnpControl
 
         private void UpdateStatus(string msg)
         {
+            Debug.WriteLine(msg);
             string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (sSplit.Length == 5)
             {
@@ -62,9 +63,18 @@ namespace MnpControl
                 TxtAaxisPos.Text = sSplit[2];
                 TxtZaxisPosIst.Text = sSplit[3];
                 TxtZaxisPosSoll.Text = sSplit[4];
+
+                return;
             }
 
-            Debug.WriteLine(msg);
+            if (msg.StartsWith("_STATUS_"))
+            {
+                msg = msg.Replace("_STATUS_", "");
+                TxtStatus.Text = msg.Trim();
+                return;
+            }
+
+            
         }
 
         private void Read()
@@ -120,6 +130,12 @@ namespace MnpControl
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("q");
+        }
+
+        private void BtnTestStart_click(object sender, RoutedEventArgs e)
+        {
+            _devConnection.Write("e");
+
         }
     }
 }

@@ -216,7 +216,9 @@ void Process_UART_Command(const char *command) {
 	} else if (strcmp(command, "s") == 0) { // Referenzlauf starten
 		current_state = EXEC_REFERENCE_RUN;
 		snprintf(response, sizeof(response), "Referenzlauf gestartet.\r\n");
-
+	} else if (strcmp(command, "e") == 0) { // Referenzlauf starten
+		current_state = TEST_START;
+		snprintf(response, sizeof(response), "Test gestartet.\r\n");
 	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
 		num_total_cycles = 100;
 		current_cycle = 0;
@@ -250,6 +252,7 @@ void Process_UART_Command(const char *command) {
 	}
 
 	// Rückmeldung senden
+	HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
 	HAL_UART_Transmit(&huart1, (uint8_t*) response, strlen(response),
 	HAL_MAX_DELAY);
 }
@@ -325,6 +328,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		if (current_state == IDLE_START) {
+					HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+					HAL_UART_Transmit(&huart1, (uint8_t*) "Bitte Referenzieren\r\n", 28, 1000);
 					sprintf(display_buffer[6], "Bitte Starten:");
 					sprintf(display_buffer[7], "        START");
 					if (btn_ok_pressed) {
@@ -339,26 +344,36 @@ int main(void)
 					Z_Axis_ReferenceRun(&dac, &z_axis_success);
 					HAL_Delay(1000);
 					if (z_axis_success) {
-						HAL_UART_Transmit(&huart1, (uint8_t*) "Z Reference Run successful\r\n", 28, 1000);
+						HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+						HAL_UART_Transmit(&huart1, (uint8_t*) "Z-Achse Referenz OK\r\n", 28, 1000);
 					}else{
+						HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+						HAL_UART_Transmit(&huart1, (uint8_t*) "Z-Achse Referenz Fehler\r\n", 28, 1000);
 						current_state = STOP;
+						continue;
 					}
 					A_Axis_ReferenceRun(&dac, &a_axis_success);
 					if (a_axis_success){
-						HAL_UART_Transmit(&huart1, (uint8_t*) "A Reference Run successful\r\n", 28, 1000);
+						HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+						HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz OK\r\n", 28, 1000);
 					}else{
+						HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+						HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz Fehler\r\n", 28, 1000);
 						current_state = STOP;
+						continue;
 					}
 				    display_jazz_clear(&display1);
 					HAL_Delay(1000);
 					current_state = TEST_START;
 					//Testlauf start
 				} else if (current_state == TEST_START) {
+					HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+					HAL_UART_Transmit(&huart1, (uint8_t*) "Modus?\r\n", 28, 1000);
 					sprintf(display_buffer[6], "TEST-MODUS");
-					sprintf(display_buffer[7], "DEMO/1  KURZ/2 LANG/3");
+					sprintf(display_buffer[7], "DEMO    KURZ   LANG");
 					if (btn_up_pressed) {
 						btn_up_pressed = 0;
-						num_total_cycles = 100;
+						num_total_cycles = 10;
 						current_cycle = 0;
 						target_position_final = z_ax_no_pos + 200;
 						target_position_running = Encoder_GetPosition_Z_AXIS();
@@ -380,18 +395,18 @@ int main(void)
 					}
 					//Testlauf durchführen
 				} else if (current_state == TEST_RUN) {
-					ad5684_set_voltage(&dac, 2.9f, d_mot); // Druck gegen Drucksensor
-
+					ad5684_set_voltage(&dac, 2.8f, d_mot); // Druck gegen Drucksensor
 					int16_t ds_value = ADC_Drucksensor(&hadc1);
-					if (ds_value > 3000) {
-					display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
+					if (ds_value > 100) {
+					sprintf(display_buffer[7], "Fehler: Drucksensor");
+					HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
 					current_state = STOP;
+					continue;
 					}
-//					}else{
-
+					HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+					HAL_UART_Transmit(&huart1, (uint8_t*) "TEST ... \r\n", 28, 1000);
 					sprintf(display_buffer[7], "TEST RUN...");
-//					ad5684_set_voltage(&dac, 2.5f, d_mot); // Druck gegen Drucksensor
 					if (current_cycle >= num_total_cycles) {
 						current_state = COMPLETED;
 					}
@@ -405,7 +420,8 @@ int main(void)
 								if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin)== GPIO_PIN_RESET) {
 									test_run_mode = GO_DOWN;
 								} else {
-									test_run_mode = COMPLETED;
+									current_state = STOP;
+									continue;
 								}
 							}
 						} else if (test_run_mode == GO_DOWN) {
@@ -421,23 +437,18 @@ int main(void)
 								if (current_cycle > num_total_cycles) {
 									current_state = COMPLETED;
 
-//									if (ADC_Drucksensor(&hadc1) > 100) {
-//										display_jazz_write_string_5x7(&display1, 7, "Fehler: Drucksensor");
-//										HAL_UART_Transmit(&huart1, (uint8_t*) "Fehler: Drucksensor \r\n", 28, 1000);
-//										current_state = STOP;
-//									}
 								}
 							}
-						} else if (current_state == COMPLETED) {
 						}
 					}
 					} else if (current_state == STOP) {
 				        // Alles abschalten / neutral setzen:
 						Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
-
-				        display_jazz_write_string_5x7(&display1, 5, "Test abgebrochen");
-				        display_jazz_write_string_5x7(&display1, 6, "Bitte neu starten");
-				        display_jazz_write_string_5x7(&display1, 7, "        START");
+						HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
+						HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgebrochen\r\n", 28, 1000);
+						sprintf(display_buffer[5], "Test abgebrochen");
+				        sprintf(display_buffer[6], "Bitte neustarten");
+				        sprintf(display_buffer[7], "        START");
 
 
 				        // Hier kannst du jetzt warten, bis der User per OK-Taste
@@ -448,7 +459,8 @@ int main(void)
 				        }
 				} else if (current_state == COMPLETED) {
 					// Test abgeschlossen
-					display_jazz_write_string_5x7(&display1, 7, "Test abgeschlossen");
+					sprintf(display_buffer[5], "Test abgeschlossen");
+					HAL_UART_Transmit(&huart1, "_STATUS_", 8 ,2000);
 					HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen \r\n", 28, 1000);
 					Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 					HAL_Delay(2000);
@@ -462,22 +474,25 @@ int main(void)
 
 				if (HAL_GetTick() >= next_100ms_tick) {
 					next_100ms_tick = HAL_GetTick() + 100;
+					tick_100ms_testrun_elapsed = true;
 
 					update_display();
 				}
 				if (HAL_GetTick() >= next_10ms_tick) {
 					next_10ms_tick = HAL_GetTick() + 10;
-					tick_100ms_testrun_elapsed = true;
+
 
 					handle_button_ok();
 					handle_button_up();
 					handle_button_down();
+
 				}
 				if (HAL_GetTick() >= next_1ms_tick) {
 					next_1ms_tick = HAL_GetTick() + 1;
 					A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 					Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 					ADC_Drucksensor(&hadc1);
+
 //				    bool holding = abs(Z_Axis_TargetPosition - Encoder_GetPosition_Z_AXIS()) < 10;
 //					Z_Axis_Control(&dac, Z_Axis_TargetPosition, holding);
 

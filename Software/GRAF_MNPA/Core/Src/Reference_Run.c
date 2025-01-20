@@ -43,10 +43,11 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 
 	ad5684_set_voltage(dac, 3.0f, a_mot); 	// Schritt 1: Motor im Uhrzeigersinn (3V) drehen
 	start_tick = HAL_GetTick();
-	bool drucksensor_error = false;
 
+//	bool drucksensor_error = false;
 	// Überprüfe Drucksensor während der Bewegung
 	while (HAL_GetTick() < (start_tick + 2000)) {
+		druck_sen_value = ADC_Drucksensor(&hadc1);
 		if (druck_sen_value > 50) {
 			// Fehler: Drucksensor ausgelöst
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
@@ -66,6 +67,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	start_tick = HAL_GetTick();
 	// Überprüfe Drucksensor während der Bewegung
 	while (HAL_GetTick() < (start_tick + 2000)) {
+		druck_sen_value = ADC_Drucksensor(&hadc1);
 		if (druck_sen_value > 50) {
 			// Fehler: Drucksensor ausgelöst
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
@@ -87,7 +89,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 }
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
-	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
+//	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
 
 	uint32_t start_tick = 0;
 
