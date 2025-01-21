@@ -16,15 +16,28 @@
 //#define KI 0.00007f
 //#define KD 0.075f
 
-#define KP 0.00045f			//Sanft für ablauf
-#define KI 0.000000151f
-#define KD 0.000012f
+//#define KP 0.0005f			//Sanft für ablauf
+//#define KI 0.00000016f
+//#define KD 0.000012f
+
+//#define KP 0.001f			//Sanft für ablauf
+//#define KI 0.000029f
+//#define KD 0.000031f
+
+//#define KP 0.00047f			//Testlauf
+//#define KI 0.0000015f
+//#define KD 0.000000012f
+
+#define KP 0.00047f			//Thomas
+#define KI 0.00000151f
+#define KD 0.00012f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
 #define NEUTRAL_VOLTAGE 2.5f
-//#define DT 0.1f
+//#define INTEGRAL_LIMIT  10000.0f
+
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
 
@@ -43,7 +56,8 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
 
     // Integralanteil
     integral += error; // * DT
-
+//    if (integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
+//    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
     /* Differentialanteil */
     float derivative = (error - previous_error); // / DT;
 

@@ -48,7 +48,7 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Überprüfe Drucksensor während der Bewegung
 	while (HAL_GetTick() < (start_tick + 2000)) {
 		druck_sen_value = ADC_Drucksensor(&hadc1);
-		if (druck_sen_value > 50) {
+		if (druck_sen_value > 100) {
 			// Fehler: Drucksensor ausgelöst
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
@@ -62,13 +62,15 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Motor stoppen
 	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 	HAL_Delay(100);
+
+
 	// Schritt 2: Motor gegen den Uhrzeigersinn (2V) drehen
 	ad5684_set_voltage(dac, 2.0f, a_mot);
 	start_tick = HAL_GetTick();
 	// Überprüfe Drucksensor während der Bewegung
 	while (HAL_GetTick() < (start_tick + 2000)) {
 		druck_sen_value = ADC_Drucksensor(&hadc1);
-		if (druck_sen_value > 50) {
+		if (druck_sen_value > 100) {
 			// Fehler: Drucksensor ausgelöst
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
@@ -85,7 +87,6 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Schritt 3: Mitte berechnen
 	A_Axis_TargetPosition = (a_encoder_start + a_encoder_end) / 2;
 	display_jazz_write_string_5x7(&display1, 3, "Referenzlauf OK");
-	*success = true;
 }
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
@@ -101,9 +102,8 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 
 	// Schritt 1: Motor nach unten (2,8V)
 	ad5684_set_voltage(dac, 2.6f, z_mot);
-	// Druck gegen Drucksensor (2,8V)
-//	ad5684_set_voltage(dac, 2.8f, d_mot);
-	HAL_Delay(500);
+
+	HAL_Delay(1000);
 
 	// Anfangsposition speichern
 	z_encoder_start = Encoder_GetPosition_Z_AXIS();
@@ -111,7 +111,6 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Schritt 2: Motor nach oben (2,1V)
 	start_tick = HAL_GetTick();
 	ad5684_set_voltage(dac, 2.0f, z_mot);
-	HAL_Delay(100);
 
 	bool nadel_oben_reached = false;
 	// Wir warten max. 2 Sekunden darauf, dass "Nadel oben" LOW wird
@@ -133,7 +132,7 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 		return;
 	}
 
-	HAL_Delay(1000);
+	HAL_Delay(500);
 
 	// Endposition speichern
 	z_encoder_end = Encoder_GetPosition_Z_AXIS();
@@ -148,10 +147,9 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 		ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot); // Minimal
 	}
 
-	HAL_Delay(200);
+	HAL_Delay(100);
 
 	// Schritt 4: Mitte / oder Position wählen
 	Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2; // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
 
-	*success = true;
 }
