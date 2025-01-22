@@ -280,36 +280,7 @@ void yellow_light() {
 void white_light() {
 	HAL_GPIO_WritePin(GPIOD, EN_R_Pin | EN_G_Pin | EN_B_Pin, GPIO_PIN_SET);
 }
-//void Move_Z_Axis_With_Voltage(ad5684_dac_t *dac, uint32_t target_position) {
-//    static uint8_t phase = 0; // 0: Bewegen mit Spannung, 1: Halten mit PID
-//    static uint32_t current_position = 0;
-//
-//    // Ist-Position auslesen
-//    current_position = Encoder_GetPosition_Z_AXIS();
-//
-//    // Bewegungsphase: Spannung steuern
-//    if (phase == 0) {
-//        if (current_position < target_position) {
-//            // Nach oben fahren (Spannung zwischen 2.5V und 0V)
-//            float voltage = 2.5f - ((float)(target_position - current_position) / 3500.0f) * 2.5f;
-//            if (voltage < 0.0f) voltage = 0.0f; // Begrenzung
-//            ad5684_set_voltage(dac, voltage, z_mot);
-//        } else if (current_position > target_position) {
-//            // Nach unten fahren (Spannung zwischen 2.5V und 5V)
-//            float voltage = 2.5f + ((float)(current_position - target_position) / 3500.0f) * 2.5f;
-//            if (voltage > 5.0f) voltage = 5.0f; // Begrenzung
-//            ad5684_set_voltage(dac, voltage, z_mot);
-//        } else {
-//            // Ziel erreicht, in die Haltephase wechseln
-//            phase = 1;
-//        }
-//    }
-//
-//    // Haltephase: PID-Regelung aktivieren
-//    if (phase == 1) {
-//     Z_Axis_PIDControl(dac, target_position);
-//    }
-//}
+
 
 /* USER CODE END 0 */
 
@@ -553,12 +524,12 @@ int main(void)
 		}
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;
-//			tick_100ms_testrun_elapsed = true;
+			tick_100ms_testrun_elapsed = true;
 			update_display();
 		}
 		if (HAL_GetTick() >= next_10ms_tick) {
 			next_10ms_tick = HAL_GetTick() + 10;
-			tick_100ms_testrun_elapsed = true;
+//			tick_100ms_testrun_elapsed = true;
 
 			handle_button_ok();
 			handle_button_up();
@@ -833,7 +804,7 @@ static void MX_TIM2_Init(void)
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -988,23 +959,25 @@ static void MX_TIM5_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 1;
+  sConfig.IC1Filter = 15;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 1;
+  sConfig.IC2Filter = 15;
   if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM5_Init 2 */
-
+  __HAL_TIM_ENABLE_IT(&htim5, TIM_IT_UPDATE);
+      HAL_NVIC_SetPriority(TIM5_IRQn, 0, 0);
+      HAL_NVIC_EnableIRQ(TIM5_IRQn);
   /* USER CODE END TIM5_Init 2 */
 
 }

@@ -15,5 +15,6 @@
 void Encoder_Init(void);
 int32_t Encoder_GetPosition_A_AXIS(void);
 int32_t Encoder_GetPosition_Z_AXIS(void);
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 
 #endif /* SRC_ENCODER_H_ */

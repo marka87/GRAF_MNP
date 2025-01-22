@@ -10,6 +10,8 @@
 #include <stm32f7xx_hal_tim.h>
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim5;
+volatile int32_t encoder_position_A_AXIS = 0;
+volatile int32_t encoder_position_Z_AXIS = 0;
 
 // Initialize the Encoders
 void Encoder_Init(void) {
@@ -22,11 +24,46 @@ void Encoder_Init(void) {
     __HAL_TIM_SET_COUNTER(&htim5, 0); // Reset position to zero
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+    if (htim == &htim2) { // A_AXIS Encoder
+        if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)) {
+            encoder_position_A_AXIS -= UINT32_MAX; // Unterlauf
+        } else {
+            encoder_position_A_AXIS += UINT32_MAX; // Überlauf
+        }
+    } else if (htim == &htim5) { // Z_AXIS Encoder
+        if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)) {
+            encoder_position_Z_AXIS -= UINT32_MAX; // Unterlauf
+        } else {
+            encoder_position_Z_AXIS += UINT32_MAX; // Überlauf
+        }
+    }
+}
+int32_t Encoder_GetPosition_A_AXIS(void) {
+    // Atomarer Zugriff (Interrupts deaktivieren)
+    __disable_irq();
+    int32_t position = encoder_position_A_AXIS + __HAL_TIM_GET_COUNTER(&htim2);
+    __enable_irq();
+    return position;
+}
 
 int32_t Encoder_GetPosition_Z_AXIS(void) {
-    return __HAL_TIM_GET_COUNTER(&htim5);
+    __disable_irq();
+    int32_t position = encoder_position_Z_AXIS + __HAL_TIM_GET_COUNTER(&htim5);
+    if (abs(position) < 1) {  // Toleranzbereich von 10
+        encoder_position_Z_AXIS = 0;
+        __HAL_TIM_SET_COUNTER(&htim5, 0);
+        position = 0;
+    }
+    __enable_irq();
+    return position;
 }
 
-int32_t Encoder_GetPosition_A_AXIS(void) {
-    return __HAL_TIM_GET_COUNTER(&htim2);
-}
+
+//int32_t Encoder_GetPosition_Z_AXIS(void) {
+//    return __HAL_TIM_GET_COUNTER(&htim5);
+//}
+//
+//int32_t Encoder_GetPosition_A_AXIS(void) {
+//    return __HAL_TIM_GET_COUNTER(&htim2);
+//}
