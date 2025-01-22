@@ -22,7 +22,7 @@
 #define ENCODER_TOLERANCE 100
 extern ADC_HandleTypeDef hadc1;
 extern display_info_t display1;
-extern char display_buffer[DISPLAY_MAX_LINES][30];
+//extern char display_buffer[DISPLAY_MAX_LINES][30];
 
 uint32_t A_Axis_TargetPosition = 0;
 uint32_t Z_Axis_TargetPosition = 0;
@@ -150,6 +150,6 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	HAL_Delay(100);
 
 	// Schritt 4: Mitte / oder Position wählen
-	Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2; // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
+	Z_Axis_TargetPosition = z_ax_no_pos + 50; // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
 
 }

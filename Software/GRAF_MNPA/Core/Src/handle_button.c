@@ -28,7 +28,7 @@ void handle_button_ok() {
 }
 /* Handle BTN_UP */
 void handle_button_up() {
-	btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
+	btn_up_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin); //ACHTUNG, UP und DOwN vertauscht!
 	if (btn_up_state == GPIO_PIN_RESET && last_btn_up_state == GPIO_PIN_SET) {
 		btn_up_pressed = 1;
 	}
@@ -36,7 +36,7 @@ void handle_button_up() {
 }
 /* Handle BTN_DOWN */
 void handle_button_down() {
-	btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_DOWN_Pin);
+	btn_down_state = HAL_GPIO_ReadPin(GPIOE, BTN_UP_Pin);
 	if (btn_down_state == GPIO_PIN_RESET && last_btn_down_state == GPIO_PIN_SET) {
 		btn_down_pressed = 1;
 	}

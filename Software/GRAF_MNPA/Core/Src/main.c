@@ -35,6 +35,7 @@
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
 #include "handle_button.h"
+#include "d_mot_control.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -279,7 +280,36 @@ void yellow_light() {
 void white_light() {
 	HAL_GPIO_WritePin(GPIOD, EN_R_Pin | EN_G_Pin | EN_B_Pin, GPIO_PIN_SET);
 }
-
+//void Move_Z_Axis_With_Voltage(ad5684_dac_t *dac, uint32_t target_position) {
+//    static uint8_t phase = 0; // 0: Bewegen mit Spannung, 1: Halten mit PID
+//    static uint32_t current_position = 0;
+//
+//    // Ist-Position auslesen
+//    current_position = Encoder_GetPosition_Z_AXIS();
+//
+//    // Bewegungsphase: Spannung steuern
+//    if (phase == 0) {
+//        if (current_position < target_position) {
+//            // Nach oben fahren (Spannung zwischen 2.5V und 0V)
+//            float voltage = 2.5f - ((float)(target_position - current_position) / 3500.0f) * 2.5f;
+//            if (voltage < 0.0f) voltage = 0.0f; // Begrenzung
+//            ad5684_set_voltage(dac, voltage, z_mot);
+//        } else if (current_position > target_position) {
+//            // Nach unten fahren (Spannung zwischen 2.5V und 5V)
+//            float voltage = 2.5f + ((float)(current_position - target_position) / 3500.0f) * 2.5f;
+//            if (voltage > 5.0f) voltage = 5.0f; // Begrenzung
+//            ad5684_set_voltage(dac, voltage, z_mot);
+//        } else {
+//            // Ziel erreicht, in die Haltephase wechseln
+//            phase = 1;
+//        }
+//    }
+//
+//    // Haltephase: PID-Regelung aktivieren
+//    if (phase == 1) {
+//     Z_Axis_PIDControl(dac, target_position);
+//    }
+//}
 
 /* USER CODE END 0 */
 
@@ -380,19 +410,20 @@ int main(void)
 				continue;
 			}
 			HAL_Delay(1000);
-//			A_Axis_ReferenceRun(&dac, &a_axis_success);
-//			if (a_axis_success) {
-//				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-//				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz OK\r\n", 28, 1000);
-//			} else {
-//				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-//				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz Fehler\r\n", 28, 1000);
-//				sprintf(display_buffer[6], "A-Achse Ref. Fehler");
-//				red_light();
-//				current_state = FEHLER;
-//				continue;
-//			}
-//			HAL_Delay(1000);
+			A_Axis_ReferenceRun(&dac, &a_axis_success);
+			if (a_axis_success) {
+				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
+				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz OK\r\n", 28, 1000);
+			} else {
+				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
+				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz Fehler\r\n", 28, 1000);
+				sprintf(display_buffer[6], "A-Achse Ref. Fehler");
+				red_light();
+				current_state = FEHLER;
+				continue;
+			}
+			d_mot_control(&dac, 2.9f);
+			HAL_Delay(1000);
 			current_state = TEST_START;
 
 		} else if (current_state == TEST_START) {
@@ -427,7 +458,7 @@ int main(void)
 			//Testlauf durchführen
 		} else if (current_state == TEST_RUN) {
 			white_light();
-			ad5684_set_voltage(&dac, 2.95f, d_mot); // Druck gegen Drucksensor
+			 // Druck gegen Drucksensor
 			int16_t ds_value = ADC_Drucksensor(&hadc1);
 			if (ds_value > 500) {
 				sprintf(display_buffer[7], "Fehler: Drucksensor");
@@ -458,9 +489,9 @@ int main(void)
 					}
 				} else if (test_run_mode == GO_DOWN) {
 
-					Z_Axis_TargetPosition = z_encoder_start + 300;
+					Z_Axis_TargetPosition = z_encoder_start + 400;
 
-					if (Encoder_GetPosition_Z_AXIS()<= (z_encoder_start + 400)) {
+					if (Encoder_GetPosition_Z_AXIS()<= (z_encoder_start + 500)) {
 
 						current_cycle++;
 
@@ -495,7 +526,7 @@ int main(void)
 			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 			HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen\r\n", 20,1000);
 
-			Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
+			Z_Axis_TargetPosition = z_ax_no_pos + 50; //z_ax_no_pos + 50 // (z_encoder_start + z_encoder_end) / 2
 
 			if (btn_ok_pressed) {
 			btn_ok_pressed = 0;
@@ -522,12 +553,12 @@ int main(void)
 		}
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;
-			tick_100ms_testrun_elapsed = true;
+//			tick_100ms_testrun_elapsed = true;
 			update_display();
 		}
 		if (HAL_GetTick() >= next_10ms_tick) {
 			next_10ms_tick = HAL_GetTick() + 10;
-//			tick_100ms_testrun_elapsed = true;
+			tick_100ms_testrun_elapsed = true;
 
 			handle_button_ok();
 			handle_button_up();
@@ -537,6 +568,7 @@ int main(void)
 			next_1ms_tick = HAL_GetTick() + 1;
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
+//			Move_Z_Axis_With_Voltage(&dac, Z_Axis_TargetPosition);
 			ADC_Drucksensor(&hadc1);
 		}
 
