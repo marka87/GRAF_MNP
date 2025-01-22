@@ -36,6 +36,8 @@
 #include "Z_PID_Control.h"
 #include "handle_button.h"
 #include "d_mot_control.h"
+#include "data_buffer.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +51,8 @@
 #define z_mot 0x02		//DAC-B...
 #define d_mot 0x04		//DAC-C.
 #define TARGET_VOLTAGE_NEUTRAL 2.5f
+#define MAX_DATA_POINTS 1000  // Maximale Anzahl an Datenpunkten
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -95,6 +99,7 @@ extern uint32_t z_ax_no_pos;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
 extern float voltage;
 /* UART Callback */
+static char error_message[30];
 static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
 static uint8_t uart_rx_index = 0;
 static volatile uint8_t UART1_rxBuffer[1] = { 0 };
@@ -149,9 +154,7 @@ void update_display() {
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
 	int32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	int32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
-
 	if (no_sen_state == GPIO_PIN_SET) { // Zeile 0: Nadel oben (High/Low)
-
 		sprintf(display_buffer[0], "Nadel oben:  HIGH");
 	} else {
 		sprintf(display_buffer[0], "Nadel oben:  LOW ");
@@ -159,23 +162,16 @@ void update_display() {
 	uint16_t raw_value = ADC_Drucksensor(&hadc1); // Zeile 1: Drucksensor (ADC-Wert)
 	float sensorVoltage = (float) raw_value * (5.0f / 4095.0f);
 	sprintf(display_buffer[1], "Drucksensor: %.3f V", sensorVoltage);
-
 	sprintf(display_buffer[2], "A-AX:%5lu", a_axis_position); // Zeile 2 & 3: Achspositionen
-
 	sprintf(display_buffer[3], "Z-Ist:%5lu", z_axis_position);
-
 	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition); // Zeile 4: Sollwert der Z-Achse
-
 	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
-
-
 	char datablock[256];
 	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state,
 			sensorVoltage, a_axis_position, z_axis_position,
 			Z_Axis_TargetPosition);
-
 	HAL_UART_Transmit(&huart1, datablock, strlen(datablock), 2000);
 }
 
@@ -189,6 +185,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	}
 }
 
+// UART-Verarbeitung
 void Process_UART_Command(const char *command) {
 	static const uint32_t step_size = 100; 	// Schrittgröße
 	uint32_t lower_limit = z_encoder_start; // Untere Grenze
@@ -235,26 +232,16 @@ void Process_UART_Command(const char *command) {
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Kurz-Modus gestartet (100 Zyklen).\r\n");
-
 	} else if (strcmp(command, "3") == 0) { // Lang-Modus mit 1000 Zyklen
 		num_total_cycles = 10000;
 		current_cycle = 0;
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Lang-Modus gestartet (1000 Zyklen).\r\n");
-
-	} else if (strcmp(command, "x") == 0) { // Position auf 3000 setzen
-		Z_Axis_TargetPosition = 3000;
-		snprintf(response, sizeof(response), "Position auf 3000 gesetzt.\r\n");
 	} else if (strcmp(command, "q") == 0) {
 		current_state = STOP;
 		snprintf(response, sizeof(response), "Testablauf Abbgebrochen. \r\n");
-
-	} else {
-		snprintf(response, sizeof(response), "Unbekanntes Kommando: %s\r\n",
-				command);
 	}
-
 	// Rückmeldung senden
 	HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 	HAL_UART_Transmit(&huart1, (uint8_t*) response, strlen(response),
@@ -330,22 +317,18 @@ int main(void)
 	/* GPIO Enables Voltages */
 	HAL_GPIO_WritePin(EN_5V_GPIO_Port, EN_5V_Pin, GPIO_PIN_SET); //Enables 5V
 	HAL_GPIO_WritePin(EN_12V_GPIO_Port, EN_12V_Pin, GPIO_PIN_SET); //Enables 12V
-
 	/* DAC Initialization */
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
 	ad5684_dac_t dac = { .spi_handle = &hspi4, .spi_cs_port =
-	SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin, // SPI-Handle deines Systems
-			};
+	SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,
+	};
 	ad5684_init(&dac);
-
 	display_jazz_init(&display1);
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
-
-	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
-
+//	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
 	HAL_Delay(1000);
   /* USER CODE END 2 */
 
@@ -354,6 +337,7 @@ int main(void)
 	while (1) {
 		if (current_state == IDLE_START) {
 			white_light();
+			d_mot_control(&dac, 2.5f);
 			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 			HAL_UART_Transmit(&huart1, (uint8_t*) "Bitte Referenzieren\r\n", 21, 1000);
 			sprintf(display_buffer[5], " ");
@@ -376,6 +360,7 @@ int main(void)
 			} else {
 				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 				HAL_UART_Transmit(&huart1, (uint8_t*) "Z-Achse Referenz Fehler\r\n", 25, 1000);
+			    strcpy(error_message, "Z-Achse Referenzfehler");
 				red_light();
 				current_state = FEHLER;
 				continue;
@@ -389,16 +374,18 @@ int main(void)
 				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz Fehler\r\n", 28, 1000);
 				sprintf(display_buffer[6], "A-Achse Ref. Fehler");
+			    strcpy(error_message, "A-Achse Referenzfehler");
 				red_light();
 				current_state = FEHLER;
 				continue;
 			}
-			d_mot_control(&dac, 2.9f);
+			d_mot_control(&dac, 2.5f);
 			HAL_Delay(1000);
 			current_state = TEST_START;
 
 		} else if (current_state == TEST_START) {
 			white_light();
+			d_mot_control(&dac, 2.5f);
 			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 			HAL_UART_Transmit(&huart1, (uint8_t*) "Modus?\r\n", 8, 1000);
 			sprintf(display_buffer[5], " ");
@@ -406,7 +393,7 @@ int main(void)
 			sprintf(display_buffer[7], "DEMO     KURZ    LANG");
 			if (btn_up_pressed) {
 				btn_up_pressed = 0;
-				num_total_cycles = 10;
+				num_total_cycles = 100;
 				current_cycle = 0;
 				target_position_final = z_ax_no_pos + 200;
 				target_position_running = Encoder_GetPosition_Z_AXIS();
@@ -430,11 +417,12 @@ int main(void)
 		} else if (current_state == TEST_RUN) {
 			white_light();
 			 // Druck gegen Drucksensor
+			d_mot_control(&dac, 3.5f); //3.83f = 20V bzw. 17V +3VO ffset
 			int16_t ds_value = ADC_Drucksensor(&hadc1);
-			if (ds_value > 500) {
-				sprintf(display_buffer[7], "Fehler: Drucksensor");
+			if (ds_value > 410) {
 				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 				HAL_UART_Transmit(&huart1,(uint8_t*) "Fehler: Drucksensor\r\n", 21, 1000);
+			    strcpy(error_message, "Fehler: Drucksensor");
 				current_state = FEHLER;
 				continue;
 			}
@@ -446,15 +434,18 @@ int main(void)
 			}
 			if (tick_100ms_testrun_elapsed) {
 				tick_100ms_testrun_elapsed = false;
+			    int32_t current_position = Encoder_GetPosition_Z_AXIS();
+			    log_data_point(current_position, Z_Axis_TargetPosition);  // Daten speichern
 				if (test_run_mode == GO_UP) {
 
 					Z_Axis_TargetPosition = z_ax_no_pos + 200;
 
-					if (Encoder_GetPosition_Z_AXIS() > z_ax_no_pos + 100) { // Sensor activated?
-						if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) {
+					if (Encoder_GetPosition_Z_AXIS() > z_ax_no_pos + 100) {
+						if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) { // Sensor activated?
 							test_run_mode = GO_DOWN;
 						} else {
-							current_state = STOP;
+						    strcpy(error_message, "Fehler: NO-Sensor");
+							current_state = FEHLER;
 							continue;
 						}
 					}
@@ -476,6 +467,7 @@ int main(void)
 			}
 		} else if (current_state == STOP) {
 			//USER information
+			d_mot_control(&dac, 2.5f);
 			yellow_light();
 			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 			HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgebrochen\r\n", 18,1000);
@@ -490,6 +482,8 @@ int main(void)
 			}
 		} else if (current_state == COMPLETED) {
 			green_light();
+			save_data_to_uart();
+			d_mot_control(&dac, 2.5f);
 			// Test abgeschlossen
 			sprintf(display_buffer[5], "Test abgeschlossen");
 			sprintf(display_buffer[6], "Bitte OK druecken");
@@ -505,13 +499,14 @@ int main(void)
 			}
 		} else if (current_state == FEHLER){
 			red_light();
+			d_mot_control(&dac, 2.5f);
 			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
 			HAL_UART_Transmit(&huart1, (uint8_t*) "FEHLER\r\n", 8,1000);
-			sprintf(display_buffer[5], "FEHLER");
+		    sprintf(display_buffer[5], "%s", error_message);
 			sprintf(display_buffer[6], "Bitte neustarten");
 			sprintf(display_buffer[7], "        START");
 			//Z-Achse mittig setzen, warten auf OK
-			Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
+			Z_Axis_TargetPosition = Encoder_GetPosition_Z_AXIS();
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
 				current_state = TEST_START;

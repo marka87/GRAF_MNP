@@ -4,16 +4,19 @@
  *  Created on: Jan 2, 2025
  *      Author: Mark
  */
-#include "Reference_Run.h"
-#include "main.h"
-#include "display.h"
 
-#include "AD5684RARUZ.h"
+#include "Reference_Run.h"
+
+#include <main.h>
+#include <stdbool.h>
+#include <stm32f746xx.h>
+#include <stm32f7xx_hal.h>
+#include <stm32f7xx_hal_adc.h>
+#include <stm32f7xx_hal_gpio.h>
+#include <sys/_stdint.h>
+
 #include "encoder.h"
-#include <stm32f7xx_hal_tim.h>
-#include "PID_Control.h"
-#include <stdlib.h>
-#include <stdio.h>
+
 #define a_mot 0x01 // Address for DAC-A...
 #define z_mot 0x02 // Address for DAC-B...
 #define d_mot 0x04 // Address for DAC-C...

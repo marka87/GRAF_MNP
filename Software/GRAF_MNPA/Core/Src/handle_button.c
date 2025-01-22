@@ -6,8 +6,13 @@
  *
  *      Button handling
  */
-#include "main.h"
+
 #include "handle_button.h"
+
+#include <stm32f746xx.h>
+#include <stm32f7xx_hal_gpio.h>
+#include <sys/_stdint.h>
+
 /* Button States */
 
 uint8_t btn_up_state = 0, last_btn_up_state = 1;

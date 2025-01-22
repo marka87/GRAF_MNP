@@ -6,11 +6,10 @@
  */
 
 #include "Z_PID_Control.h"
+
+#include <sys/_stdint.h>
+
 #include "encoder.h"
-#include "Reference_Run.h"
-#include "AD5684RARUZ.h"
-#include <stdlib.h>
-#include <stdio.h>
 
 //#define KP 0.007f			//Wow
 //#define KI 0.00007f
@@ -24,13 +23,13 @@
 //#define KI 0.000029f
 //#define KD 0.000031f
 
-//#define KP 0.00047f			//Testlauf
-//#define KI 0.0000015f
-//#define KD 0.000000012f
 
-#define KP 0.00047f			//Thomas
-#define KI 0.00000151f
-#define KD 0.00012f
+//#define KP 0.00047f			//Testlauf
+//#define KI 0.00000151f
+//#define KD 0.00012f
+#define KP 0.0030f			//Testlauf
+#define KI 0.000001f//KI 0.000001f
+#define KD 0.018000f //KD 0.012f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f

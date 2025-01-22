@@ -18,9 +18,11 @@
  *      Author: anma
  */
 
-#include <main.h>
 #include "AD5684RARUZ.h"
-#include <math.h>
+
+#include <stm32f7xx_hal_gpio.h>
+#include <sys/_stdint.h>
+
 void ad5684_init(ad5684_dac_t *dac) {
 
 	uint8_t tx_buffer[3];
