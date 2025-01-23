@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="657639FB83F75CD2">
-  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2025.01.19 17:14:46">
+<FRAME GUID="2FB25471-B62C-4EE6-BD43-F819C095ACF8" FORMAT="0000" APP_VERSION="2.2.0.8" CHECKSUM="A1B4399777D49FF3">
+  <PROJECT FORMAT="1.00" NAME="Graf-MNP" AUTHOR="Mark Angyal E4" CREATED="2024.11.15 14:03:52" MODIFIED="2025.01.23 13:05:52">
     <DIAGRAMS>
       <DIAGRAM FORMAT="1.00" ID="0" NAME="GRAF MNP" CREATED="2024.11.15 14:04:01" MODIFIED="2025.01.19 17:14:46">
         <LAYOUT FORMAT="1.00" COLUMNS="5" ROWS="20">
@@ -364,7 +364,7 @@ bool nadel_oben_reached = false;]]></TEXT>
           <CONNECTION FORMAT="1.00" ID="39" FROM="35" TO="37" TEXT="" />
         </CONNECTIONS>
       </DIAGRAM>
-      <DIAGRAM FORMAT="1.00" ID="3" NAME="Z_PID_Control" CREATED="2025.01.19 16:55:12" MODIFIED="2025.01.19 16:55:12">
+      <DIAGRAM FORMAT="1.00" ID="3" NAME="Z_PID_Control" CREATED="2025.01.19 16:55:12" MODIFIED="2025.01.23 13:05:52">
         <LAYOUT FORMAT="1.00" COLUMNS="3" ROWS="12">
           <ENTRIES>
             <ENTRY COLUMN="0" ROW="2">
@@ -448,7 +448,7 @@ float voltage;]]></TEXT>
             </ENTRY>
             <ENTRY COLUMN="2" ROW="4">
               <FIGURE SUBTYPE="PapComment" FORMAT="1.00" ID="42">
-                <TEXT><![CDATA[Berechne den Fehler als Differenz zwischen Istwert und Sollwert]]></TEXT>
+                <TEXT><![CDATA[Berechne die Differenz zwischen Istwert und Sollwert]]></TEXT>
               </FIGURE>
             </ENTRY>
             <ENTRY COLUMN="2" ROW="5">

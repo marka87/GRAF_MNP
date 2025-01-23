@@ -23,7 +23,6 @@
 //#define KI 0.000029f
 //#define KD 0.000031f
 
-
 //#define KP 0.00047f			//Testlauf
 //#define KI 0.00000151f
 //#define KD 0.00012f
@@ -45,35 +44,34 @@ static float integral = 0.0f;
 static float previous_error = 0.0f;
 float voltage;
 
-void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition)
-{
-    /* Istwert aus Encoder */
-    int encoder_value = Encoder_GetPosition_Z_AXIS();
-
-    /* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-    int error = encoder_value - Z_Axis_TargetPosition;
-
-    // Integralanteil
-    integral += error; // * DT
+void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
+	/* Istwert aus Encoder */
+	int encoder_value = Encoder_GetPosition_Z_AXIS();
+	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
+	int error = encoder_value - Z_Axis_TargetPosition;
+	// Integralanteil
+	integral += error; // * DT
 //    if (integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
 //    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
-    /* Differentialanteil */
-    float derivative = (error - previous_error); // / DT;
+	/* Differentialanteil */
+	float derivative = (error - previous_error); // / DT;
 
-    /* PID-Berechnung */
-    float output = (KP * error) + (KI * integral) + (KD * derivative);
+	/* PID-Berechnung */
+	float output = (KP * error) + (KI * integral) + (KD * derivative);
 
-    /* Spannung berechnen */
-    voltage = NEUTRAL_VOLTAGE + output;
+	/* Spannung berechnen */
+	voltage = NEUTRAL_VOLTAGE + output;
 
-    /* Begrenzen der Spannung */
-    if (voltage < VOLTAGE_MIN)  voltage = VOLTAGE_MIN;
-    if (voltage > VOLTAGE_MAX)  voltage = VOLTAGE_MAX;
+	/* Begrenzen der Spannung */
+	if (voltage < VOLTAGE_MIN)
+		voltage = VOLTAGE_MIN;
+	if (voltage > VOLTAGE_MAX)
+		voltage = VOLTAGE_MAX;
 
-    /* Spannung an den DAC senden */
-    ad5684_set_voltage(dac, voltage, z_mot);
+	/* Spannung an den DAC senden */
+	ad5684_set_voltage(dac, voltage, z_mot);
 
-    /* Fehler für den nächsten Zyklus speichern */
-    previous_error = (float)error;
+	/* Fehler für den nächsten Zyklus speichern */
+	previous_error = (float) error;
 }
 

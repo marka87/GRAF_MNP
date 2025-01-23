@@ -175,6 +175,7 @@ void update_display() {
 	HAL_UART_Transmit(&huart1, datablock, strlen(datablock), 2000);
 }
 
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart == &huart1) {
 		char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
@@ -220,7 +221,7 @@ void Process_UART_Command(const char *command) {
 		current_state = TEST_START;
 		snprintf(response, sizeof(response), "Test gestartet.\r\n");
 	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
-		num_total_cycles = 100;
+		num_total_cycles = 10;
 		current_cycle = 0;
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
@@ -328,8 +329,7 @@ int main(void)
 	display_jazz_init(&display1);
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
-//	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
-	HAL_Delay(1000);
+	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */

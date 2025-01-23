@@ -20,6 +20,7 @@ typedef struct {
 DataPoint data_buffer[MAX_DATA_POINTS];  // Array für Datenpunkte
 uint16_t data_index = 0;
 
+
 void log_data_point(int32_t position, int32_t target) {
     if (data_index < MAX_DATA_POINTS) {
         data_buffer[data_index].timestamp = HAL_GetTick();  // Aktuellen Zeitstempel speichern

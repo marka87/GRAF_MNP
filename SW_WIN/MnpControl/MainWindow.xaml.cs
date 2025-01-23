@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Threading;
+using System.IO;
 
 namespace MnpControl
 {
@@ -23,8 +24,10 @@ namespace MnpControl
         private static SerialPort _devConnection = new SerialPort("COM4", 115200, Parity.None, 8, StopBits.One);
 
         private static bool _continue = true;
+        private StreamWriter _currentLogFile; // Logfile für den aktuellen Ablauf
+        private StreamWriter _filteredLogFile; // Gefilterte Log-Datei
 
-        private Thread readThread; 
+        private Thread readThread;
 
         public MainWindow()
         {
@@ -40,12 +43,37 @@ namespace MnpControl
 
             readThread = new Thread(Read);
             readThread.Start();
+        }
 
+        private void StartNewLogFile()
+        {
+            string logDirectory = @"C:\LOG\";
+            if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory); // Stelle sicher, dass der Ordner existiert
+            }
+
+            string logFilePath = System.IO.Path.Combine(logDirectory, $"Log_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+            _currentLogFile = new StreamWriter(logFilePath, true, Encoding.UTF8);
+            _currentLogFile.AutoFlush = true; // Automatisches Schreiben auf die Festplatte
+        }
+
+        private void CloseLogFile()
+        {
+            _currentLogFile?.Close();
+            _currentLogFile = null; // Logfile-Objekt zurücksetzen
         }
 
         private void UpdateStatus(string msg)
         {
             Debug.WriteLine(msg);
+
+            // Nachricht in die Datei schreiben, wenn sie relevant ist
+            if (_currentLogFile != null && msg.Contains("Zeit") && msg.Contains("Position"))
+            {
+                _currentLogFile.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
+            }
+
             string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (sSplit.Length == 5)
             {
@@ -56,7 +84,6 @@ namespace MnpControl
                 else
                 {
                     TxtNadelOben.Text = "Oben";
-
                 }
 
                 TxtDrucksensor.Text = sSplit[1];
@@ -73,8 +100,6 @@ namespace MnpControl
                 TxtStatus.Text = msg.Trim();
                 return;
             }
-
-            
         }
 
         private void Read()
@@ -96,37 +121,52 @@ namespace MnpControl
 
             readThread.Join();
             _devConnection.Close();
-
+            CloseLogFile(); // Sicherstellen, dass das aktuelle Logfile geschlossen wird
         }
 
         private void BtnStartReferenceRun_Click(object sender, RoutedEventArgs e)
         {
+            CloseLogFile(); // Eventuell vorheriges Logfile schließen
+            StartNewLogFile(); // Neues Logfile erstellen
             _devConnection.Write("s");
         }
+
         private void BtnStartDemoRun_Click(object sender, RoutedEventArgs e)
         {
+            CloseLogFile();
+            StartNewLogFile();
             _devConnection.Write("1");
         }
+
         private void BtnStartShortRun_Click(object sender, RoutedEventArgs e)
         {
+            CloseLogFile();
+            StartNewLogFile();
             _devConnection.Write("2");
         }
+
         private void BtnStartLongRun_Click(object sender, RoutedEventArgs e)
         {
+            CloseLogFile();
+            StartNewLogFile();
             _devConnection.Write("3");
         }
+
         private void BtnReset_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("r");
         }
+
         private void BtnUp_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("+");
         }
+
         private void BtnDown_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("-");
         }
+
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
             _devConnection.Write("q");
@@ -134,8 +174,9 @@ namespace MnpControl
 
         private void BtnTestStart_click(object sender, RoutedEventArgs e)
         {
+            CloseLogFile();
+            StartNewLogFile();
             _devConnection.Write("e");
-
         }
     }
 }

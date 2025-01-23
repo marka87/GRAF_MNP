@@ -42,9 +42,9 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 
 	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenz");
-	HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);	// Relais aktivieren
+	HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);// Relais aktivieren
 
-	ad5684_set_voltage(dac, 3.0f, a_mot); 	// Schritt 1: Motor im Uhrzeigersinn (3V) drehen
+	ad5684_set_voltage(dac, 3.0f, a_mot); // Schritt 1: Motor im Uhrzeigersinn (3V) drehen
 	start_tick = HAL_GetTick();
 
 //	bool drucksensor_error = false;
@@ -65,7 +65,6 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Motor stoppen
 	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 	HAL_Delay(100);
-
 
 	// Schritt 2: Motor gegen den Uhrzeigersinn (2V) drehen
 	ad5684_set_voltage(dac, 2.0f, a_mot);
@@ -93,24 +92,17 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 }
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
-//	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
-
 	uint32_t start_tick = 0;
-
 	*success = true;
 	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenz");
-
 	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET); // Relais aktivieren
-
 	// Schritt 1: Motor nach unten (2,8V)
 	ad5684_set_voltage(dac, 2.6f, z_mot);
 
 	HAL_Delay(1000);
-
 	// Anfangsposition speichern
 	z_encoder_start = Encoder_GetPosition_Z_AXIS();
-
 	// Schritt 2: Motor nach oben (2,1V)
 	start_tick = HAL_GetTick();
 	ad5684_set_voltage(dac, 2.0f, z_mot);
