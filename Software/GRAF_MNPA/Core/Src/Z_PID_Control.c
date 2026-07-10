@@ -34,7 +34,7 @@
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
 #define NEUTRAL_VOLTAGE 2.5f
-//#define INTEGRAL_LIMIT  10000.0f
+#define INTEGRAL_LIMIT  (2.5f / KI)
 
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
@@ -51,8 +51,8 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	int error = encoder_value - Z_Axis_TargetPosition;
 	// Integralanteil
 	integral += error; // * DT
-//    if (integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
-//    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
+    if (integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
+    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
 	/* Differentialanteil */
 	float derivative = (error - previous_error); // / DT;
 
