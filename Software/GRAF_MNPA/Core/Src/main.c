@@ -31,6 +31,7 @@
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include "encoder.h"
+#include "encoder_performance.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
@@ -116,6 +117,8 @@ uint32_t current_cycle = 0;
 
 int32_t target_position_final = 0;
 int32_t target_position_running = 0;
+
+volatile bool perform_encoder_perf_test = false;  // Flag to trigger performance measurement
 
 volatile bool ds_was_activated = false;
 volatile bool z_axis_success = false;
@@ -242,6 +245,9 @@ void Process_UART_Command(const char *command) {
 	} else if (strcmp(command, "q") == 0) {
 		current_state = STOP;
 		snprintf(response, sizeof(response), "Testablauf Abbgebrochen. \r\n");
+	} else if (strcmp(command, "p") == 0) { // Performance measurement
+		perform_encoder_perf_test = true;
+		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
 	}
 	// Rückmeldung senden
 	HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
@@ -329,6 +335,7 @@ int main(void)
 	display_jazz_init(&display1);
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
+	encoder_perf_measure_init(); // Initialize cycle counter for performance measurement
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
   /* USER CODE END 2 */
 
@@ -516,6 +523,11 @@ int main(void)
 		if (!byte_handled) {
 			Process_UART_Command(uart_rx_buffer);
 			byte_handled = true;
+		}
+		// Trigger performance measurement if requested via 'p' command
+		if (perform_encoder_perf_test) {
+			perform_encoder_perf_test = false;
+			encoder_perf_print_results();
 		}
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;

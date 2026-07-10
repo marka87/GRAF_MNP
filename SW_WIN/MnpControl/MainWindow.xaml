@@ -3,35 +3,112 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MnpControl"
         mc:Ignorable="d"
-        Title="MpnControl" Height="450" Width="800"
+        Title="MnpControl"
+        Height="450"
+        Width="800"
+        MinHeight="420"
+        MinWidth="760"
         Loaded="Window_Loaded"
-        Closing="Window_Closing"
-        >
-    <Grid>
-        <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" HorizontalAlignment="Left" Height="34" Margin="593,111,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartReferenceRun_Click"/>
-        <Label Content="Nadel Oben Sensor erreicht:" HorizontalAlignment="Left" Margin="31,136,0,0" VerticalAlignment="Top" Width="166"/>
-        <TextBox x:Name="TxtNadelOben" HorizontalAlignment="Left" Margin="194,144,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Label Content="Drucksensorwerte (V):" HorizontalAlignment="Left" Margin="31,167,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
-        <TextBox x:Name="TxtDrucksensor" HorizontalAlignment="Left" Margin="194,175,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Label Content="A-Achse Position (inc):" HorizontalAlignment="Left" Margin="31,198,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
-        <TextBox x:Name="TxtAaxisPos" HorizontalAlignment="Left" Margin="194,206,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Label Content="Z-Achse Ist Position (inc):" HorizontalAlignment="Left" Margin="31,229,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
-        <TextBox x:Name="TxtZaxisPosIst" HorizontalAlignment="Left" Margin="194,237,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Label Content="Z-Achse Soll Position (inc)" HorizontalAlignment="Left" Margin="31,257,0,0" VerticalAlignment="Top" Width="149" RenderTransformOrigin="-0.053,0.518"/>
-        <TextBox x:Name="TxtZaxisPosSoll" HorizontalAlignment="Left" Margin="194,265,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="218" IsEnabled="False"/>
-        <Button x:Name="BtnStartDemo" Content="Demo Modus" HorizontalAlignment="Left" Height="34" Margin="593,164,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartDemoRun_Click"/>
-        <Button x:Name="BtnStartShort" Content="Kurz Modus" HorizontalAlignment="Left" Height="34" Margin="593,221,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartShortRun_Click"/>
-        <Button x:Name="BtnStartLong" Content="Lang Modus" HorizontalAlignment="Left" Height="34" Margin="593,274,0,0" VerticalAlignment="Top" Width="155" Click="BtnStartLongRun_Click"/>
-        <Button x:Name="BtnReset" Content="µC RESET" HorizontalAlignment="Left" Height="53" Margin="70,337,0,0" VerticalAlignment="Top" Width="71" Background="#FFF4B1A9" Click="BtnReset_Click"/>
-        <Button x:Name="BtnUp" Content="▲" HorizontalAlignment="Left" Height="31" Margin="469,168,0,0" VerticalAlignment="Top" Width="41" Click="BtnUp_Click"/>
-        <Button x:Name="BtnDown" Content="▼" HorizontalAlignment="Left" Height="31" Margin="469,230,0,0" VerticalAlignment="Top" Width="41" Click="BtnDown_Click"/>
-        <Button x:Name="BtnStop" Content="STOPP" HorizontalAlignment="Left" Height="53" Margin="180,337,0,0" VerticalAlignment="Top" Width="64" Click="BtnStop_Click" Background="#FFFFC700"/>
-        <Label Content="Label" HorizontalAlignment="Left" Height="13" Margin="627,72,0,0" VerticalAlignment="Top" Width="109"/>
-        <Button x:Name="BtnTestStart" Content="⭮/OK" HorizontalAlignment="Left" Height="27" Margin="628,326,0,0" VerticalAlignment="Top" Width="84" Click="BtnTestStart_click"/>
-        <TextBox x:Name="TxtStatus" HorizontalAlignment="Left" Margin="170,78,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="266" IsReadOnly="True" IsEnabled="False" Height="26" FontSize="16"/>
-        <Label Content="STATUS" HorizontalAlignment="Left" Height="26" Margin="170,47,0,0" VerticalAlignment="Top" Width="128"/>
+        Closing="Window_Closing">
 
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2.2*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="1.2*" />
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Status -->
+        <Label Grid.Row="0" Grid.Column="0" Content="STATUS" FontWeight="Bold" />
+        <TextBox x:Name="TxtStatus"
+                 Grid.Row="1" Grid.Column="0"
+                 Height="28"
+                 FontSize="16"
+                 Text=""
+                 IsReadOnly="True"
+                 VerticalContentAlignment="Center"
+                 Margin="0,4,12,0"/>
+
+        <!-- Sensor values -->
+        <Grid Grid.Row="3" Grid.Column="0" Grid.RowSpan="5" Margin="0,8,12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="220"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Label Grid.Row="0" Grid.Column="0" Content="Nadel Oben Sensor erreicht:"/>
+            <TextBox x:Name="TxtNadelOben" Grid.Row="0" Grid.Column="2" Text="" IsReadOnly="True"/>
+
+            <Label Grid.Row="2" Grid.Column="0" Content="Drucksensorwerte (V):"/>
+            <TextBox x:Name="TxtDrucksensor" Grid.Row="2" Grid.Column="2" Text="" IsReadOnly="True"/>
+
+            <Label Grid.Row="4" Grid.Column="0" Content="A-Achse Position (inc):"/>
+            <TextBox x:Name="TxtAaxisPos" Grid.Row="4" Grid.Column="2" Text="" IsReadOnly="True"/>
+
+            <Label Grid.Row="6" Grid.Column="0" Content="Z-Achse Ist Position (inc):"/>
+            <TextBox x:Name="TxtZaxisPosIst" Grid.Row="6" Grid.Column="2" Text="" IsReadOnly="True"/>
+
+            <Label Grid.Row="8" Grid.Column="0" Content="Z-Achse Soll Position (inc):"/>
+            <TextBox x:Name="TxtZaxisPosSoll" Grid.Row="8" Grid.Column="2" Text="" IsReadOnly="True"/>
+        </Grid>
+
+        <!-- Manual axis controls -->
+        <StackPanel Grid.Row="4" Grid.Column="1" Grid.RowSpan="3" Orientation="Vertical" VerticalAlignment="Top" Margin="8,0">
+            <Button x:Name="BtnUp" Content="▲" Width="44" Height="32" Click="BtnUp_Click" Margin="0,0,0,10"/>
+            <Button x:Name="BtnDown" Content="▼" Width="44" Height="32" Click="BtnDown_Click"/>
+        </StackPanel>
+
+        <!-- Run mode controls -->
+        <StackPanel Grid.Row="1" Grid.Column="2" Grid.RowSpan="7" Margin="12,0,0,0" VerticalAlignment="Top">
+            <Label Content="Ablaufsteuerung" FontWeight="Bold" Margin="0,0,0,8"/>
+            <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" Height="34" Click="BtnStartReferenceRun_Click" Margin="0,0,0,8"/>
+            <Button x:Name="BtnStartDemo" Content="Demo Modus" Height="34" Click="BtnStartDemoRun_Click" Margin="0,0,0,8"/>
+            <Button x:Name="BtnStartShort" Content="Kurz Modus" Height="34" Click="BtnStartShortRun_Click" Margin="0,0,0,8"/>
+            <Button x:Name="BtnStartLong" Content="Lang Modus" Height="34" Click="BtnStartLongRun_Click" Margin="0,0,0,8"/>
+            <Button x:Name="BtnTestStart" Content="⭮/OK" Height="28" Click="BtnTestStart_click" Width="90" HorizontalAlignment="Left"/>
+        </StackPanel>
+
+        <!-- Bottom actions -->
+        <StackPanel Grid.Row="9" Grid.Column="0" Orientation="Horizontal" Margin="0,12,0,0">
+            <Button x:Name="BtnReset"
+                    Content="µC RESET"
+                    Width="90"
+                    Height="42"
+                    Background="#FFF4B1A9"
+                    Click="BtnReset_Click"/>
+            <Button x:Name="BtnStop"
+                    Content="STOPP"
+                    Width="90"
+                    Height="42"
+                    Margin="12,0,0,0"
+                    Background="#FFFFC700"
+                    Click="BtnStop_Click"/>
+        </StackPanel>
     </Grid>
 </Window>

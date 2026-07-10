@@ -40,22 +40,52 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     }
 }
 int32_t Encoder_GetPosition_A_AXIS(void) {
-    // Atomarer Zugriff (Interrupts deaktivieren)
-    __disable_irq();
-    int32_t position = encoder_position_A_AXIS + __HAL_TIM_GET_COUNTER(&htim2);
-    __enable_irq();
+    // Double-Check-Locking ohne IRQ-Blockierung
+    // Erste Leseoperation ohne Schutz (Optimierung für Common Case)
+    int32_t counter = __HAL_TIM_GET_COUNTER(&htim2);
+    int32_t position = encoder_position_A_AXIS;
+
+    // Zweite Leseoperation: Falls Interrupt dazwischen war, erneut lesen
+    int32_t counter2 = __HAL_TIM_GET_COUNTER(&htim2);
+
+    // Wenn Counter sich verändert hat (Interrupt trat auf), IRQ blockieren und neu lesen
+    if (counter2 < counter) {
+        __disable_irq();
+        position = encoder_position_A_AXIS + __HAL_TIM_GET_COUNTER(&htim2);
+        __enable_irq();
+    } else {
+        position = position + counter;
+    }
+
     return position;
 }
 
 int32_t Encoder_GetPosition_Z_AXIS(void) {
-    __disable_irq();
-    int32_t position = encoder_position_Z_AXIS + __HAL_TIM_GET_COUNTER(&htim5);
-    if (abs(position) < 1) {  // Toleranzbereich von 10
-        encoder_position_Z_AXIS = 0;
-        __HAL_TIM_SET_COUNTER(&htim5, 0);
-        position = 0;
+    // Double-Check-Locking ohne IRQ-Blockierung
+    // Erste Leseoperation ohne Schutz (Optimierung für Common Case)
+    int32_t counter = __HAL_TIM_GET_COUNTER(&htim5);
+    int32_t position = encoder_position_Z_AXIS;
+
+    // Zweite Leseoperation: Falls Interrupt dazwischen war, erneut lesen
+    int32_t counter2 = __HAL_TIM_GET_COUNTER(&htim5);
+
+    // Wenn Counter sich verändert hat (Interrupt trat auf), IRQ blockieren und neu lesen
+    if (counter2 < counter) {
+        __disable_irq();
+        position = encoder_position_Z_AXIS + __HAL_TIM_GET_COUNTER(&htim5);
+        if (abs(position) < 1) {  // Toleranzbereich
+            encoder_position_Z_AXIS = 0;
+            __HAL_TIM_SET_COUNTER(&htim5, 0);
+            position = 0;
+        }
+        __enable_irq();
+    } else {
+        position = position + counter;
+        if (abs(position) < 1) {  // Toleranzbereich
+            position = 0;
+        }
     }
-    __enable_irq();
+
     return position;
 }
 
