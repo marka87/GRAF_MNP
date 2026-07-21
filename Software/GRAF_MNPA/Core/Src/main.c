@@ -102,7 +102,6 @@ extern float voltage;
 /* UART Callback */
 static char error_message[30];
 static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
-static uint8_t uart_rx_index = 0;
 static volatile uint8_t UART1_rxBuffer[1] = { 0 };
 static volatile bool byte_handled = true;
 static volatile uint8_t byte_received = 0;
@@ -111,6 +110,7 @@ static bool tick_100ms_testrun_elapsed = false;
 uint32_t next_100ms_tick = 0;
 uint32_t next_10ms_tick = 0;
 uint32_t next_1ms_tick = 0;
+uint32_t next_uart_status_tick = 0;
 
 uint32_t num_total_cycles = 0;
 uint32_t current_cycle = 0;
@@ -121,8 +121,8 @@ int32_t target_position_running = 0;
 volatile bool perform_encoder_perf_test = false;  // Flag to trigger performance measurement
 
 volatile bool ds_was_activated = false;
-volatile bool z_axis_success = false;
-volatile bool a_axis_success = false;
+bool z_axis_success = false;
+bool a_axis_success = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -140,6 +140,7 @@ static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 void update_display(void);
+void Process_UART_Command(const char *command);
 void red_light(void);
 void green_light(void);
 void yellow_light(void);
@@ -151,6 +152,15 @@ void white_light(void);
 display_info_t display1 = {								//The Display init
 		.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 				.lcd_ram_pages = 8 };
+
+static void uart_send_status(void) {
+	HAL_UART_Transmit(&huart1, (const uint8_t*) "_STATUS_", 8, 100);
+}
+
+static void uart_send_text(const char *text, uint32_t timeout) {
+	HAL_UART_Transmit(&huart1, (const uint8_t*) text, (uint16_t) strlen(text),
+			timeout);
+}
 
 /* Update Display */
 void update_display() {
@@ -175,14 +185,14 @@ void update_display() {
 	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state,
 			sensorVoltage, a_axis_position, z_axis_position,
 			Z_Axis_TargetPosition);
-	HAL_UART_Transmit(&huart1, datablock, strlen(datablock), 2000);
+	uart_send_text(datablock, 2000);
 }
 
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart == &huart1) {
 		char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
-		HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1); // Empfang erneut aktivieren
+		HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1); // Empfang erneut aktivieren
 
 		char command[2] = { received_char, '\0' }; // Zeichen in String umwandeln
 		Process_UART_Command(command);
@@ -250,9 +260,8 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
 	}
 	// Rückmeldung senden
-	HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-	HAL_UART_Transmit(&huart1, (uint8_t*) response, strlen(response),
-	HAL_MAX_DELAY);
+	uart_send_status();
+	uart_send_text(response, HAL_MAX_DELAY);
 }
 void red_light() {
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin, GPIO_PIN_RESET);
@@ -336,7 +345,7 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
 	encoder_perf_measure_init(); // Initialize cycle counter for performance measurement
-	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 1);
+	HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -345,11 +354,14 @@ int main(void)
 		if (current_state == IDLE_START) {
 			white_light();
 			d_mot_control(&dac, 2.5f);
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "Bitte Referenzieren\r\n", 21, 1000);
 			sprintf(display_buffer[5], " ");
 			sprintf(display_buffer[6], "Bitte Referenzieren:");
 			sprintf(display_buffer[7], "        START");
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 500;
+				uart_send_status();
+				uart_send_text("Bitte Referenzieren\r\n", 100);
+			}
 
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
@@ -362,11 +374,11 @@ int main(void)
 		} else if (current_state == EXEC_REFERENCE_RUN) {
 			Z_Axis_ReferenceRun(&dac, &z_axis_success);
 			if (z_axis_success) {
-				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-				HAL_UART_Transmit(&huart1, (uint8_t*) "Z-Achse Referenz OK\r\n", 21, 1000);
+				uart_send_status();
+				uart_send_text("Z-Achse Referenz OK\r\n", 1000);
 			} else {
-				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-				HAL_UART_Transmit(&huart1, (uint8_t*) "Z-Achse Referenz Fehler\r\n", 25, 1000);
+				uart_send_status();
+				uart_send_text("Z-Achse Referenz Fehler\r\n", 1000);
 			    strcpy(error_message, "Z-Achse Referenzfehler");
 				red_light();
 				current_state = FEHLER;
@@ -375,11 +387,11 @@ int main(void)
 			HAL_Delay(1000);
 			A_Axis_ReferenceRun(&dac, &a_axis_success);
 			if (a_axis_success) {
-				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz OK\r\n", 28, 1000);
+				uart_send_status();
+				uart_send_text("A-Achse Referenz OK\r\n", 1000);
 			} else {
-				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-				HAL_UART_Transmit(&huart1, (uint8_t*) "A-Achse Referenz Fehler\r\n", 28, 1000);
+				uart_send_status();
+				uart_send_text("A-Achse Referenz Fehler\r\n", 1000);
 				sprintf(display_buffer[6], "A-Achse Ref. Fehler");
 			    strcpy(error_message, "A-Achse Referenzfehler");
 				red_light();
@@ -393,11 +405,14 @@ int main(void)
 		} else if (current_state == TEST_START) {
 			white_light();
 			d_mot_control(&dac, 2.5f);
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "Modus?\r\n", 8, 1000);
 			sprintf(display_buffer[5], " ");
 			sprintf(display_buffer[6], "      TEST-MODUS");
 			sprintf(display_buffer[7], "DEMO     KURZ    LANG");
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 500;
+				uart_send_status();
+				uart_send_text("Modus?\r\n", 100);
+			}
 			if (btn_up_pressed) {
 				btn_up_pressed = 0;
 				num_total_cycles = 100;
@@ -427,14 +442,14 @@ int main(void)
 			d_mot_control(&dac, 3.5f); //3.83f = 20V bzw. 17V +3VO ffset
 			int16_t ds_value = ADC_Drucksensor(&hadc1);
 			if (ds_value > 410) {
-				HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-				HAL_UART_Transmit(&huart1,(uint8_t*) "Fehler: Drucksensor\r\n", 21, 1000);
+				uart_send_status();
+				uart_send_text("Fehler: Drucksensor\r\n", 1000);
 			    strcpy(error_message, "Fehler: Drucksensor");
 				current_state = FEHLER;
 				continue;
 			}
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "TEST ...\r\n", 10, 1000);
+			uart_send_status();
+			uart_send_text("TEST ...\r\n", 1000);
 			sprintf(display_buffer[7], "TEST ...");
 			if (current_cycle >= num_total_cycles) {
 				current_state = COMPLETED;
@@ -476,8 +491,8 @@ int main(void)
 			//USER information
 			d_mot_control(&dac, 2.5f);
 			yellow_light();
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgebrochen\r\n", 18,1000);
+			uart_send_status();
+			uart_send_text("Test abgebrochen\r\n", 1000);
 			sprintf(display_buffer[5], "Test abgebrochen");
 			sprintf(display_buffer[6], "Bitte neustarten");
 			sprintf(display_buffer[7], "        START");
@@ -495,8 +510,8 @@ int main(void)
 			sprintf(display_buffer[5], "Test abgeschlossen");
 			sprintf(display_buffer[6], "Bitte OK druecken");
 			sprintf(display_buffer[7], "        OK");
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "Test abgeschlossen\r\n", 20,1000);
+			uart_send_status();
+			uart_send_text("Test abgeschlossen\r\n", 1000);
 
 			Z_Axis_TargetPosition = z_ax_no_pos + 50; //z_ax_no_pos + 50 // (z_encoder_start + z_encoder_end) / 2
 
@@ -507,8 +522,8 @@ int main(void)
 		} else if (current_state == FEHLER){
 			red_light();
 			d_mot_control(&dac, 2.5f);
-			HAL_UART_Transmit(&huart1, "_STATUS_", 8, 2000);
-			HAL_UART_Transmit(&huart1, (uint8_t*) "FEHLER\r\n", 8,1000);
+			uart_send_status();
+			uart_send_text("FEHLER\r\n", 1000);
 		    sprintf(display_buffer[5], "%s", error_message);
 			sprintf(display_buffer[6], "Bitte neustarten");
 			sprintf(display_buffer[7], "        START");
@@ -546,8 +561,6 @@ int main(void)
 			next_1ms_tick = HAL_GetTick() + 1;
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
-//			Move_Z_Axis_With_Voltage(&dac, Z_Axis_TargetPosition);
-			ADC_Drucksensor(&hadc1);
 		}
 
     /* USER CODE END WHILE */

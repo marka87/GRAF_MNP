@@ -8,6 +8,7 @@
 // encoder.c
 #include "encoder.h"
 #include <stm32f7xx_hal_tim.h>
+#include <stdlib.h>
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim5;
 volatile int32_t encoder_position_A_AXIS = 0;
@@ -73,7 +74,7 @@ int32_t Encoder_GetPosition_Z_AXIS(void) {
     if (counter2 < counter) {
         __disable_irq();
         position = encoder_position_Z_AXIS + __HAL_TIM_GET_COUNTER(&htim5);
-        if (abs(position) < 1) {  // Toleranzbereich
+        if (labs(position) < 1L) {  // Toleranzbereich
             encoder_position_Z_AXIS = 0;
             __HAL_TIM_SET_COUNTER(&htim5, 0);
             position = 0;
@@ -81,7 +82,7 @@ int32_t Encoder_GetPosition_Z_AXIS(void) {
         __enable_irq();
     } else {
         position = position + counter;
-        if (abs(position) < 1) {  // Toleranzbereich
+        if (labs(position) < 1L) {  // Toleranzbereich
             position = 0;
         }
     }

@@ -9,6 +9,7 @@
 #include "display.h"
 #include <string.h>
 #include <stdarg.h>
+#include <stdio.h>
 char display_buffer[DISPLAY_MAX_LINES][30] = { { 0 } };
 
 

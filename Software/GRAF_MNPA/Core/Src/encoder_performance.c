@@ -85,7 +85,7 @@ void encoder_perf_measure_a_axis(encoder_perf_stats_t *stats) {
     // Measurement
     for (int i = 0; i < PERF_NUM_SAMPLES; i++) {
         uint32_t start = get_cycle_count();
-        int32_t pos = Encoder_GetPosition_A_AXIS();
+        Encoder_GetPosition_A_AXIS();
         uint32_t end = get_cycle_count();
         
         perf_sample_buffer[i] = end - start;
@@ -112,7 +112,7 @@ void encoder_perf_measure_z_axis(encoder_perf_stats_t *stats) {
     // Measurement
     for (int i = 0; i < PERF_NUM_SAMPLES; i++) {
         uint32_t start = get_cycle_count();
-        int32_t pos = Encoder_GetPosition_Z_AXIS();
+        Encoder_GetPosition_Z_AXIS();
         uint32_t end = get_cycle_count();
         
         perf_sample_buffer[i] = end - start;

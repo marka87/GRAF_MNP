@@ -10,7 +10,6 @@
 
 void ADC_Init(ADC_HandleTypeDef* adc_handle) {
     // ADC-Start
-	HAL_ADCEx_Calibration_Start(adc_handle);
     HAL_ADC_Start(adc_handle);
 }
 
