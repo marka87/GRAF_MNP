@@ -33,6 +33,7 @@ namespace MnpControl
         private DateTime _loggingStartTime = DateTime.MinValue;
         private const int LoggingTimeoutSeconds = 120;
         private string _lastStatusMessage = string.Empty;
+        private string _currentDeviceState = string.Empty;
 
         public MainWindow()
         {
@@ -42,6 +43,7 @@ namespace MnpControl
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
         _continue = true;
+        UpdateButtonStates(string.Empty); // all disabled until connected + state received
 
         if (!TryOpenDeviceConnection())
         {
@@ -247,44 +249,59 @@ namespace MnpControl
             string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (sSplit.Length == 5)
             {
-                // Log sensor data if logging is active
                 if (_isLoggingSession)
-                {
                     _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
-                }
 
-                // Always update UI for visual feedback
-                if (sSplit[0] == "1")
-                {
-                    TxtNadelOben.Text = "Unten";
-                }
-                else
-                {
-                    TxtNadelOben.Text = "Oben";
-                }
-
+                TxtNadelOben.Text = sSplit[0] == "1" ? "Unten" : "Oben";
                 TxtDrucksensor.Text = sSplit[1];
                 TxtAaxisPos.Text = sSplit[2];
                 TxtZaxisPosIst.Text = sSplit[3];
                 TxtZaxisPosSoll.Text = sSplit[4];
-
                 return;
             }
 
             if (msg.StartsWith("_STATUS_"))
             {
-                // Log status only if logging is active and different from last
                 if (_isLoggingSession && msg != _lastStatusMessage)
-                {
                     _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
-                }
 
-                // Always update status display
                 _lastStatusMessage = msg;
-                msg = msg.Replace("_STATUS_", "");
-                TxtStatus.Text = msg.Trim();
+                string state = msg.Replace("_STATUS_", "").Trim();
+                _currentDeviceState = state;
+                TxtStatus.Text = GetStateFriendlyName(state);
+                UpdateButtonStates(state);
                 return;
             }
+        }
+
+        private static string GetStateFriendlyName(string state) => state switch
+        {
+            "IDLE_START"          => "Warte auf Referenzlauf",
+            "EXEC_REFERENCE_RUN"  => "Referenzlauf läuft...",
+            "TEST_START"          => "Bereit — Test wählen",
+            "TEST_RUN"            => "Test läuft",
+            "STOP"                => "Test abgebrochen",
+            "COMPLETED"           => "Test abgeschlossen ✓",
+            "FEHLER"              => "⚠ FEHLER",
+            _                     => state
+        };
+
+        private void UpdateButtonStates(string state)
+        {
+            bool isTestStart  = state == "TEST_START";
+            bool isIdle       = state == "IDLE_START";
+            bool isRunning    = state == "TEST_RUN";
+            bool canRef       = isIdle || isTestStart || state == "COMPLETED" || state == "STOP" || state == "FEHLER";
+
+            BtnStartReferenceRun.IsEnabled = canRef;
+            BtnStartDemo.IsEnabled         = isTestStart;
+            BtnStartShort.IsEnabled        = isTestStart;
+            BtnStartLong.IsEnabled         = isTestStart;
+            BtnTestStart.IsEnabled         = isIdle || state == "COMPLETED" || state == "STOP" || state == "FEHLER";
+            BtnStop.IsEnabled              = isRunning;
+            BtnUp.IsEnabled                = isTestStart;
+            BtnDown.IsEnabled              = isTestStart;
+            BtnSetZPos.IsEnabled           = isTestStart;
         }
 
         private void DevConnection_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -352,7 +369,7 @@ namespace MnpControl
             return;
         }
 
-        _devConnection.Write(command);
+        _devConnection.Write(command + "\n");
     }
 
         private void BtnStartReferenceRun_Click(object sender, RoutedEventArgs e)
@@ -398,6 +415,19 @@ namespace MnpControl
         private void BtnTestStart_click(object sender, RoutedEventArgs e)
         {
             SendCommand("e");
+        }
+
+        private void BtnSetZPos_Click(object sender, RoutedEventArgs e)
+        {
+            if (uint.TryParse(TxtZPos.Text.Trim(), out uint val))
+            {
+                SendCommand($"Z{val}");
+            }
+            else
+            {
+                MessageBox.Show("Ungültiger Wert. Bitte eine positive ganze Zahl eingeben.",
+                    "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
     }
 }

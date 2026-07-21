@@ -104,7 +104,7 @@ static char error_message[30];
 static volatile uint8_t UART1_rxBuffer[1] = { 0 };
 
 /* Ring buffer for UART commands — filled by ISR, drained in main loop */
-#define UART_CMD_BUF_SIZE 16
+#define UART_CMD_BUF_SIZE 32
 static volatile uint8_t uart_cmd_buf[UART_CMD_BUF_SIZE];
 static volatile uint8_t uart_cmd_head = 0;
 static volatile uint8_t uart_cmd_tail = 0;
@@ -156,8 +156,23 @@ display_info_t display1 = {								//The Display init
 		.spi_handle = &hspi2, .lcd_width = 128, .lcd_height = 64,
 				.lcd_ram_pages = 8 };
 
+static const char* get_state_name(void) {
+	switch (current_state) {
+		case IDLE_START:         return "IDLE_START";
+		case EXEC_REFERENCE_RUN: return "EXEC_REFERENCE_RUN";
+		case TEST_START:         return "TEST_START";
+		case TEST_RUN:           return "TEST_RUN";
+		case STOP:               return "STOP";
+		case COMPLETED:          return "COMPLETED";
+		case FEHLER:             return "FEHLER";
+		default:                 return "UNKNOWN";
+	}
+}
+
 static void uart_send_status(void) {
-	HAL_UART_Transmit(&huart1, (const uint8_t*) "_STATUS_", 8, 100);
+	char buf[32];
+	snprintf(buf, sizeof(buf), "_STATUS_%s\r\n", get_state_name());
+	HAL_UART_Transmit(&huart1, (const uint8_t*) buf, (uint16_t) strlen(buf), 100);
 }
 
 static void uart_send_text(const char *text, uint32_t timeout) {
@@ -261,6 +276,20 @@ void Process_UART_Command(const char *command) {
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Lang-Modus gestartet (1000 Zyklen).\r\n");
+	} else if (command[0] == 'Z' && command[1] != '\0') { // Z-Achse Zielposition direkt setzen (z.B. "Z1500")
+		if (current_state != TEST_START) {
+			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
+		} else {
+			uint32_t val = 0;
+			if (sscanf(command + 1, "%lu", &val) == 1) {
+				if (val >= lower_limit && val <= upper_limit) {
+					Z_Axis_TargetPosition = val;
+					snprintf(response, sizeof(response), "Z-Pos: %lu\r\n", Z_Axis_TargetPosition);
+				} else {
+					snprintf(response, sizeof(response), "Limit! %lu [%lu-%lu]\r\n", val, lower_limit, upper_limit);
+				}
+			}
+		}
 	} else if (strcmp(command, "q") == 0) {
 		current_state = STOP;
 		snprintf(response, sizeof(response), "Testablauf Abbgebrochen. \r\n");
@@ -543,11 +572,24 @@ int main(void)
 				current_state = TEST_START;
 			}
 		}
-		// UART ring buffer: process one command per main-loop iteration
+		// Accumulate UART bytes into lines, process on '\n'
+		// Single-char and multi-char commands (e.g. "Z1500\n") both work
+		static char uart_line_buf[32];
+		static uint8_t uart_line_len = 0;
 		if (uart_cmd_tail != uart_cmd_head) {
-			char cmd[2] = { (char)uart_cmd_buf[uart_cmd_tail], '\0' };
+			char c = (char)uart_cmd_buf[uart_cmd_tail];
 			uart_cmd_tail = (uart_cmd_tail + 1) % UART_CMD_BUF_SIZE;
-			Process_UART_Command(cmd);
+			if (c == '\n' || c == '\r') {
+				if (uart_line_len > 0) {
+					uart_line_buf[uart_line_len] = '\0';
+					Process_UART_Command(uart_line_buf);
+					uart_line_len = 0;
+				}
+			} else if (uart_line_len < (uint8_t)(sizeof(uart_line_buf) - 1)) {
+				uart_line_buf[uart_line_len++] = c;
+			} else {
+				uart_line_len = 0; // overflow: discard
+			}
 		}
 		// Trigger performance measurement if requested via 'p' command
 		if (perform_encoder_perf_test) {

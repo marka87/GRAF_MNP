@@ -85,13 +85,27 @@
         </StackPanel>
 
         <!-- Run mode controls -->
-        <StackPanel Grid.Row="1" Grid.Column="2" Grid.RowSpan="7" Margin="12,0,0,0" VerticalAlignment="Top">
+        <StackPanel Grid.Row="1" Grid.Column="2" Grid.RowSpan="8" Margin="12,0,0,0" VerticalAlignment="Top">
             <Label Content="Ablaufsteuerung" FontWeight="Bold" Margin="0,0,0,8"/>
             <Button x:Name="BtnStartReferenceRun" Content="Referenzlauf Starten" Height="34" Click="BtnStartReferenceRun_Click" Margin="0,0,0,8"/>
             <Button x:Name="BtnStartDemo" Content="Demo Modus" Height="34" Click="BtnStartDemoRun_Click" Margin="0,0,0,8"/>
             <Button x:Name="BtnStartShort" Content="Kurz Modus" Height="34" Click="BtnStartShortRun_Click" Margin="0,0,0,8"/>
             <Button x:Name="BtnStartLong" Content="Lang Modus" Height="34" Click="BtnStartLongRun_Click" Margin="0,0,0,8"/>
             <Button x:Name="BtnTestStart" Content="⭮/OK" Height="28" Click="BtnTestStart_click" Width="90" HorizontalAlignment="Left"/>
+
+            <Separator Margin="0,14,0,10"/>
+            <Label Content="Z-Position (inkr.)" Padding="0" Margin="0,0,0,4"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtZPos" Grid.Column="0" Height="28" VerticalContentAlignment="Center"
+                         Text="0" TextAlignment="Right"/>
+                <Button x:Name="BtnSetZPos" Grid.Column="2" Content="Setzen" Height="28" Width="52"
+                        Click="BtnSetZPos_Click"/>
+            </Grid>
         </StackPanel>
 
         <!-- Bottom actions -->
