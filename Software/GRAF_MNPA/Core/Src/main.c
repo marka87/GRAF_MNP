@@ -212,22 +212,26 @@ void Process_UART_Command(const char *command) {
 	char response[64] = { 0 }; 				// Rückmeldungspuffer
 
 	if (command[0] == '+' && command[1] == '\0') { // Zielposition erhöhen
-		if (Z_Axis_TargetPosition + step_size <= upper_limit) {
+		if (current_state != TEST_START) {
+			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
+		} else if (Z_Axis_TargetPosition + step_size <= upper_limit) {
 			Z_Axis_TargetPosition += step_size;
+			snprintf(response, sizeof(response), "Erhöht: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		} else {
 			Z_Axis_TargetPosition = upper_limit;
+			snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		}
-		snprintf(response, sizeof(response), "Erhöht: Ziel = %lu\r\n",
-				Z_Axis_TargetPosition);
 
 	} else if (command[0] == '-' && command[1] == '\0') { // Zielposition verringern
-		if (Z_Axis_TargetPosition >= step_size + lower_limit) {
+		if (current_state != TEST_START) {
+			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
+		} else if (Z_Axis_TargetPosition >= step_size + lower_limit) {
 			Z_Axis_TargetPosition -= step_size;
+			snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		} else {
 			Z_Axis_TargetPosition = lower_limit;
+			snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		}
-		snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n",
-				Z_Axis_TargetPosition);
 
 	} else if (strcmp(command, "r") == 0) { // Relais an/aus
 		snprintf(response, sizeof(response), "System reset initiated.\r\n");
@@ -490,15 +494,16 @@ int main(void)
 				}
 			}
 		} else if (current_state == STOP) {
-			//USER information
 			d_mot_control(&dac, 2.5f);
 			yellow_light();
-			uart_send_status();
-			uart_send_text("Test abgebrochen\r\n", 1000);
 			sprintf(display_buffer[5], "Test abgebrochen");
 			sprintf(display_buffer[6], "Bitte neustarten");
 			sprintf(display_buffer[7], "        START");
-			//Z-Achse mittig setzen, warten auf OK
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("Test abgebrochen\r\n", 50);
+			}
 			Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
@@ -508,28 +513,30 @@ int main(void)
 			green_light();
 			save_data_to_uart();
 			d_mot_control(&dac, 2.5f);
-			// Test abgeschlossen
 			sprintf(display_buffer[5], "Test abgeschlossen");
 			sprintf(display_buffer[6], "Bitte OK druecken");
 			sprintf(display_buffer[7], "        OK");
-			uart_send_status();
-			uart_send_text("Test abgeschlossen\r\n", 1000);
-
-			Z_Axis_TargetPosition = z_ax_no_pos + 50; //z_ax_no_pos + 50 // (z_encoder_start + z_encoder_end) / 2
-
-			if (btn_ok_pressed) {
-			btn_ok_pressed = 0;
-			current_state = TEST_START;
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("Test abgeschlossen\r\n", 50);
 			}
-		} else if (current_state == FEHLER){
+			Z_Axis_TargetPosition = z_ax_no_pos + 50;
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				current_state = TEST_START;
+			}
+		} else if (current_state == FEHLER) {
 			red_light();
 			d_mot_control(&dac, 2.5f);
-			uart_send_status();
-			uart_send_text("FEHLER\r\n", 1000);
-		    sprintf(display_buffer[5], "%s", error_message);
+			sprintf(display_buffer[5], "%s", error_message);
 			sprintf(display_buffer[6], "Bitte neustarten");
 			sprintf(display_buffer[7], "        START");
-			//Z-Achse mittig setzen, warten auf OK
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("FEHLER\r\n", 50);
+			}
 			Z_Axis_TargetPosition = Encoder_GetPosition_Z_AXIS();
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
