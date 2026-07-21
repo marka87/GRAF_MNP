@@ -101,10 +101,13 @@ extern char display_buffer[DISPLAY_MAX_LINES][30];
 extern float voltage;
 /* UART Callback */
 static char error_message[30];
-static char uart_rx_buffer[32] = { 0 }; // Empfangspuffer
 static volatile uint8_t UART1_rxBuffer[1] = { 0 };
-static volatile bool byte_handled = true;
-static volatile uint8_t byte_received = 0;
+
+/* Ring buffer for UART commands — filled by ISR, drained in main loop */
+#define UART_CMD_BUF_SIZE 16
+static volatile uint8_t uart_cmd_buf[UART_CMD_BUF_SIZE];
+static volatile uint8_t uart_cmd_head = 0;
+static volatile uint8_t uart_cmd_tail = 0;
 static bool tick_100ms_testrun_elapsed = false;
 
 uint32_t next_100ms_tick = 0;
@@ -185,17 +188,19 @@ void update_display() {
 	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state,
 			sensorVoltage, a_axis_position, z_axis_position,
 			Z_Axis_TargetPosition);
-	uart_send_text(datablock, 2000);
+	uart_send_text(datablock, 50);
 }
 
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart == &huart1) {
-		char received_char = UART1_rxBuffer[0]; // Empfangenes Zeichen
-		HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1); // Empfang erneut aktivieren
-
-		char command[2] = { received_char, '\0' }; // Zeichen in String umwandeln
-		Process_UART_Command(command);
+		/* Store received byte in ring buffer — never call blocking code from ISR */
+		uint8_t next = (uart_cmd_head + 1) % UART_CMD_BUF_SIZE;
+		if (next != uart_cmd_tail) { // drop silently if buffer is full
+			uart_cmd_buf[uart_cmd_head] = UART1_rxBuffer[0];
+			uart_cmd_head = next;
+		}
+		HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
 	}
 }
 
@@ -261,7 +266,7 @@ void Process_UART_Command(const char *command) {
 	}
 	// Rückmeldung senden
 	uart_send_status();
-	uart_send_text(response, HAL_MAX_DELAY);
+	uart_send_text(response, 50);
 }
 void red_light() {
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin, GPIO_PIN_RESET);
@@ -365,9 +370,6 @@ int main(void)
 
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
-				current_state = EXEC_REFERENCE_RUN;
-			} else if (!byte_handled && byte_received == 's') {
-				byte_handled = true;
 				current_state = EXEC_REFERENCE_RUN;
 			}
 			//Referenzlauf starten
@@ -534,10 +536,11 @@ int main(void)
 				current_state = TEST_START;
 			}
 		}
-		// UART, Ticks und Display aktualisieren
-		if (!byte_handled) {
-			Process_UART_Command(uart_rx_buffer);
-			byte_handled = true;
+		// UART ring buffer: process one command per main-loop iteration
+		if (uart_cmd_tail != uart_cmd_head) {
+			char cmd[2] = { (char)uart_cmd_buf[uart_cmd_tail], '\0' };
+			uart_cmd_tail = (uart_cmd_tail + 1) % UART_CMD_BUF_SIZE;
+			Process_UART_Command(cmd);
 		}
 		// Trigger performance measurement if requested via 'p' command
 		if (perform_encoder_perf_test) {
