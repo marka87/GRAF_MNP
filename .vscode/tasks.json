@@ -1,0 +1,77 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "STM32: Build Debug (CubeIDE)",
+      "type": "shell",
+      "command": "${config:stm32.cubeidecPath}",
+      "args": [
+        "--launcher.suppressErrors",
+        "-nosplash",
+        "-application",
+        "org.eclipse.cdt.managedbuilder.core.headlessbuild",
+        "-data",
+        "${config:stm32.workspacePath}",
+        "-import",
+        "${workspaceFolder}\\Software\\GRAF_MNPA",
+        "-build",
+        "GRAF_MNPA/Debug"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "STM32: Build Release (CubeIDE)",
+      "type": "shell",
+      "command": "${config:stm32.cubeidecPath}",
+      "args": [
+        "--launcher.suppressErrors",
+        "-nosplash",
+        "-application",
+        "org.eclipse.cdt.managedbuilder.core.headlessbuild",
+        "-data",
+        "${config:stm32.workspacePath}",
+        "-import",
+        "${workspaceFolder}\\Software\\GRAF_MNPA",
+        "-build",
+        "GRAF_MNPA/Release"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "STM32: Flash Debug (CubeProgrammer)",
+      "type": "shell",
+      "command": "${config:stm32.programmerCliPath}",
+      "args": [
+        "-c",
+        "port=${config:stm32.programmerPort} index=${config:stm32.debugProbeIndex}",
+        "-d",
+        "${workspaceFolder}\\Software\\GRAF_MNPA\\Debug\\GRAF_MNPA.elf",
+        "-v"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "STM32: Build Debug (CubeIDE)"
+    },
+    {
+      "label": "STM32: Flash Release (CubeProgrammer)",
+      "type": "shell",
+      "command": "${config:stm32.programmerCliPath}",
+      "args": [
+        "-c",
+        "port=${config:stm32.programmerPort} index=${config:stm32.debugProbeIndex}",
+        "-d",
+        "${workspaceFolder}\\Software\\GRAF_MNPA\\Release\\GRAF_MNPA.elf",
+        "-v"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "STM32: Build Release (CubeIDE)"
+    }
+  ]
+}

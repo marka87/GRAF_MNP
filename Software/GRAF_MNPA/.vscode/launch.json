@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STM32 Cortex-Debug (Debug ELF, J-Link)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "servertype": "jlink",
+      "device": "STM32F746NG",
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "executable": "${workspaceFolder}/Debug/GRAF_MNPA.elf",
+      "preLaunchTask": "STM32: Build Debug (CubeIDE)"
+    },
+    {
+      "name": "STM32 Cortex-Debug (Release ELF, J-Link)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "servertype": "jlink",
+      "device": "STM32F746NG",
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "executable": "${workspaceFolder}/Release/GRAF_MNPA.elf",
+      "preLaunchTask": "STM32: Build Release (CubeIDE)"
+    }
+  ]
+}

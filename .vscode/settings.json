@@ -1,0 +1,7 @@
+{
+  "stm32.cubeidecPath": "C:\\ST\\STM32CubeIDE_1.18.1\\STM32CubeIDE\\stm32cubeidec.exe",
+  "stm32.programmerCliPath": "C:\\Users\\anma\\AppData\\Local\\stm32cube\\bundles\\programmer\\2.23.0\\bin\\STM32_Programmer_CLI.exe",
+  "stm32.workspacePath": "C:\\temp\\stm32_ws",
+  "stm32.programmerPort": "JLINK",
+  "stm32.debugProbeIndex": "0"
+}

@@ -38,6 +38,7 @@
 #include "handle_button.h"
 #include "d_mot_control.h"
 #include "data_buffer.h"
+#include "test_run.h"
 
 /* USER CODE END Includes */
 
@@ -84,12 +85,6 @@ typedef enum {
 
 run_state_t current_state = IDLE_START;
 
-typedef enum {
-	GO_DOWN, GO_UP
-} test_run_mode_t;
-
-test_run_mode_t test_run_mode = GO_UP;
-
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
 extern uint32_t a_encoder_start;
@@ -115,17 +110,12 @@ uint32_t next_10ms_tick = 0;
 uint32_t next_1ms_tick = 0;
 uint32_t next_uart_status_tick = 0;
 
-uint32_t num_total_cycles = 0;
-uint32_t current_cycle = 0;
-
-int32_t target_position_final = 0;
-int32_t target_position_running = 0;
-
 volatile bool perform_encoder_perf_test = false;  // Flag to trigger performance measurement
 
 volatile bool ds_was_activated = false;
 bool z_axis_success = false;
 bool a_axis_success = false;
+static bool completed_stats_sent = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -331,24 +321,21 @@ void Process_UART_Command(const char *command) {
 		current_state = TEST_START;
 		snprintf(response, sizeof(response), "Test gestartet.\r\n");
 	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
-		num_total_cycles = 10;
-		current_cycle = 0;
+		TestRun_Init(10);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Demo-Modus gestartet (10 Zyklen).\r\n");
 
-	} else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 100 Zyklen
-		num_total_cycles = 1000;
-		current_cycle = 0;
+	} else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 1000 Zyklen
+		TestRun_Init(1000);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
-				"Kurz-Modus gestartet (100 Zyklen).\r\n");
-	} else if (strcmp(command, "3") == 0) { // Lang-Modus mit 1000 Zyklen
-		num_total_cycles = 10000;
-		current_cycle = 0;
+				"Kurz-Modus gestartet (1000 Zyklen).\r\n");
+	} else if (strcmp(command, "3") == 0) { // Lang-Modus mit 10000 Zyklen
+		TestRun_Init(10000);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
-				"Lang-Modus gestartet (1000 Zyklen).\r\n");
+				"Lang-Modus gestartet (10000 Zyklen).\r\n");
 	} else if (command[0] == 'Z' && command[1] != '\0') { // Z-Achse Zielposition direkt setzen (z.B. "Z1500")
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
@@ -540,79 +527,48 @@ int main(void)
 				uart_send_text("Modus?\r\n", 100);
 			}
 			if (btn_up_pressed) {
-				btn_up_pressed = 0;
-				num_total_cycles = 100;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // DEMO-Modus
-			} else if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				num_total_cycles = 1000;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // KURZ-Modus
-			} else if (btn_down_pressed) {
-				btn_down_pressed = 0;
-				num_total_cycles = 10000;
-				current_cycle = 0;
-				target_position_final = z_ax_no_pos + 200;
-				target_position_running = Encoder_GetPosition_Z_AXIS();
-				current_state = TEST_RUN; // LANG-Modus
-			}
-			//Testlauf durchführen
-		} else if (current_state == TEST_RUN) {
-			white_light();
-			 // Druck gegen Drucksensor
-			d_mot_control(&dac, 3.5f); //3.83f = 20V bzw. 17V +3VO ffset
-			int16_t ds_value = ADC_Drucksensor(&hadc1);
-			if (ds_value > 410) {
-				uart_send_status();
-				uart_send_text("Fehler: Drucksensor\r\n", 1000);
-			    strcpy(error_message, "Fehler: Drucksensor");
-				current_state = FEHLER;
-				continue;
-			}
-			uart_send_status();
-			uart_send_text("TEST ...\r\n", 1000);
-			sprintf(display_buffer[7], "TEST ...");
-			if (current_cycle >= num_total_cycles) {
-				current_state = COMPLETED;
-			}
-			if (tick_100ms_testrun_elapsed) {
-				tick_100ms_testrun_elapsed = false;
-			    int32_t current_position = Encoder_GetPosition_Z_AXIS();
-			    log_data_point(current_position, Z_Axis_TargetPosition);  // Daten speichern
-				if (test_run_mode == GO_UP) {
-
-					Z_Axis_TargetPosition = z_ax_no_pos + 200;
-
-					if (Encoder_GetPosition_Z_AXIS() > z_ax_no_pos + 100) {
-						if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) { // Sensor activated?
-							test_run_mode = GO_DOWN;
-						} else {
-						    strcpy(error_message, "Fehler: NO-Sensor");
-							current_state = FEHLER;
-							continue;
-						}
-					}
-				} else if (test_run_mode == GO_DOWN) {
-
-					Z_Axis_TargetPosition = z_encoder_start + 400;
-
-					if (Encoder_GetPosition_Z_AXIS()<= (z_encoder_start + 500)) {
-
-						current_cycle++;
-
-						test_run_mode = GO_UP;
-
-						if (current_cycle > num_total_cycles) {
-							current_state = COMPLETED;
-						}
-					}
+					btn_up_pressed = 0;
+					TestRun_Init(100);
+					current_state = TEST_RUN; // DEMO-Modus
+				} else if (btn_ok_pressed) {
+					btn_ok_pressed = 0;
+					TestRun_Init(1000);
+					current_state = TEST_RUN; // KURZ-Modus
+				} else if (btn_down_pressed) {
+					btn_down_pressed = 0;
+					TestRun_Init(10000);
+					current_state = TEST_RUN; // LANG-Modus
 				}
-			}
+			//Testlauf durchführen
+			} else if (current_state == TEST_RUN) {
+				white_light();
+
+				bool tick = tick_100ms_testrun_elapsed;
+				if (tick) tick_100ms_testrun_elapsed = false;
+
+				TestRunResult_t result = TestRun_Tick(tick);
+				uint32_t cyc = TestRun_GetCurrentCycle();
+				uint32_t tot = TestRun_GetTotalCycles();
+				sprintf(display_buffer[5], "Zyklus %lu/%lu", cyc, tot);
+				display_buffer[6][0] = '\0';
+				sprintf(display_buffer[7], "TEST ...");
+
+				if (HAL_GetTick() >= next_uart_status_tick) {
+					next_uart_status_tick = HAL_GetTick() + 500;
+					uart_send_status();
+					char info[40];
+					snprintf(info, sizeof(info), "TEST %lu/%lu\r\n", cyc, tot);
+					uart_send_text(info, 50);
+				}
+
+				if (result == TESTRUN_COMPLETE) {
+					completed_stats_sent = false;
+					current_state = COMPLETED;
+				} else if (result == TESTRUN_ERROR) {
+					TestRun_GetErrorMessage(error_message, sizeof(error_message));
+					red_light();
+					current_state = FEHLER;
+				}
 		} else if (current_state == STOP) {
 			d_mot_control(&dac, 2.5f);
 			yellow_light();
@@ -631,11 +587,26 @@ int main(void)
 			}
 		} else if (current_state == COMPLETED) {
 			green_light();
-			save_data_to_uart();
 			d_mot_control(&dac, 2.5f);
-			sprintf(display_buffer[5], "Test abgeschlossen");
+
+			TestRunStats_t stats;
+			TestRun_GetStats(&stats);
+			sprintf(display_buffer[5], "OK:%lu/%lu Zyklen", stats.completed_cycles, stats.total_cycles);
 			sprintf(display_buffer[6], "Bitte OK druecken");
 			sprintf(display_buffer[7], "        OK");
+
+			/* Statistiken und Pufferdaten einmalig nach Testabschluss senden */
+			if (!completed_stats_sent) {
+				completed_stats_sent = true;
+				save_data_to_uart();
+				char stats_msg[128];
+				snprintf(stats_msg, sizeof(stats_msg),
+					"STATS:cycles=%lu,ds_err=%lu,no_err=%lu,z_min=%ld,z_max=%ld\r\n",
+					stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					(long)stats.z_trigger_pos_min, (long)stats.z_trigger_pos_max);
+				uart_send_text(stats_msg, 100);
+			}
+
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 1000;
 				uart_send_status();

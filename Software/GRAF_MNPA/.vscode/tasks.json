@@ -1,0 +1,77 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "STM32: Build Debug (CubeIDE)",
+      "type": "shell",
+      "command": "C:\\ST\\STM32CubeIDE_1.18.1\\STM32CubeIDE\\stm32cubeidec.exe",
+      "args": [
+        "--launcher.suppressErrors",
+        "-nosplash",
+        "-application",
+        "org.eclipse.cdt.managedbuilder.core.headlessbuild",
+        "-data",
+        "C:\\temp\\stm32_ws",
+        "-import",
+        "${workspaceFolder}",
+        "-build",
+        "GRAF_MNPA/Debug"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "STM32: Build Release (CubeIDE)",
+      "type": "shell",
+      "command": "C:\\ST\\STM32CubeIDE_1.18.1\\STM32CubeIDE\\stm32cubeidec.exe",
+      "args": [
+        "--launcher.suppressErrors",
+        "-nosplash",
+        "-application",
+        "org.eclipse.cdt.managedbuilder.core.headlessbuild",
+        "-data",
+        "C:\\temp\\stm32_ws",
+        "-import",
+        "${workspaceFolder}",
+        "-build",
+        "GRAF_MNPA/Release"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "STM32: Flash Debug (J-Link)",
+      "type": "shell",
+      "command": "C:\\Users\\anma\\AppData\\Local\\stm32cube\\bundles\\programmer\\2.23.0\\bin\\STM32_Programmer_CLI.exe",
+      "args": [
+        "-c",
+        "port=JLINK index=0",
+        "-d",
+        "${workspaceFolder}\\Debug\\GRAF_MNPA.elf",
+        "-v"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "STM32: Build Debug (CubeIDE)"
+    },
+    {
+      "label": "STM32: Flash Release (J-Link)",
+      "type": "shell",
+      "command": "C:\\Users\\anma\\AppData\\Local\\stm32cube\\bundles\\programmer\\2.23.0\\bin\\STM32_Programmer_CLI.exe",
+      "args": [
+        "-c",
+        "port=JLINK index=0",
+        "-d",
+        "${workspaceFolder}\\Release\\GRAF_MNPA.elf",
+        "-v"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "STM32: Build Release (CubeIDE)"
+    }
+  ]
+}
