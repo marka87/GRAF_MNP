@@ -13,6 +13,8 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Threading;
 using System.IO;
+using System.Globalization;
+using System.Text.Json;
 
 namespace MnpControl
 {
@@ -34,6 +36,16 @@ namespace MnpControl
         private const int LoggingTimeoutSeconds = 120;
         private string _lastStatusMessage = string.Empty;
         private string _currentDeviceState = string.Empty;
+        private static readonly string PidProfilePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "MnpControl", "pid_z_profile.json");
+
+        private sealed class PidProfile
+        {
+            public string Kp { get; set; } = "";
+            public string Ki { get; set; } = "";
+            public string Kd { get; set; } = "";
+        }
 
         public MainWindow()
         {
@@ -44,6 +56,7 @@ namespace MnpControl
         {
         _continue = true;
         UpdateButtonStates(string.Empty); // all disabled until connected + state received
+        LoadPidProfileFromDisk();
 
         if (!TryOpenDeviceConnection())
         {
@@ -56,6 +69,7 @@ namespace MnpControl
 
         // Subscribe to DataReceived event for instant data processing
         _devConnection.DataReceived += DevConnection_DataReceived;
+        SendCommand("P?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -247,7 +261,7 @@ namespace MnpControl
             }
 
             string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (sSplit.Length == 5)
+            if (sSplit.Length >= 5)
             {
                 if (_isLoggingSession)
                     _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
@@ -257,6 +271,39 @@ namespace MnpControl
                 TxtAaxisPos.Text = sSplit[2];
                 TxtZaxisPosIst.Text = sSplit[3];
                 TxtZaxisPosSoll.Text = sSplit[4];
+                TxtZDac.Text = sSplit.Length >= 6 ? sSplit[5] : string.Empty;
+                return;
+            }
+
+            if (msg.StartsWith("PIDZ:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(5);
+                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
+                {
+                    TxtPidKpCurrent.Text = kp;
+                    TxtPidKiCurrent.Text = ki;
+                    TxtPidKdCurrent.Text = kd;
+                    TxtStatus.Text = "PID gelesen";
+                }
+                return;
+            }
+
+            if (msg.StartsWith("PIDZ_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(9);
+                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
+                {
+                    TxtPidKpCurrent.Text = kp;
+                    TxtPidKiCurrent.Text = ki;
+                    TxtPidKdCurrent.Text = kd;
+                    TxtStatus.Text = "PID gesetzt";
+                }
+                return;
+            }
+
+            if (msg.StartsWith("PIDZ_ERR:", StringComparison.Ordinal) || msg.StartsWith("Z_NEUTRAL:", StringComparison.Ordinal))
+            {
+                TxtStatus.Text = msg;
                 return;
             }
 
@@ -272,6 +319,8 @@ namespace MnpControl
                 UpdateButtonStates(state);
                 return;
             }
+
+            TxtStatus.Text = msg;
         }
 
         private static string GetStateFriendlyName(string state) => state switch
@@ -292,6 +341,7 @@ namespace MnpControl
             bool isIdle       = state == "IDLE_START";
             bool isRunning    = state == "TEST_RUN";
             bool canRef       = isIdle || isTestStart || state == "COMPLETED" || state == "STOP" || state == "FEHLER";
+            bool isConnected  = _devConnection != null && _devConnection.IsOpen;
 
             BtnStartReferenceRun.IsEnabled = canRef;
             BtnStartDemo.IsEnabled         = isTestStart;
@@ -302,6 +352,71 @@ namespace MnpControl
             BtnUp.IsEnabled                = isTestStart;
             BtnDown.IsEnabled              = isTestStart;
             BtnSetZPos.IsEnabled           = isTestStart;
+            BtnPidRead.IsEnabled           = isConnected;
+            BtnPidApply.IsEnabled          = isConnected;
+            BtnPidNeutral.IsEnabled        = isConnected;
+            BtnPidSave.IsEnabled           = true;
+            BtnPidLoad.IsEnabled           = true;
+        }
+
+        private static bool TryParsePidPayload(string payload, out string kp, out string ki, out string kd)
+        {
+            kp = string.Empty;
+            ki = string.Empty;
+            kd = string.Empty;
+            string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
+            if (parts.Length != 3) return false;
+            kp = parts[0];
+            ki = parts[1];
+            kd = parts[2];
+            return true;
+        }
+
+        private bool TryReadPidInput(out float kp, out float ki, out float kd)
+        {
+            kp = 0.0f;
+            ki = 0.0f;
+            kd = 0.0f;
+            bool ok =
+                float.TryParse(TxtPidKpNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out kp) &&
+                float.TryParse(TxtPidKiNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out ki) &&
+                float.TryParse(TxtPidKdNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out kd);
+            return ok && kp > 0.0f && ki > 0.0f && kd >= 0.0f;
+        }
+
+        private void LoadPidProfileFromDisk()
+        {
+            try
+            {
+                if (!File.Exists(PidProfilePath)) return;
+                string json = File.ReadAllText(PidProfilePath);
+                PidProfile? profile = JsonSerializer.Deserialize<PidProfile>(json);
+                if (profile == null) return;
+                TxtPidKpNew.Text = profile.Kp;
+                TxtPidKiNew.Text = profile.Ki;
+                TxtPidKdNew.Text = profile.Kd;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"PID profile load error: {ex.Message}");
+            }
+        }
+
+        private void SavePidProfileToDisk()
+        {
+            string? dir = System.IO.Path.GetDirectoryName(PidProfilePath);
+            if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            PidProfile profile = new PidProfile
+            {
+                Kp = TxtPidKpNew.Text.Trim(),
+                Ki = TxtPidKiNew.Text.Trim(),
+                Kd = TxtPidKdNew.Text.Trim()
+            };
+            string json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(PidProfilePath, json);
         }
 
         private void DevConnection_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -428,6 +543,49 @@ namespace MnpControl
                 MessageBox.Show("Ungültiger Wert. Bitte eine positive ganze Zahl eingeben.",
                     "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private void BtnPidRead_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommand("P?");
+        }
+
+        private void BtnPidApply_Click(object sender, RoutedEventArgs e)
+        {
+            if (!TryReadPidInput(out float kp, out float ki, out float kd))
+            {
+                MessageBox.Show("Ungültige PID-Werte. Format z.B. KP 0.003, KI 0.000001, KD 0.018",
+                    "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string cmd = string.Format(CultureInfo.InvariantCulture, "P={0},{1},{2}", kp, ki, kd);
+            SendCommand(cmd);
+        }
+
+        private void BtnPidSave_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                SavePidProfileToDisk();
+                TxtStatus.Text = "PID-Profil gespeichert";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Speichern fehlgeschlagen: {ex.Message}",
+                    "Dateifehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void BtnPidLoad_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPidProfileFromDisk();
+            TxtStatus.Text = "PID-Profil geladen";
+        }
+
+        private void BtnPidNeutral_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommand("N");
         }
     }
 }

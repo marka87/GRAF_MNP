@@ -11,30 +11,14 @@
 
 #include "encoder.h"
 
-//#define KP 0.007f			//Wow
-//#define KI 0.00007f
-//#define KD 0.075f
-
-//#define KP 0.0005f			//Sanft für ablauf
-//#define KI 0.00000016f
-//#define KD 0.000012f
-
-//#define KP 0.001f			//Sanft für ablauf
-//#define KI 0.000029f
-//#define KD 0.000031f
-
-//#define KP 0.00047f			//Testlauf
-//#define KI 0.00000151f
-//#define KD 0.00012f
-#define KP 0.0030f			//Testlauf
-#define KI 0.000001f//KI 0.000001f
-#define KD 0.018000f //KD 0.012f
+#define KP_DEFAULT 0.0030f
+#define KI_DEFAULT 0.000001f
+#define KD_DEFAULT 0.018000f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
 #define NEUTRAL_VOLTAGE 2.5f
-#define INTEGRAL_LIMIT  (2.5f / KI)
 
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
@@ -42,6 +26,9 @@
 /* Statische Variablen für PID-Zustände */
 static float integral = 0.0f;
 static float previous_error = 0.0f;
+static float z_kp = KP_DEFAULT;
+static float z_ki = KI_DEFAULT;
+static float z_kd = KD_DEFAULT;
 float voltage;
 
 void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
@@ -51,13 +38,14 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	int error = encoder_value - Z_Axis_TargetPosition;
 	// Integralanteil
 	integral += error; // * DT
-    if (integral > INTEGRAL_LIMIT) integral = INTEGRAL_LIMIT;
-    if (integral < -INTEGRAL_LIMIT) integral = -INTEGRAL_LIMIT;
+	float integral_limit = (z_ki > 0.0f) ? (2.5f / z_ki) : 0.0f;
+    if (integral > integral_limit) integral = integral_limit;
+    if (integral < -integral_limit) integral = -integral_limit;
 	/* Differentialanteil */
 	float derivative = (error - previous_error); // / DT;
 
 	/* PID-Berechnung */
-	float output = (KP * error) + (KI * integral) + (KD * derivative);
+	float output = (z_kp * error) + (z_ki * integral) + (z_kd * derivative);
 
 	/* Spannung berechnen */
 	voltage = NEUTRAL_VOLTAGE + output;
@@ -75,3 +63,25 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	previous_error = (float) error;
 }
 
+void Z_PID_SetParameters(float kp, float ki, float kd) {
+	if (kp > 0.0f && ki > 0.0f && kd >= 0.0f) {
+		z_kp = kp;
+		z_ki = ki;
+		z_kd = kd;
+		integral = 0.0f;
+		previous_error = 0.0f;
+	}
+}
+
+void Z_PID_GetParameters(float *kp, float *ki, float *kd) {
+	if (kp != NULL) *kp = z_kp;
+	if (ki != NULL) *ki = z_ki;
+	if (kd != NULL) *kd = z_kd;
+}
+
+void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {
+	integral = 0.0f;
+	previous_error = 0.0f;
+	voltage = NEUTRAL_VOLTAGE;
+	ad5684_set_voltage(dac, voltage, z_mot);
+}

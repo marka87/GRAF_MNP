@@ -77,11 +77,6 @@ void A_Axis_PIDControl(ad5684_dac_t *dac, uint32_t A_Axis_TargetPosition) {
 	/* Spannung an den DAC senden */
 	ad5684_set_voltage(dac, voltage, A_MOT);
 
-	/* Debug-Ausgabe */
-	printf(
-			"Encoder: %d, Error: %d, Integral: %.2f, Deriv: %.2f, Out: %.6f, Voltage: %.3f\n",
-			encoder_value, error, integral, derivative, output, voltage);
-
 	/* Fehler für den nächsten Zyklus speichern */
 	previous_error = (float) error;
 }

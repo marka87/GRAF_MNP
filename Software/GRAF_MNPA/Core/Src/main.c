@@ -180,11 +180,84 @@ static void uart_send_text(const char *text, uint32_t timeout) {
 			timeout);
 }
 
+static bool parse_positive_decimal(const char *s, float *out) {
+	if (s == NULL || out == NULL || *s == '\0') {
+		return false;
+	}
+	uint32_t int_part = 0;
+	uint32_t frac_part = 0;
+	uint32_t frac_div = 1;
+	bool seen_digit = false;
+	bool seen_dot = false;
+	for (const char *p = s; *p != '\0'; ++p) {
+		char c = *p;
+		if (c >= '0' && c <= '9') {
+			seen_digit = true;
+			if (!seen_dot) {
+				int_part = (int_part * 10u) + (uint32_t) (c - '0');
+			} else if (frac_div < 1000000000u) {
+				frac_part = (frac_part * 10u) + (uint32_t) (c - '0');
+				frac_div *= 10u;
+			}
+		} else if (c == '.' && !seen_dot) {
+			seen_dot = true;
+		} else {
+			return false;
+		}
+	}
+	if (!seen_digit) {
+		return false;
+	}
+	*out = (float) int_part + ((float) frac_part / (float) frac_div);
+	return *out > 0.0f;
+}
+
+static bool parse_pid_triplet(const char *payload, float *kp, float *ki, float *kd) {
+	if (payload == NULL || kp == NULL || ki == NULL || kd == NULL) {
+		return false;
+	}
+	const char *c1 = strchr(payload, ',');
+	if (c1 == NULL) {
+		return false;
+	}
+	const char *c2 = strchr(c1 + 1, ',');
+	if (c2 == NULL) {
+		return false;
+	}
+	if (strchr(c2 + 1, ',') != NULL) {
+		return false;
+	}
+	char p1[24] = { 0 };
+	char p2[24] = { 0 };
+	char p3[24] = { 0 };
+	size_t l1 = (size_t) (c1 - payload);
+	size_t l2 = (size_t) (c2 - (c1 + 1));
+	size_t l3 = strlen(c2 + 1);
+	if (l1 == 0 || l2 == 0 || l3 == 0 || l1 >= sizeof(p1) || l2 >= sizeof(p2)
+			|| l3 >= sizeof(p3)) {
+		return false;
+	}
+	memcpy(p1, payload, l1);
+	memcpy(p2, c1 + 1, l2);
+	memcpy(p3, c2 + 1, l3);
+	if (!parse_positive_decimal(p1, kp)) {
+		return false;
+	}
+	if (!parse_positive_decimal(p2, ki)) {
+		return false;
+	}
+	if (!parse_positive_decimal(p3, kd)) {
+		return false;
+	}
+	return true;
+}
+
 /* Update Display */
 void update_display() {
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
 	int32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	int32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
+	float z_dac_voltage = voltage;
 	if (no_sen_state == GPIO_PIN_SET) { // Zeile 0: Nadel oben (High/Low)
 		sprintf(display_buffer[0], "Nadel oben:  HIGH");
 	} else {
@@ -200,9 +273,9 @@ void update_display() {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
 	char datablock[256];
-	sprintf(datablock, "%d;%.3f;%5lu;%5lu;%5lu\r\n", no_sen_state,
-			sensorVoltage, a_axis_position, z_axis_position,
-			Z_Axis_TargetPosition);
+	sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
+			sensorVoltage, (long)a_axis_position, (long)z_axis_position,
+			(long)Z_Axis_TargetPosition, z_dac_voltage);
 	uart_send_text(datablock, 50);
 }
 
@@ -222,8 +295,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 // UART-Verarbeitung
 void Process_UART_Command(const char *command) {
 	static const uint32_t step_size = 100; 	// Schrittgröße
-	uint32_t lower_limit = z_encoder_start; // Untere Grenze
-	uint32_t upper_limit = z_encoder_end;   // Obere Grenze
+	uint32_t lower_limit = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
+	uint32_t upper_limit = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
 	char response[64] = { 0 }; 				// Rückmeldungspuffer
 
 	if (command[0] == '+' && command[1] == '\0') { // Zielposition erhöhen
@@ -288,8 +361,26 @@ void Process_UART_Command(const char *command) {
 				} else {
 					snprintf(response, sizeof(response), "Limit! %lu [%lu-%lu]\r\n", val, lower_limit, upper_limit);
 				}
+			} else {
+				snprintf(response, sizeof(response), "Ungueltig: Z<zahl>\r\n");
 			}
 		}
+	} else if (strcmp(command, "P?") == 0) {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		Z_PID_GetParameters(&kp, &ki, &kd);
+		snprintf(response, sizeof(response), "PIDZ:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (command[0] == 'P' && command[1] == '=') {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		if (parse_pid_triplet(command + 2, &kp, &ki, &kd)) {
+			Z_PID_SetParameters(kp, ki, kd);
+			snprintf(response, sizeof(response), "PIDZ_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+		} else {
+			snprintf(response, sizeof(response), "PIDZ_ERR:Format P=kp,ki,kd\r\n");
+		}
+	} else if (strcmp(command, "N") == 0) {
+		Z_PID_EmergencyNeutral(&dac);
+		Z_Axis_TargetPosition = (uint32_t) Encoder_GetPosition_Z_AXIS();
+		snprintf(response, sizeof(response), "Z_NEUTRAL:2.5V\r\n");
 	} else if (strcmp(command, "q") == 0) {
 		current_state = STOP;
 		snprintf(response, sizeof(response), "Testablauf Abbgebrochen. \r\n");
@@ -375,7 +466,7 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_RESET);
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(GPIOB, DAC_RESET_Pin, GPIO_PIN_SET);
-	ad5684_dac_t dac = { .spi_handle = &hspi4, .spi_cs_port =
+	dac = (ad5684_dac_t ) { .spi_handle = &hspi4, .spi_cs_port =
 	SPI4_NSS_GPIO_Port, .spi_cs_pin = SPI4_NSS_Pin,
 	};
 	ad5684_init(&dac);
