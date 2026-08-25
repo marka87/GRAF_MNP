@@ -28,6 +28,9 @@ typedef struct {
     uint32_t completed_cycles;    /* Tatsächlich abgeschlossene Zyklen         */
     uint32_t ds_errors;           /* Drucksensor-Fehlerzähler                  */
     uint32_t no_sensor_errors;    /* NO-Sensor-Fehlerzähler                    */
+    uint32_t valid_sensor_events; /* Korrekt erkannte Drucksensor-Auslösungen */
+    uint32_t invalid_sensor_events; /* Unplausible Drucksensor-Auslösungen     */
+    uint32_t motor_faults;        /* Fehlerhafte Druckmotor-Betätigung         */
     int32_t  no_sensor_pos;       /* Z-Position des NO-Sensors                 */
     int32_t  z_trigger_pos_min;   /* Kleinste Z-Position beim NO-Sen-Auslösen   */
     int32_t  z_trigger_pos_max;   /* Größte Z-Position beim NO-Sen-Auslösen    */
@@ -35,6 +38,8 @@ typedef struct {
     int32_t  z_ist_max;           /* Größter gemessener Istwert               */
     int32_t  z_soll_min;          /* Kleinster gemessener Sollwert            */
     int32_t  z_soll_max;          /* Größter gemessener Sollwert              */
+    int32_t  last_ist_pos;        /* Letzte gemessene Ist-Position            */
+    int32_t  last_soll_pos;       /* Letzter Sollwert                         */
     uint32_t test_time_ms;        /* Gesamtdauer des Testlaufs                */
     int32_t  last_cycle_delta;    /* Zugrundeliegende Bewegungsdifferenz       */
     int32_t  last_cycle_overshoot;/* Überschreitung der Ziel-Range in inc      */
@@ -71,5 +76,6 @@ void             TestRun_GetLastCycleMetrics(TestRunCycleMetrics_t *out);
 /* Hilfsfunktionen für Displayanzeige */
 uint32_t         TestRun_GetCurrentCycle(void);
 uint32_t         TestRun_GetTotalCycles(void);
+const char      *TestRun_GetPhaseName(void);
 
 #endif /* SRC_TEST_RUN_H_ */

@@ -426,6 +426,10 @@ namespace MnpControl
             string lost = values.TryGetValue("lost", out string? l) ? l : "?";
             string delta = values.TryGetValue("last_delta", out string? dlt) ? dlt : "?";
             string overshoot = values.TryGetValue("overshoot", out string? over) ? over : "?";
+            string validSensor = values.TryGetValue("valid_sensor", out string? valid) ? valid : "?";
+            string invalidSensor = values.TryGetValue("invalid_sensor", out string? invalid) ? invalid : "?";
+            string motorFault = values.TryGetValue("motor_fault", out string? fault) ? fault : "?";
+            string phase = values.TryGetValue("phase", out string? p) ? p : "?";
             string runtime = "";
             if (values.TryGetValue("time_m", out string? tm) || values.TryGetValue("time_s", out string? ts))
             {
@@ -434,10 +438,10 @@ namespace MnpControl
                 runtime = $" | Zeit: {minutes}m {seconds}s";
             }
 
-            string header = $"{DateTime.Now:HH:mm:ss} TEST {status} ({cycles}/{done}) lost={lost} | Δ={delta} | overshoot={overshoot}{runtime}";
+            string header = $"{DateTime.Now:HH:mm:ss} TEST {status} ({cycles}/{done}) lost={lost} | Δ={delta} | overshoot={overshoot} | phase={phase}{runtime}";
             string details = string.Format(
                 CultureInfo.InvariantCulture,
-                "IST min/max: {0} / {1} | SOLL min/max: {2} / {3} | NO-Sensor: {4} | Δ={5} | overshoot={6}{7}",
+                "IST min/max: {0} / {1} | SOLL min/max: {2} / {3} | NO-Sensor: {4} | Δ={5} | overshoot={6} | valid={7} | invalid={8} | motor_fault={9}{10}",
                 values.TryGetValue("z_ist_min", out string? istMin) ? istMin : "-",
                 values.TryGetValue("z_ist_max", out string? istMax) ? istMax : "-",
                 values.TryGetValue("z_soll_min", out string? sollMin) ? sollMin : "-",
@@ -445,6 +449,9 @@ namespace MnpControl
                 values.TryGetValue("no_sensor_pos", out string? noPos) ? noPos : "-",
                 delta,
                 overshoot,
+                validSensor,
+                invalidSensor,
+                motorFault,
                 runtime);
 
             if (values.TryGetValue("last_error", out string? err) && !string.IsNullOrWhiteSpace(err))

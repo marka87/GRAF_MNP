@@ -64,6 +64,16 @@ static int32_t         s_cycle_end_pos;
 static uint32_t        s_cycle_ticks;
 static uint32_t        s_elapsed_ms;
 
+const char *TestRun_GetPhaseName(void) {
+    switch (s_phase) {
+        case PHASE_GO_UP: return "GO_UP";
+        case PHASE_WAIT_FOR_NO: return "WAIT_FOR_NO";
+        case PHASE_GO_DOWN: return "GO_DOWN";
+        case PHASE_SETTLED: return "SETTLED";
+        default: return "UNKNOWN";
+    }
+}
+
 static void update_position_range(int32_t position) {
     if (position < s_stats.z_ist_min) s_stats.z_ist_min = position;
     if (position > s_stats.z_ist_max) s_stats.z_ist_max = position;
@@ -110,6 +120,9 @@ void TestRun_Init(uint32_t num_cycles) {
     s_stats.completed_cycles  = 0;
     s_stats.ds_errors         = 0;
     s_stats.no_sensor_errors  = 0;
+    s_stats.valid_sensor_events = 0;
+    s_stats.invalid_sensor_events = 0;
+    s_stats.motor_faults      = 0;
     s_stats.no_sensor_pos     = (int32_t)z_ax_no_pos;
     s_stats.z_trigger_pos_min = INT32_MAX;
     s_stats.z_trigger_pos_max = INT32_MIN;
@@ -117,6 +130,8 @@ void TestRun_Init(uint32_t num_cycles) {
     s_stats.z_ist_max         = INT32_MIN;
     s_stats.z_soll_min        = INT32_MAX;
     s_stats.z_soll_max        = INT32_MIN;
+    s_stats.last_ist_pos      = 0;
+    s_stats.last_soll_pos     = 0;
     s_stats.test_time_ms      = 0u;
     s_stats.last_cycle_delta  = 0;
     s_stats.last_cycle_overshoot = 0;
@@ -152,13 +167,19 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     s_stats.test_time_ms = s_elapsed_ms;
 
     int32_t z_pos = Encoder_GetPosition_Z_AXIS();
+    int32_t z_target = (int32_t)Z_Target_GetRequested();
+    s_stats.last_ist_pos = z_pos;
+    s_stats.last_soll_pos = z_target;
     update_position_range(z_pos);
-    log_data_point(z_pos, (int32_t)Z_Target_GetRequested());
+    update_target_range(z_target);
+    log_data_point(z_pos, z_target);
 
     /* Drucksensor muss aktiv sein (Hebel in Lichtschranke) */
     uint16_t ds_value = ADC_Drucksensor(&hadc1);
     if (ds_value > DS_ACTIVE_THRESHOLD) {
+        s_stats.invalid_sensor_events++;
         s_stats.ds_errors++;
+        s_stats.motor_faults++;
         snprintf(s_error_msg, sizeof(s_error_msg), "Fehler: Drucksensor");
         return TESTRUN_ERROR;
     }
@@ -174,11 +195,13 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) {
                 s_cycle_trigger_pos = z_pos;
                 s_stats.no_sensor_pos = z_ax_no_pos;
+                s_stats.valid_sensor_events++;
                 if (s_cycle_trigger_pos < s_stats.z_trigger_pos_min) s_stats.z_trigger_pos_min = s_cycle_trigger_pos;
                 if (s_cycle_trigger_pos > s_stats.z_trigger_pos_max) s_stats.z_trigger_pos_max = s_cycle_trigger_pos;
                 s_phase = PHASE_GO_DOWN;
             } else {
                 s_stats.no_sensor_errors++;
+                s_stats.invalid_sensor_events++;
                 snprintf(s_error_msg, sizeof(s_error_msg), "Fehler: NO-Sensor");
                 return TESTRUN_ERROR;
             }

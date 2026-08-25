@@ -620,14 +620,18 @@ int main(void)
 				} else if (result == TESTRUN_ERROR) {
 					TestRun_GetErrorMessage(error_message, sizeof(error_message));
 					TestRun_GetStats(&stats);
-					char summary[256];
+					char summary[320];
 					uint32_t time_min = stats.test_time_ms / 60000u;
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+					const char *phase = TestRun_GetPhaseName();
 					snprintf(summary, sizeof(summary),
-						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
 						(long)stats.z_soll_min, (long)stats.z_soll_max,
+						(long)stats.last_ist_pos, (long)stats.last_soll_pos,
+						phase,
 						time_min, time_sec,
 						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
 						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
@@ -664,14 +668,18 @@ int main(void)
 			if (!completed_stats_sent) {
 				completed_stats_sent = true;
 				save_data_to_uart();
-				char stats_msg[256];
+				char stats_msg[320];
 				uint32_t time_min = stats.test_time_ms / 60000u;
 				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+				const char *phase = TestRun_GetPhaseName();
 				snprintf(stats_msg, sizeof(stats_msg),
-					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n",
+					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n",
 					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 					(long)stats.z_ist_min, (long)stats.z_ist_max,
 					(long)stats.z_soll_min, (long)stats.z_soll_max,
+					(long)stats.last_ist_pos, (long)stats.last_soll_pos,
+					phase,
 					time_min, time_sec,
 					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
 					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
@@ -701,14 +709,18 @@ int main(void)
 			}
 			if (!test_summary_sent) {
 				TestRun_GetStats(&stats);
-				char summary[256];
+				char summary[320];
 				uint32_t time_min = stats.test_time_ms / 60000u;
 				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+				const char *phase = TestRun_GetPhaseName();
 				snprintf(summary, sizeof(summary),
-					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
 					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 					(long)stats.z_ist_min, (long)stats.z_ist_max,
 					(long)stats.z_soll_min, (long)stats.z_soll_max,
+					(long)stats.last_ist_pos, (long)stats.last_soll_pos,
+					phase,
 					time_min, time_sec,
 					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
 					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
