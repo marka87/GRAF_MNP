@@ -54,6 +54,7 @@
 #define d_mot 0x04		//DAC-C.
 #define TARGET_VOLTAGE_NEUTRAL 2.5f
 #define MAX_DATA_POINTS 1000  // Maximale Anzahl an Datenpunkten
+#define Z_TARGET_SLEW_STEP_PER_MS 12u
 
 /* USER CODE END PD */
 
@@ -104,6 +105,8 @@ static volatile uint8_t uart_cmd_buf[UART_CMD_BUF_SIZE];
 static volatile uint8_t uart_cmd_head = 0;
 static volatile uint8_t uart_cmd_tail = 0;
 static bool tick_100ms_testrun_elapsed = false;
+static uint32_t z_target_requested = 0;
+static bool z_target_softlimit_active = false;
 
 uint32_t next_100ms_tick = 0;
 uint32_t next_10ms_tick = 0;
@@ -168,6 +171,43 @@ static void uart_send_status(void) {
 static void uart_send_text(const char *text, uint32_t timeout) {
 	HAL_UART_Transmit(&huart1, (const uint8_t*) text, (uint16_t) strlen(text),
 			timeout);
+}
+
+void Z_Target_SetRequested(uint32_t target) {
+	z_target_requested = target;
+	z_target_softlimit_active = true;
+}
+
+void Z_Target_SetRequestedDirect(uint32_t target) {
+	z_target_requested = target;
+	Z_Axis_TargetPosition = target;
+	z_target_softlimit_active = false;
+}
+
+uint32_t Z_Target_GetRequested(void) {
+	return z_target_requested;
+}
+
+static uint32_t clamp_nonnegative_position(int32_t position) {
+	return (position < 0) ? 0u : (uint32_t)position;
+}
+
+static void Z_Target_ApplySlewLimit(void) {
+	if (!z_target_softlimit_active) {
+		return;
+	}
+
+	if (Z_Axis_TargetPosition < z_target_requested) {
+		uint32_t delta = z_target_requested - Z_Axis_TargetPosition;
+		uint32_t step = (delta > Z_TARGET_SLEW_STEP_PER_MS) ? Z_TARGET_SLEW_STEP_PER_MS : delta;
+		Z_Axis_TargetPosition += step;
+	} else if (Z_Axis_TargetPosition > z_target_requested) {
+		uint32_t delta = Z_Axis_TargetPosition - z_target_requested;
+		uint32_t step = (delta > Z_TARGET_SLEW_STEP_PER_MS) ? Z_TARGET_SLEW_STEP_PER_MS : delta;
+		Z_Axis_TargetPosition -= step;
+	} else {
+		z_target_softlimit_active = false;
+	}
 }
 
 static bool parse_positive_decimal(const char *s, float *out) {
@@ -292,23 +332,33 @@ void Process_UART_Command(const char *command) {
 	if (command[0] == '+' && command[1] == '\0') { // Zielposition erhöhen
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
-		} else if (Z_Axis_TargetPosition + step_size <= upper_limit) {
-			Z_Axis_TargetPosition += step_size;
-			snprintf(response, sizeof(response), "Erhöht: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		} else {
-			Z_Axis_TargetPosition = upper_limit;
-			snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", Z_Axis_TargetPosition);
+			uint32_t req = Z_Target_GetRequested();
+			uint32_t next = req;
+			if (req + step_size <= upper_limit) {
+				next = req + step_size;
+				snprintf(response, sizeof(response), "Erhöht: Ziel = %lu\r\n", next);
+			} else {
+				next = upper_limit;
+				snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", next);
+			}
+			Z_Target_SetRequested(next);
 		}
 
 	} else if (command[0] == '-' && command[1] == '\0') { // Zielposition verringern
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
-		} else if (Z_Axis_TargetPosition >= step_size + lower_limit) {
-			Z_Axis_TargetPosition -= step_size;
-			snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n", Z_Axis_TargetPosition);
 		} else {
-			Z_Axis_TargetPosition = lower_limit;
-			snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", Z_Axis_TargetPosition);
+			uint32_t req = Z_Target_GetRequested();
+			uint32_t next = req;
+			if (req >= step_size + lower_limit) {
+				next = req - step_size;
+				snprintf(response, sizeof(response), "Verringert: Ziel = %lu\r\n", next);
+			} else {
+				next = lower_limit;
+				snprintf(response, sizeof(response), "Limit: Ziel = %lu\r\n", next);
+			}
+			Z_Target_SetRequested(next);
 		}
 
 	} else if (strcmp(command, "r") == 0) { // Relais an/aus
@@ -343,8 +393,8 @@ void Process_UART_Command(const char *command) {
 			uint32_t val = 0;
 			if (sscanf(command + 1, "%lu", &val) == 1) {
 				if (val >= lower_limit && val <= upper_limit) {
-					Z_Axis_TargetPosition = val;
-					snprintf(response, sizeof(response), "Z-Pos: %lu\r\n", Z_Axis_TargetPosition);
+					Z_Target_SetRequested(val);
+					snprintf(response, sizeof(response), "Z-Pos: %lu\r\n", val);
 				} else {
 					snprintf(response, sizeof(response), "Limit! %lu [%lu-%lu]\r\n", val, lower_limit, upper_limit);
 				}
@@ -366,7 +416,7 @@ void Process_UART_Command(const char *command) {
 		}
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
-		Z_Axis_TargetPosition = (uint32_t) Encoder_GetPosition_Z_AXIS();
+		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 		snprintf(response, sizeof(response), "Z_NEUTRAL:2.5V\r\n");
 	} else if (strcmp(command, "q") == 0) {
 		current_state = STOP;
@@ -462,6 +512,8 @@ int main(void)
 	Encoder_Init();
 	encoder_perf_measure_init(); // Initialize cycle counter for performance measurement
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
+	Z_Axis_TargetPosition = clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+	Z_Target_SetRequestedDirect(Z_Axis_TargetPosition);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -580,7 +632,7 @@ int main(void)
 				uart_send_status();
 				uart_send_text("Test abgebrochen\r\n", 50);
 			}
-			Z_Axis_TargetPosition = (z_encoder_start + z_encoder_end) / 2;
+			Z_Target_SetRequestedDirect((z_encoder_start + z_encoder_end) / 2);
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
 				current_state = TEST_START;
@@ -612,7 +664,7 @@ int main(void)
 				uart_send_status();
 				uart_send_text("Test abgeschlossen\r\n", 50);
 			}
-			Z_Axis_TargetPosition = z_ax_no_pos + 50;
+			Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
 				current_state = TEST_START;
@@ -628,7 +680,7 @@ int main(void)
 				uart_send_status();
 				uart_send_text("FEHLER\r\n", 50);
 			}
-			Z_Axis_TargetPosition = Encoder_GetPosition_Z_AXIS();
+			Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 			if (btn_ok_pressed) {
 				btn_ok_pressed = 0;
 				current_state = TEST_START;
@@ -673,6 +725,7 @@ int main(void)
 		}
 		if (HAL_GetTick() >= next_1ms_tick) {
 			next_1ms_tick = HAL_GetTick() + 1;
+			Z_Target_ApplySlewLimit();
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 		}

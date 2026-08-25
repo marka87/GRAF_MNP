@@ -15,6 +15,7 @@ using System.Threading;
 using System.IO;
 using System.Globalization;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace MnpControl
 {
@@ -36,6 +37,8 @@ namespace MnpControl
         private const int LoggingTimeoutSeconds = 120;
         private string _lastStatusMessage = string.Empty;
         private string _currentDeviceState = string.Empty;
+        private const int LiveLogMaxLines = 5;
+        private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private static readonly string PidProfilePath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "MnpControl", "pid_z_profile.json");
@@ -47,6 +50,21 @@ namespace MnpControl
             public string Kd { get; set; } = "";
         }
 
+        private sealed class PidPreset
+        {
+            public string Name { get; init; } = "";
+            public string Kp { get; init; } = "";
+            public string Ki { get; init; } = "";
+            public string Kd { get; init; } = "";
+        }
+
+        private static readonly PidPreset[] PidPresets =
+        {
+            new PidPreset { Name = "Stabil (Empfohlen)", Kp = "0.0030", Ki = "0.000001", Kd = "0.018000" },
+            new PidPreset { Name = "Schneller", Kp = "0.0035", Ki = "0.000001", Kd = "0.016000" },
+            new PidPreset { Name = "Feiner", Kp = "0.0025", Ki = "0.000001", Kd = "0.020000" }
+        };
+
         public MainWindow()
         {
             InitializeComponent();
@@ -56,6 +74,7 @@ namespace MnpControl
         {
         _continue = true;
         UpdateButtonStates(string.Empty); // all disabled until connected + state received
+        InitializePidPresets();
         LoadPidProfileFromDisk();
 
         if (!TryOpenDeviceConnection())
@@ -284,6 +303,7 @@ namespace MnpControl
                     TxtPidKiCurrent.Text = ki;
                     TxtPidKdCurrent.Text = kd;
                     TxtStatus.Text = "PID gelesen";
+                    AppendLiveLog("RX PID gelesen");
                 }
                 return;
             }
@@ -297,6 +317,7 @@ namespace MnpControl
                     TxtPidKiCurrent.Text = ki;
                     TxtPidKdCurrent.Text = kd;
                     TxtStatus.Text = "PID gesetzt";
+                    AppendLiveLog("RX PID gesetzt");
                 }
                 return;
             }
@@ -304,6 +325,7 @@ namespace MnpControl
             if (msg.StartsWith("PIDZ_ERR:", StringComparison.Ordinal) || msg.StartsWith("Z_NEUTRAL:", StringComparison.Ordinal))
             {
                 TxtStatus.Text = msg;
+                AppendLiveLog("RX " + msg);
                 return;
             }
 
@@ -316,11 +338,33 @@ namespace MnpControl
                 string state = msg.Replace("_STATUS_", "").Trim();
                 _currentDeviceState = state;
                 TxtStatus.Text = GetStateFriendlyName(state);
+                AppendLiveLog("STATE " + state);
                 UpdateButtonStates(state);
                 return;
             }
 
             TxtStatus.Text = msg;
+            AppendLiveLog("RX " + msg);
+        }
+
+        private void InitializePidPresets()
+        {
+            CmbPidPreset.ItemsSource = PidPresets;
+            CmbPidPreset.DisplayMemberPath = nameof(PidPreset.Name);
+            CmbPidPreset.SelectedIndex = 0;
+        }
+
+        private void AppendLiveLog(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return;
+
+            if (_liveLogLines.Count >= LiveLogMaxLines)
+                _liveLogLines.Dequeue();
+
+            _liveLogLines.Enqueue($"{DateTime.Now:HH:mm:ss} {line}");
+            TxtLiveLog.Text = string.Join(Environment.NewLine, _liveLogLines);
+            TxtLiveLog.ScrollToEnd();
         }
 
         private static string GetStateFriendlyName(string state) => state switch
@@ -485,6 +529,7 @@ namespace MnpControl
         }
 
         _devConnection.Write(command + "\n");
+        AppendLiveLog("TX " + command);
     }
 
         private void BtnStartReferenceRun_Click(object sender, RoutedEventArgs e)
@@ -586,6 +631,20 @@ namespace MnpControl
         private void BtnPidNeutral_Click(object sender, RoutedEventArgs e)
         {
             SendCommand("N");
+        }
+
+        private void BtnPidPresetApply_Click(object sender, RoutedEventArgs e)
+        {
+            if (CmbPidPreset.SelectedItem is not PidPreset preset)
+            {
+                return;
+            }
+
+            TxtPidKpNew.Text = preset.Kp;
+            TxtPidKiNew.Text = preset.Ki;
+            TxtPidKdNew.Text = preset.Kd;
+            TxtStatus.Text = $"Preset geladen: {preset.Name}";
+            AppendLiveLog("Preset " + preset.Name);
         }
     }
 }

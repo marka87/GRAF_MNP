@@ -53,6 +53,9 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void Z_Target_SetRequested(uint32_t target);
+void Z_Target_SetRequestedDirect(uint32_t target);
+uint32_t Z_Target_GetRequested(void);
 
 /* USER CODE END EFP */
 

@@ -72,7 +72,9 @@ void TestRun_Init(uint32_t num_cycles) {
     data_buffer_reset();
 
     /* Zielposition sofort auf Istwert setzen: kein Sprung beim Teststart */
-    Z_Axis_TargetPosition = (uint32_t)Encoder_GetPosition_Z_AXIS();
+    int32_t z_pos_now = Encoder_GetPosition_Z_AXIS();
+    if (z_pos_now < 0) z_pos_now = 0;
+    Z_Target_SetRequestedDirect((uint32_t)z_pos_now);
 }
 
 TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
@@ -90,7 +92,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
 
     int32_t z_pos = Encoder_GetPosition_Z_AXIS();
-    log_data_point(z_pos, (int32_t)Z_Axis_TargetPosition);
+    log_data_point(z_pos, (int32_t)Z_Target_GetRequested());
 
     /* Drucksensor muss aktiv sein (Hebel in Lichtschranke) */
     uint16_t ds_value = ADC_Drucksensor(&hadc1);
@@ -101,7 +103,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
 
     if (s_phase == PHASE_GO_UP) {
-        Z_Axis_TargetPosition = z_ax_no_pos + GO_UP_OVERSHOOT;
+        Z_Target_SetRequestedDirect(z_ax_no_pos + GO_UP_OVERSHOOT);
 
         /* Nadel-oben-Bereich erreicht: NO-Sensor prüfen */
         if (z_pos > (int32_t)(z_ax_no_pos + GO_UP_SWITCH_MARGIN)) {
@@ -118,7 +120,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         }
 
     } else { /* PHASE_GO_DOWN */
-        Z_Axis_TargetPosition = z_encoder_start + GO_DOWN_TARGET_OFFS;
+        Z_Target_SetRequestedDirect(z_encoder_start + GO_DOWN_TARGET_OFFS);
 
         if (z_pos <= (int32_t)(z_encoder_start + GO_DOWN_SWITCH_MARGIN)) {
             s_current_cycle++;

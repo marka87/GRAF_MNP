@@ -89,6 +89,16 @@
             <TextBox x:Name="TxtZDac" Grid.Row="10" Grid.Column="2" Text="" IsReadOnly="True"/>
         </Grid>
 
+        <GroupBox Grid.Row="8" Grid.Column="0" Margin="0,12,12,0" Header="Live Log (letzte 5 Meldungen)">
+            <TextBox x:Name="TxtLiveLog"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"
+                     FontSize="12"/>
+        </GroupBox>
+
         <!-- Manual axis controls -->
         <StackPanel Grid.Row="4" Grid.Column="1" Grid.RowSpan="3" Orientation="Vertical" VerticalAlignment="Top" Margin="8,0">
             <Button x:Name="BtnUp" Content="▲" Width="44" Height="32" Click="BtnUp_Click" Margin="0,0,0,10"/>
@@ -138,6 +148,8 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="10"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
@@ -155,7 +167,12 @@
                     <TextBlock Grid.Row="6" Grid.Column="2" Text="Aktuell" HorizontalAlignment="Center" FontSize="11"/>
                     <TextBlock Grid.Row="6" Grid.Column="4" Text="Neu" HorizontalAlignment="Center" FontSize="11"/>
 
-                    <UniformGrid Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="5" Columns="2" Rows="3" Margin="0,0,0,0">
+                    <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal">
+                        <ComboBox x:Name="CmbPidPreset" Width="170" Margin="0,0,6,0"/>
+                        <Button x:Name="BtnPidPresetApply" Content="Preset übernehmen" Width="130" Click="BtnPidPresetApply_Click"/>
+                    </StackPanel>
+
+                    <UniformGrid Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="5" Columns="2" Rows="3" Margin="0,0,0,0">
                         <Button x:Name="BtnPidRead" Content="PID Lesen" Margin="0,0,6,6" Click="BtnPidRead_Click"/>
                         <Button x:Name="BtnPidApply" Content="Senden" Margin="0,0,0,6" Click="BtnPidApply_Click"/>
                         <Button x:Name="BtnPidSave" Content="Speichern" Margin="0,0,6,6" Click="BtnPidSave_Click"/>
