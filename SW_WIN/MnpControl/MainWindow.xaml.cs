@@ -30,6 +30,7 @@ namespace MnpControl
         private static bool _continue = true;
         private StreamWriter _currentLogFile; // Logfile für den aktuellen Ablauf
         private StreamWriter _filteredLogFile; // Gefilterte Log-Datei
+        private string _lastLiveLogLine = string.Empty;
 
         private StringBuilder _serialBuffer = new StringBuilder(); // Buffer for incoming serial data
         private bool _isLoggingSession = false;
@@ -39,6 +40,7 @@ namespace MnpControl
         private string _currentDeviceState = string.Empty;
         private const int LiveLogMaxLines = 5;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
+        private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
         private static readonly string PidProfilePath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "MnpControl", "pid_z_profile.json");
@@ -271,6 +273,16 @@ namespace MnpControl
         {
             Debug.WriteLine(msg);
 
+            if (msg == "Modus?")
+            {
+                return;
+            }
+
+            if (msg.StartsWith("Zeit:", StringComparison.Ordinal))
+            {
+                return;
+            }
+
             // Check if logging session has timed out
             if (_isLoggingSession && (DateTime.Now - _loggingStartTime).TotalSeconds > LoggingTimeoutSeconds)
             {
@@ -329,6 +341,13 @@ namespace MnpControl
                 return;
             }
 
+            if (msg.StartsWith("TEST_SUMMARY:", StringComparison.Ordinal))
+            {
+                TxtStatus.Text = "Test-Ergebnis";
+                AppendTestSummary(msg);
+                return;
+            }
+
             if (msg.StartsWith("_STATUS_"))
             {
                 if (_isLoggingSession && msg != _lastStatusMessage)
@@ -336,6 +355,11 @@ namespace MnpControl
 
                 _lastStatusMessage = msg;
                 string state = msg.Replace("_STATUS_", "").Trim();
+                if (state == _currentDeviceState)
+                {
+                    return;
+                }
+
                 _currentDeviceState = state;
                 TxtStatus.Text = GetStateFriendlyName(state);
                 AppendLiveLog("STATE " + state);
@@ -359,12 +383,84 @@ namespace MnpControl
             if (string.IsNullOrWhiteSpace(line))
                 return;
 
+            if (string.Equals(_lastLiveLogLine, line, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastLiveLogLine = line;
+
             if (_liveLogLines.Count >= LiveLogMaxLines)
                 _liveLogLines.Dequeue();
 
             _liveLogLines.Enqueue($"{DateTime.Now:HH:mm:ss} {line}");
             TxtLiveLog.Text = string.Join(Environment.NewLine, _liveLogLines);
             TxtLiveLog.ScrollToEnd();
+        }
+
+        private void AppendTestSummary(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return;
+
+            string payload = line;
+            int prefixIndex = payload.IndexOf("TEST_SUMMARY:", StringComparison.Ordinal);
+            if (prefixIndex >= 0)
+            {
+                payload = payload.Substring(prefixIndex + "TEST_SUMMARY:".Length);
+            }
+
+            Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string part in payload.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                int eqIndex = part.IndexOf('=');
+                if (eqIndex > 0)
+                {
+                    values[part.Substring(0, eqIndex)] = part.Substring(eqIndex + 1);
+                }
+            }
+
+            string status = values.TryGetValue("status", out string? s) ? s : "?";
+            string cycles = values.TryGetValue("cycles", out string? c) ? c : "?";
+            string done = values.TryGetValue("done", out string? d) ? d : "?";
+            string lost = values.TryGetValue("lost", out string? l) ? l : "?";
+            string delta = values.TryGetValue("last_delta", out string? dlt) ? dlt : "?";
+            string overshoot = values.TryGetValue("overshoot", out string? over) ? over : "?";
+            string runtime = "";
+            if (values.TryGetValue("time_m", out string? tm) || values.TryGetValue("time_s", out string? ts))
+            {
+                string minutes = values.TryGetValue("time_m", out string? minVal) ? minVal : "0";
+                string seconds = values.TryGetValue("time_s", out string? secVal) ? secVal : "0";
+                runtime = $" | Zeit: {minutes}m {seconds}s";
+            }
+
+            string header = $"{DateTime.Now:HH:mm:ss} TEST {status} ({cycles}/{done}) lost={lost} | Δ={delta} | overshoot={overshoot}{runtime}";
+            string details = string.Format(
+                CultureInfo.InvariantCulture,
+                "IST min/max: {0} / {1} | SOLL min/max: {2} / {3} | NO-Sensor: {4} | Δ={5} | overshoot={6}{7}",
+                values.TryGetValue("z_ist_min", out string? istMin) ? istMin : "-",
+                values.TryGetValue("z_ist_max", out string? istMax) ? istMax : "-",
+                values.TryGetValue("z_soll_min", out string? sollMin) ? sollMin : "-",
+                values.TryGetValue("z_soll_max", out string? sollMax) ? sollMax : "-",
+                values.TryGetValue("no_sensor_pos", out string? noPos) ? noPos : "-",
+                delta,
+                overshoot,
+                runtime);
+
+            if (values.TryGetValue("last_error", out string? err) && !string.IsNullOrWhiteSpace(err))
+            {
+                details += " | ERR: " + err;
+            }
+
+            while (_testSummaryLines.Count >= 8)
+            {
+                _testSummaryLines.Dequeue();
+            }
+
+            _testSummaryLines.Enqueue(header);
+            _testSummaryLines.Enqueue(details);
+            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            TxtTestSummary.ScrollToEnd();
         }
 
         private static string GetStateFriendlyName(string state) => state switch

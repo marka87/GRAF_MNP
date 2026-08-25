@@ -89,15 +89,33 @@
             <TextBox x:Name="TxtZDac" Grid.Row="10" Grid.Column="2" Text="" IsReadOnly="True"/>
         </Grid>
 
-        <GroupBox Grid.Row="8" Grid.Column="0" Margin="0,12,12,0" Header="Live Log (letzte 5 Meldungen)">
-            <TextBox x:Name="TxtLiveLog"
-                     IsReadOnly="True"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     FontFamily="Consolas"
-                     FontSize="12"/>
-        </GroupBox>
+        <Grid Grid.Row="8" Grid.Column="0" Margin="0,12,12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Live Log (letzte 5 Meldungen)">
+                <TextBox x:Name="TxtLiveLog"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         FontFamily="Consolas"
+                         FontSize="12"/>
+            </GroupBox>
+
+            <GroupBox Grid.Column="2" Header="Test Summary">
+                <TextBox x:Name="TxtTestSummary"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         FontFamily="Consolas"
+                         FontSize="12"/>
+            </GroupBox>
+        </Grid>
 
         <!-- Manual axis controls -->
         <StackPanel Grid.Row="4" Grid.Column="1" Grid.RowSpan="3" Orientation="Vertical" VerticalAlignment="Top" Margin="8,0">

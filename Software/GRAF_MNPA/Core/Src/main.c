@@ -117,6 +117,7 @@ volatile bool ds_was_activated = false;
 bool z_axis_success = false;
 bool a_axis_success = false;
 static bool completed_stats_sent = false;
+static bool test_summary_sent = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -517,6 +518,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+		TestRunStats_t stats;
 		if (current_state == IDLE_START) {
 			white_light();
 			d_mot_control(&dac, 2.5f);
@@ -613,13 +615,27 @@ int main(void)
 
 				if (result == TESTRUN_COMPLETE) {
 					completed_stats_sent = false;
+					test_summary_sent = false;
 					current_state = COMPLETED;
 				} else if (result == TESTRUN_ERROR) {
 					TestRun_GetErrorMessage(error_message, sizeof(error_message));
+					TestRun_GetStats(&stats);
+					char summary[256];
+					uint32_t time_min = stats.test_time_ms / 60000u;
+					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+					snprintf(summary, sizeof(summary),
+						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+						(long)stats.z_ist_min, (long)stats.z_ist_max,
+						(long)stats.z_soll_min, (long)stats.z_soll_max,
+						time_min, time_sec,
+						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
+						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
+					uart_send_text(summary, 100);
+					test_summary_sent = true;
 					red_light();
 					current_state = FEHLER;
-				}
-		} else if (current_state == STOP) {
+				}		} else if (current_state == STOP) {
 			d_mot_control(&dac, 2.5f);
 			yellow_light();
 			sprintf(display_buffer[5], "Test abgebrochen");
@@ -639,7 +655,6 @@ int main(void)
 			green_light();
 			d_mot_control(&dac, 2.5f);
 
-			TestRunStats_t stats;
 			TestRun_GetStats(&stats);
 			sprintf(display_buffer[5], "OK:%lu/%lu Zyklen", stats.completed_cycles, stats.total_cycles);
 			sprintf(display_buffer[6], "Bitte OK druecken");
@@ -649,11 +664,17 @@ int main(void)
 			if (!completed_stats_sent) {
 				completed_stats_sent = true;
 				save_data_to_uart();
-				char stats_msg[128];
+				char stats_msg[256];
+				uint32_t time_min = stats.test_time_ms / 60000u;
+				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 				snprintf(stats_msg, sizeof(stats_msg),
-					"STATS:cycles=%lu,ds_err=%lu,no_err=%lu,z_min=%ld,z_max=%ld\r\n",
-					stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
-					(long)stats.z_trigger_pos_min, (long)stats.z_trigger_pos_max);
+					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n",
+					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					(long)stats.z_ist_min, (long)stats.z_ist_max,
+					(long)stats.z_soll_min, (long)stats.z_soll_max,
+					time_min, time_sec,
+					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
+					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
 				uart_send_text(stats_msg, 100);
 			}
 
@@ -677,6 +698,22 @@ int main(void)
 				next_uart_status_tick = HAL_GetTick() + 1000;
 				uart_send_status();
 				uart_send_text("FEHLER\r\n", 50);
+			}
+			if (!test_summary_sent) {
+				TestRun_GetStats(&stats);
+				char summary[256];
+				uint32_t time_min = stats.test_time_ms / 60000u;
+				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+				snprintf(summary, sizeof(summary),
+					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					(long)stats.z_ist_min, (long)stats.z_ist_max,
+					(long)stats.z_soll_min, (long)stats.z_soll_max,
+					time_min, time_sec,
+					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
+					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
+				uart_send_text(summary, 100);
+				test_summary_sent = true;
 			}
 			Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 			if (btn_ok_pressed) {
