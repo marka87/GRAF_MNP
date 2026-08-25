@@ -403,17 +403,34 @@ namespace MnpControl
             BtnPidLoad.IsEnabled           = true;
         }
 
+        private static string NormalizeDecimalText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return value.Trim().Replace(',', '.');
+        }
+
         private static bool TryParsePidPayload(string payload, out string kp, out string ki, out string kd)
         {
             kp = string.Empty;
             ki = string.Empty;
             kd = string.Empty;
-            string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
-            if (parts.Length != 3) return false;
-            kp = parts[0];
-            ki = parts[1];
-            kd = parts[2];
-            return true;
+
+            string[] parts = payload.Split(';', StringSplitOptions.None);
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+
+            kp = NormalizeDecimalText(parts[0]);
+            ki = NormalizeDecimalText(parts[1]);
+            kd = NormalizeDecimalText(parts[2]);
+            return !string.IsNullOrWhiteSpace(kp)
+                && !string.IsNullOrWhiteSpace(ki)
+                && !string.IsNullOrWhiteSpace(kd);
         }
 
         private bool TryReadPidInput(out float kp, out float ki, out float kd)
@@ -421,10 +438,15 @@ namespace MnpControl
             kp = 0.0f;
             ki = 0.0f;
             kd = 0.0f;
+
+            string kpText = NormalizeDecimalText(TxtPidKpNew.Text);
+            string kiText = NormalizeDecimalText(TxtPidKiNew.Text);
+            string kdText = NormalizeDecimalText(TxtPidKdNew.Text);
+
             bool ok =
-                float.TryParse(TxtPidKpNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out kp) &&
-                float.TryParse(TxtPidKiNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out ki) &&
-                float.TryParse(TxtPidKdNew.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out kd);
+                float.TryParse(kpText, NumberStyles.Float, CultureInfo.InvariantCulture, out kp) &&
+                float.TryParse(kiText, NumberStyles.Float, CultureInfo.InvariantCulture, out ki) &&
+                float.TryParse(kdText, NumberStyles.Float, CultureInfo.InvariantCulture, out kd);
             return ok && kp > 0.0f && ki > 0.0f && kd >= 0.0f;
         }
 
@@ -455,9 +477,9 @@ namespace MnpControl
             }
             PidProfile profile = new PidProfile
             {
-                Kp = TxtPidKpNew.Text.Trim(),
-                Ki = TxtPidKiNew.Text.Trim(),
-                Kd = TxtPidKdNew.Text.Trim()
+                Kp = NormalizeDecimalText(TxtPidKpNew.Text),
+                Ki = NormalizeDecimalText(TxtPidKiNew.Text),
+                Kd = NormalizeDecimalText(TxtPidKdNew.Text)
             };
             string json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(PidProfilePath, json);
@@ -604,7 +626,12 @@ namespace MnpControl
                 return;
             }
 
-            string cmd = string.Format(CultureInfo.InvariantCulture, "P={0},{1},{2}", kp, ki, kd);
+            string cmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "P={0},{1},{2}",
+                kp.ToString(CultureInfo.InvariantCulture),
+                ki.ToString(CultureInfo.InvariantCulture),
+                kd.ToString(CultureInfo.InvariantCulture));
             SendCommand(cmd);
         }
 

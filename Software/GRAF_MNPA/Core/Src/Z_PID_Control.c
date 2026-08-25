@@ -29,23 +29,29 @@ static float previous_error = 0.0f;
 static float z_kp = KP_DEFAULT;
 static float z_ki = KI_DEFAULT;
 static float z_kd = KD_DEFAULT;
+static uint32_t last_target = 0u;
 float voltage;
 
 void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	/* Istwert aus Encoder */
 	int encoder_value = Encoder_GetPosition_Z_AXIS();
 	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-	int error = encoder_value - Z_Axis_TargetPosition;
+	int error = encoder_value - (int)Z_Axis_TargetPosition;
+	if (Z_Axis_TargetPosition != last_target) {
+		integral = 0.0f;
+		previous_error = 0.0f;
+		last_target = Z_Axis_TargetPosition;
+	}
 	// Integralanteil
-	integral += error; // * DT
+	integral += (float)error; // * DT
 	float integral_limit = (z_ki > 0.0f) ? (2.5f / z_ki) : 0.0f;
     if (integral > integral_limit) integral = integral_limit;
     if (integral < -integral_limit) integral = -integral_limit;
 	/* Differentialanteil */
-	float derivative = (error - previous_error); // / DT;
+	float derivative = (float)(error - previous_error); // / DT;
 
 	/* PID-Berechnung */
-	float output = (z_kp * error) + (z_ki * integral) + (z_kd * derivative);
+	float output = (z_kp * (float)error) + (z_ki * integral) + (z_kd * derivative);
 
 	/* Spannung berechnen */
 	voltage = NEUTRAL_VOLTAGE + output;

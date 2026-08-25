@@ -54,7 +54,6 @@
 #define d_mot 0x04		//DAC-C.
 #define TARGET_VOLTAGE_NEUTRAL 2.5f
 #define MAX_DATA_POINTS 1000  // Maximale Anzahl an Datenpunkten
-#define Z_TARGET_SLEW_STEP_PER_MS 12u
 
 /* USER CODE END PD */
 
@@ -106,7 +105,6 @@ static volatile uint8_t uart_cmd_head = 0;
 static volatile uint8_t uart_cmd_tail = 0;
 static bool tick_100ms_testrun_elapsed = false;
 static uint32_t z_target_requested = 0;
-static bool z_target_softlimit_active = false;
 
 uint32_t next_100ms_tick = 0;
 uint32_t next_10ms_tick = 0;
@@ -175,13 +173,12 @@ static void uart_send_text(const char *text, uint32_t timeout) {
 
 void Z_Target_SetRequested(uint32_t target) {
 	z_target_requested = target;
-	z_target_softlimit_active = true;
+	Z_Axis_TargetPosition = target;
 }
 
 void Z_Target_SetRequestedDirect(uint32_t target) {
 	z_target_requested = target;
 	Z_Axis_TargetPosition = target;
-	z_target_softlimit_active = false;
 }
 
 uint32_t Z_Target_GetRequested(void) {
@@ -192,34 +189,35 @@ static uint32_t clamp_nonnegative_position(int32_t position) {
 	return (position < 0) ? 0u : (uint32_t)position;
 }
 
-static void Z_Target_ApplySlewLimit(void) {
-	if (!z_target_softlimit_active) {
-		return;
-	}
-
-	if (Z_Axis_TargetPosition < z_target_requested) {
-		uint32_t delta = z_target_requested - Z_Axis_TargetPosition;
-		uint32_t step = (delta > Z_TARGET_SLEW_STEP_PER_MS) ? Z_TARGET_SLEW_STEP_PER_MS : delta;
-		Z_Axis_TargetPosition += step;
-	} else if (Z_Axis_TargetPosition > z_target_requested) {
-		uint32_t delta = Z_Axis_TargetPosition - z_target_requested;
-		uint32_t step = (delta > Z_TARGET_SLEW_STEP_PER_MS) ? Z_TARGET_SLEW_STEP_PER_MS : delta;
-		Z_Axis_TargetPosition -= step;
-	} else {
-		z_target_softlimit_active = false;
-	}
-}
-
 static bool parse_positive_decimal(const char *s, float *out) {
-	if (s == NULL || out == NULL || *s == '\0') {
+	if (s == NULL || out == NULL) {
 		return false;
 	}
+
+	while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') {
+		++s;
+	}
+	if (*s == '\0') {
+		return false;
+	}
+	if (*s == '+') {
+		++s;
+	}
+	if (*s == '-') {
+		return false;
+	}
+
+	const char *end = s + strlen(s);
+	while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) {
+		--end;
+	}
+
 	uint32_t int_part = 0;
 	uint32_t frac_part = 0;
 	uint32_t frac_div = 1;
 	bool seen_digit = false;
 	bool seen_dot = false;
-	for (const char *p = s; *p != '\0'; ++p) {
+	for (const char *p = s; p < end; ++p) {
 		char c = *p;
 		if (c >= '0' && c <= '9') {
 			seen_digit = true;
@@ -725,7 +723,6 @@ int main(void)
 		}
 		if (HAL_GetTick() >= next_1ms_tick) {
 			next_1ms_tick = HAL_GetTick() + 1;
-			Z_Target_ApplySlewLimit();
 			A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 			Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition);
 		}
