@@ -154,56 +154,60 @@
 
             <Separator Margin="0,14,0,10"/>
             <GroupBox Header="PID Tuning (Z-Achse)">
-                <Grid Margin="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="74"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="74"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <StackPanel Margin="8">
+                    <Button x:Name="BtnHybridTuning" Content="PID Tuning öffnen..." Height="32" Click="BtnHybridTuning_Click"/>
 
-                    <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
-                    <TextBox x:Name="TxtPidKpCurrent" Grid.Row="0" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
-                    <TextBox x:Name="TxtPidKpNew" Grid.Row="0" Grid.Column="4" TextAlignment="Right"/>
+                    <Grid Margin="0,8,0,0" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="74"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="74"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <Label Grid.Row="2" Grid.Column="0" Content="KI"/>
-                    <TextBox x:Name="TxtPidKiCurrent" Grid.Row="2" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
-                    <TextBox x:Name="TxtPidKiNew" Grid.Row="2" Grid.Column="4" TextAlignment="Right"/>
+                        <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
+                        <TextBox x:Name="TxtPidKpCurrent" Grid.Row="0" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPidKpNew" Grid.Row="0" Grid.Column="4" TextAlignment="Right"/>
 
-                    <Label Grid.Row="4" Grid.Column="0" Content="KD"/>
-                    <TextBox x:Name="TxtPidKdCurrent" Grid.Row="4" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
-                    <TextBox x:Name="TxtPidKdNew" Grid.Row="4" Grid.Column="4" TextAlignment="Right"/>
+                        <Label Grid.Row="2" Grid.Column="0" Content="KI"/>
+                        <TextBox x:Name="TxtPidKiCurrent" Grid.Row="2" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPidKiNew" Grid.Row="2" Grid.Column="4" TextAlignment="Right"/>
 
-                    <TextBlock Grid.Row="6" Grid.Column="2" Text="Aktuell" HorizontalAlignment="Center" FontSize="11"/>
-                    <TextBlock Grid.Row="6" Grid.Column="4" Text="Neu" HorizontalAlignment="Center" FontSize="11"/>
+                        <Label Grid.Row="4" Grid.Column="0" Content="KD"/>
+                        <TextBox x:Name="TxtPidKdCurrent" Grid.Row="4" Grid.Column="2" IsReadOnly="True" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPidKdNew" Grid.Row="4" Grid.Column="4" TextAlignment="Right"/>
 
-                    <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal">
-                        <ComboBox x:Name="CmbPidPreset" Width="170" Margin="0,0,6,0" IsEditable="True"/>
-                        <Button x:Name="BtnPidPresetApply" Content="Preset übernehmen" Width="130" Click="BtnPidPresetApply_Click"/>
-                    </StackPanel>
+                        <TextBlock Grid.Row="6" Grid.Column="2" Text="Aktuell" HorizontalAlignment="Center" FontSize="11"/>
+                        <TextBlock Grid.Row="6" Grid.Column="4" Text="Neu" HorizontalAlignment="Center" FontSize="11"/>
 
-                    <UniformGrid Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="5" Columns="2" Rows="3" Margin="0,0,0,0">
-                        <Button x:Name="BtnPidRead" Content="PID Lesen" Margin="0,0,6,6" Click="BtnPidRead_Click"/>
-                        <Button x:Name="BtnPidApply" Content="Senden" Margin="0,0,0,6" Click="BtnPidApply_Click"/>
-                        <Button x:Name="BtnPidSave" Content="Preset speichern" Margin="0,0,6,6" Click="BtnPidSave_Click"/>
-                        <Button x:Name="BtnPidLoad" Content="Preset löschen" Margin="0,0,0,6" Click="BtnPidLoad_Click"/>
-                        <Button x:Name="BtnPidNeutral" Content="Not-Stopp 2.5V" Grid.ColumnSpan="2" Click="BtnPidNeutral_Click"/>
-                    </UniformGrid>
-                </Grid>
+                        <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal">
+                            <ComboBox x:Name="CmbPidPreset" Width="170" Margin="0,0,6,0" IsEditable="True"/>
+                            <Button x:Name="BtnPidPresetApply" Content="Preset übernehmen" Width="130" Click="BtnPidPresetApply_Click"/>
+                        </StackPanel>
+
+                        <UniformGrid Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="5" Columns="2" Rows="3" Margin="0,0,0,0">
+                            <Button x:Name="BtnPidRead" Content="PID Lesen" Margin="0,0,6,6" Click="BtnPidRead_Click"/>
+                            <Button x:Name="BtnPidApply" Content="Senden" Margin="0,0,0,6" Click="BtnPidApply_Click"/>
+                            <Button x:Name="BtnPidSave" Content="Preset speichern" Margin="0,0,6,6" Click="BtnPidSave_Click"/>
+                            <Button x:Name="BtnPidLoad" Content="Preset löschen" Margin="0,0,0,6" Click="BtnPidLoad_Click"/>
+                            <Button x:Name="BtnPidNeutral" Content="Not-Stopp 2.5V" Grid.ColumnSpan="2" Click="BtnPidNeutral_Click"/>
+                        </UniformGrid>
+                    </Grid>
+                </StackPanel>
             </GroupBox>
         </StackPanel>
 

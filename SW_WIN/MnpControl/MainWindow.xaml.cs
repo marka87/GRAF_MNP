@@ -40,6 +40,19 @@ namespace MnpControl
         private string _currentDeviceState = string.Empty;
         private uint? _zStepLowerLimit;
         private uint? _zStepUpperLimit;
+        private readonly HybridTuningConfig _hybridConfig = new HybridTuningConfig
+        {
+            FastKp = 0.0031f,
+            FastKi = 0.000001f,
+            FastKd = 0.05f,
+            SlowKp = 0.005f,
+            SlowKi = 0.00002f,
+            SlowKd = 0.001f,
+            SlowEnter = 100u,
+            FastExit = 140u,
+            HoldDelta = 50u,
+            HoldCycles = 30u
+        };
         private const int LiveLogMaxLines = 5;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
@@ -90,6 +103,9 @@ namespace MnpControl
         _devConnection.DataReceived += DevConnection_DataReceived;
         SendCommand("P?");
         SendCommand("L?");
+        SendCommand("PF?");
+        SendCommand("PS?");
+        SendCommand("SC?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -343,7 +359,62 @@ namespace MnpControl
                 return;
             }
 
-            if (msg.StartsWith("PIDZ_ERR:", StringComparison.Ordinal) || msg.StartsWith("Z_NEUTRAL:", StringComparison.Ordinal))
+            if (msg.StartsWith("PIDZF:", StringComparison.Ordinal) || msg.StartsWith("PIDZF_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg[(msg.StartsWith("PIDZF_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
+                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
+                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float fkp)
+                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float fki)
+                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float fkd))
+                {
+                    _hybridConfig.FastKp = fkp;
+                    _hybridConfig.FastKi = fki;
+                    _hybridConfig.FastKd = fkd;
+                    AppendLiveLog("RX FAST PID");
+                }
+                return;
+            }
+
+            if (msg.StartsWith("PIDZS:", StringComparison.Ordinal) || msg.StartsWith("PIDZS_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg[(msg.StartsWith("PIDZS_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
+                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
+                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float skp)
+                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float ski)
+                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float skd))
+                {
+                    _hybridConfig.SlowKp = skp;
+                    _hybridConfig.SlowKi = ski;
+                    _hybridConfig.SlowKd = skd;
+                    AppendLiveLog("RX SLOW PID");
+                }
+                return;
+            }
+
+            if (msg.StartsWith("ZSC:", StringComparison.Ordinal) || msg.StartsWith("ZSC_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg[(msg.StartsWith("ZSC_SET:", StringComparison.Ordinal) ? 8 : 4)..].Trim();
+                string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
+                if (parts.Length == 4
+                    && uint.TryParse(parts[0], out uint slowEnter)
+                    && uint.TryParse(parts[1], out uint fastExit)
+                    && uint.TryParse(parts[2], out uint holdDelta)
+                    && uint.TryParse(parts[3], out uint holdCycles))
+                {
+                    _hybridConfig.SlowEnter = slowEnter;
+                    _hybridConfig.FastExit = fastExit;
+                    _hybridConfig.HoldDelta = holdDelta;
+                    _hybridConfig.HoldCycles = holdCycles;
+                    AppendLiveLog("RX HYBRID CFG");
+                }
+                return;
+            }
+
+            if (msg.StartsWith("PIDZ_ERR:", StringComparison.Ordinal)
+                || msg.StartsWith("PIDZF_ERR:", StringComparison.Ordinal)
+                || msg.StartsWith("PIDZS_ERR:", StringComparison.Ordinal)
+                || msg.StartsWith("ZSC_ERR:", StringComparison.Ordinal)
+                || msg.StartsWith("Z_NEUTRAL:", StringComparison.Ordinal))
             {
                 TxtStatus.Text = msg;
                 AppendLiveLog("RX " + msg);
@@ -557,6 +628,7 @@ namespace MnpControl
             BtnPidNeutral.IsEnabled        = isConnected;
             BtnPidSave.IsEnabled           = true;
             BtnPidLoad.IsEnabled           = true;
+            BtnHybridTuning.IsEnabled      = isConnected;
         }
 
         private static string NormalizeDecimalText(string value)
@@ -1009,6 +1081,69 @@ namespace MnpControl
         private void BtnPidNeutral_Click(object sender, RoutedEventArgs e)
         {
             SendCommand("N");
+        }
+
+        private void BtnHybridTuning_Click(object sender, RoutedEventArgs e)
+        {
+            HybridTuningWindow dialog = new HybridTuningWindow(new HybridTuningConfig
+            {
+                FastKp = _hybridConfig.FastKp,
+                FastKi = _hybridConfig.FastKi,
+                FastKd = _hybridConfig.FastKd,
+                SlowKp = _hybridConfig.SlowKp,
+                SlowKi = _hybridConfig.SlowKi,
+                SlowKd = _hybridConfig.SlowKd,
+                SlowEnter = _hybridConfig.SlowEnter,
+                FastExit = _hybridConfig.FastExit,
+                HoldDelta = _hybridConfig.HoldDelta,
+                HoldCycles = _hybridConfig.HoldCycles
+            })
+            {
+                Owner = this
+            };
+
+            bool? result = dialog.ShowDialog();
+            if (result != true)
+            {
+                return;
+            }
+
+            _hybridConfig.FastKp = dialog.Config.FastKp;
+            _hybridConfig.FastKi = dialog.Config.FastKi;
+            _hybridConfig.FastKd = dialog.Config.FastKd;
+            _hybridConfig.SlowKp = dialog.Config.SlowKp;
+            _hybridConfig.SlowKi = dialog.Config.SlowKi;
+            _hybridConfig.SlowKd = dialog.Config.SlowKd;
+            _hybridConfig.SlowEnter = dialog.Config.SlowEnter;
+            _hybridConfig.FastExit = dialog.Config.FastExit;
+            _hybridConfig.HoldDelta = dialog.Config.HoldDelta;
+            _hybridConfig.HoldCycles = dialog.Config.HoldCycles;
+
+            string fastCmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "PF={0},{1},{2}",
+                _hybridConfig.FastKp.ToString("0.######", CultureInfo.InvariantCulture),
+                _hybridConfig.FastKi.ToString("0.#########", CultureInfo.InvariantCulture),
+                _hybridConfig.FastKd.ToString("0.######", CultureInfo.InvariantCulture));
+            string slowCmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "PS={0},{1},{2}",
+                _hybridConfig.SlowKp.ToString("0.######", CultureInfo.InvariantCulture),
+                _hybridConfig.SlowKi.ToString("0.#########", CultureInfo.InvariantCulture),
+                _hybridConfig.SlowKd.ToString("0.######", CultureInfo.InvariantCulture));
+            string cfgCmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "SC={0},{1},{2},{3}",
+                _hybridConfig.SlowEnter,
+                _hybridConfig.FastExit,
+                _hybridConfig.HoldDelta,
+                _hybridConfig.HoldCycles);
+
+            SendCommand(fastCmd);
+            SendCommand(slowCmd);
+            SendCommand(cfgCmd);
+            TxtStatus.Text = "Hybrid Tuning gesendet";
+            AppendLiveLog("Hybrid Tuning gespeichert");
         }
 
         private void BtnPidPresetApply_Click(object sender, RoutedEventArgs e)

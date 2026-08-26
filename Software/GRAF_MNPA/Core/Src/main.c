@@ -281,6 +281,21 @@ static bool parse_pid_triplet(const char *payload, float *kp, float *ki, float *
 	return true;
 }
 
+static bool parse_u32_quartet(const char *payload, uint32_t *v1, uint32_t *v2, uint32_t *v3, uint32_t *v4) {
+	if (payload == NULL || v1 == NULL || v2 == NULL || v3 == NULL || v4 == NULL) {
+		return false;
+	}
+	unsigned long a = 0, b = 0, c = 0, d = 0;
+	if (sscanf(payload, "%lu,%lu,%lu,%lu", &a, &b, &c, &d) != 4) {
+		return false;
+	}
+	*v1 = (uint32_t)a;
+	*v2 = (uint32_t)b;
+	*v3 = (uint32_t)c;
+	*v4 = (uint32_t)d;
+	return true;
+}
+
 /* Update Display */
 void update_display() {
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
@@ -325,7 +340,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 void Process_UART_Command(const char *command) {
 	uint32_t lower_limit = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
 	uint32_t upper_limit = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
-	char response[64] = { 0 }; 				// Rückmeldungspuffer
+	char response[128] = { 0 }; 				// Rückmeldungspuffer
 	uint32_t step_size = 100;
 
 	if (command[0] == '+' || command[0] == '-') {
@@ -377,23 +392,28 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "System reset initiated.\r\n");
 		NVIC_SystemReset();
 	} else if (strcmp(command, "s") == 0) { // Referenzlauf starten
+		Z_PID_SetSchedulerEnabled(true);
 		current_state = EXEC_REFERENCE_RUN;
 		snprintf(response, sizeof(response), "Referenzlauf gestartet.\r\n");
 	} else if (strcmp(command, "e") == 0) { // Referenzlauf starten
+		Z_PID_SetSchedulerEnabled(true);
 		current_state = TEST_START;
 		snprintf(response, sizeof(response), "Test gestartet.\r\n");
 	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
+		Z_PID_SetSchedulerEnabled(false);
 		TestRun_Init(10);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Demo-Modus gestartet (10 Zyklen).\r\n");
 
 	} else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 1000 Zyklen
+		Z_PID_SetSchedulerEnabled(false);
 		TestRun_Init(1000);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
 				"Kurz-Modus gestartet (1000 Zyklen).\r\n");
 	} else if (strcmp(command, "3") == 0) { // Lang-Modus mit 10000 Zyklen
+		Z_PID_SetSchedulerEnabled(false);
 		TestRun_Init(10000);
 		current_state = TEST_RUN;
 		snprintf(response, sizeof(response),
@@ -418,8 +438,20 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		Z_PID_GetParameters(&kp, &ki, &kd);
 		snprintf(response, sizeof(response), "PIDZ:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (strcmp(command, "PF?") == 0) {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		Z_PID_GetFastParameters(&kp, &ki, &kd);
+		snprintf(response, sizeof(response), "PIDZF:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (strcmp(command, "PS?") == 0) {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		Z_PID_GetSlowParameters(&kp, &ki, &kd);
+		snprintf(response, sizeof(response), "PIDZS:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 	} else if (strcmp(command, "L?") == 0) {
 		snprintf(response, sizeof(response), "ZLIM:%lu;%lu\r\n", lower_limit, upper_limit);
+	} else if (strcmp(command, "SC?") == 0) {
+		uint32_t slow_enter = 0, fast_exit = 0, hold_delta = 0, hold_cycles = 0;
+		Z_PID_GetSchedulerParameters(&slow_enter, &fast_exit, &hold_delta, &hold_cycles);
+		snprintf(response, sizeof(response), "ZSC:%lu;%lu;%lu;%lu\r\n", slow_enter, fast_exit, hold_delta, hold_cycles);
 	} else if (command[0] == 'P' && command[1] == '=') {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 2, &kp, &ki, &kd)) {
@@ -427,6 +459,31 @@ void Process_UART_Command(const char *command) {
 			snprintf(response, sizeof(response), "PIDZ_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZ_ERR:Format P=kp,ki,kd\r\n");
+		}
+	} else if (command[0] == 'P' && command[1] == 'F' && command[2] == '=') {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
+			Z_PID_SetFastParameters(kp, ki, kd);
+			snprintf(response, sizeof(response), "PIDZF_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+		} else {
+			snprintf(response, sizeof(response), "PIDZF_ERR:Format PF=kp,ki,kd\r\n");
+		}
+	} else if (command[0] == 'P' && command[1] == 'S' && command[2] == '=') {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
+			Z_PID_SetSlowParameters(kp, ki, kd);
+			snprintf(response, sizeof(response), "PIDZS_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+		} else {
+			snprintf(response, sizeof(response), "PIDZS_ERR:Format PS=kp,ki,kd\r\n");
+		}
+	} else if (command[0] == 'S' && command[1] == 'C' && command[2] == '=') {
+		uint32_t slow_enter = 0, fast_exit = 0, hold_delta = 0, hold_cycles = 0;
+		if (parse_u32_quartet(command + 3, &slow_enter, &fast_exit, &hold_delta, &hold_cycles)) {
+			Z_PID_SetSchedulerParameters(slow_enter, fast_exit, hold_delta, hold_cycles);
+			Z_PID_GetSchedulerParameters(&slow_enter, &fast_exit, &hold_delta, &hold_cycles);
+			snprintf(response, sizeof(response), "ZSC_SET:%lu;%lu;%lu;%lu\r\n", slow_enter, fast_exit, hold_delta, hold_cycles);
+		} else {
+			snprintf(response, sizeof(response), "ZSC_ERR:Format SC=a,b,c,d\r\n");
 		}
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
