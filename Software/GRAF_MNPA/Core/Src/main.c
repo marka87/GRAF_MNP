@@ -418,6 +418,8 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		Z_PID_GetParameters(&kp, &ki, &kd);
 		snprintf(response, sizeof(response), "PIDZ:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (strcmp(command, "L?") == 0) {
+		snprintf(response, sizeof(response), "ZLIM:%lu;%lu\r\n", lower_limit, upper_limit);
 	} else if (command[0] == 'P' && command[1] == '=') {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 2, &kp, &ki, &kd)) {

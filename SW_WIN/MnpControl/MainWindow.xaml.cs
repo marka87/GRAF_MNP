@@ -38,6 +38,8 @@ namespace MnpControl
         private const int LoggingTimeoutSeconds = 120;
         private string _lastStatusMessage = string.Empty;
         private string _currentDeviceState = string.Empty;
+        private uint? _zStepLowerLimit;
+        private uint? _zStepUpperLimit;
         private const int LiveLogMaxLines = 5;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
@@ -87,6 +89,7 @@ namespace MnpControl
         // Subscribe to DataReceived event for instant data processing
         _devConnection.DataReceived += DevConnection_DataReceived;
         SendCommand("P?");
+        SendCommand("L?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -347,6 +350,25 @@ namespace MnpControl
                 return;
             }
 
+            if (msg.StartsWith("ZLIM:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(5).Trim();
+                string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
+                if (parts.Length == 2
+                    && uint.TryParse(parts[0], out uint lower)
+                    && uint.TryParse(parts[1], out uint upper))
+                {
+                    _zStepLowerLimit = lower;
+                    _zStepUpperLimit = upper;
+                    AppendLiveLog($"Limits: {lower}-{upper}");
+                }
+                else
+                {
+                    AppendLiveLog("RX ZLIM parse error: " + payload);
+                }
+                return;
+            }
+
             if (msg.StartsWith("TEST_SUMMARY:", StringComparison.Ordinal))
             {
                 TxtStatus.Text = "Test-Ergebnis";
@@ -370,6 +392,10 @@ namespace MnpControl
                 TxtStatus.Text = GetStateFriendlyName(state);
                 AppendLiveLog("STATE " + state);
                 UpdateButtonStates(state);
+                if (state == "TEST_START")
+                {
+                    SendCommand("L?");
+                }
                 return;
             }
 
@@ -765,7 +791,7 @@ namespace MnpControl
         {
             if (TryReadStepCount(out uint steps))
             {
-                SendCommand($"+{steps}");
+                SendBoundedStep(steps, true);
             }
         }
 
@@ -773,8 +799,25 @@ namespace MnpControl
         {
             if (TryReadStepCount(out uint steps))
             {
-                SendCommand($"-{steps}");
+                SendBoundedStep(steps, false);
             }
+        }
+
+        private void SendBoundedStep(uint steps, bool isUp)
+        {
+            if (_zStepLowerLimit.HasValue && _zStepUpperLimit.HasValue
+                && uint.TryParse(TxtZaxisPosSoll.Text.Trim(), out uint current))
+            {
+                uint lower = _zStepLowerLimit.Value;
+                uint upper = _zStepUpperLimit.Value;
+                long delta = isUp ? (long)steps : -(long)steps;
+                long wanted = (long)current + delta;
+                long clamped = Math.Min(upper, Math.Max(lower, wanted));
+                SendCommand($"Z{clamped}");
+                return;
+            }
+
+            SendCommand(isUp ? $"+{steps}" : $"-{steps}");
         }
 
         private bool TryReadStepCount(out uint steps)
