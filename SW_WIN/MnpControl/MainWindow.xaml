@@ -192,15 +192,15 @@
                     <TextBlock Grid.Row="6" Grid.Column="4" Text="Neu" HorizontalAlignment="Center" FontSize="11"/>
 
                     <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal">
-                        <ComboBox x:Name="CmbPidPreset" Width="170" Margin="0,0,6,0"/>
+                        <ComboBox x:Name="CmbPidPreset" Width="170" Margin="0,0,6,0" IsEditable="True"/>
                         <Button x:Name="BtnPidPresetApply" Content="Preset übernehmen" Width="130" Click="BtnPidPresetApply_Click"/>
                     </StackPanel>
 
                     <UniformGrid Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="5" Columns="2" Rows="3" Margin="0,0,0,0">
                         <Button x:Name="BtnPidRead" Content="PID Lesen" Margin="0,0,6,6" Click="BtnPidRead_Click"/>
                         <Button x:Name="BtnPidApply" Content="Senden" Margin="0,0,0,6" Click="BtnPidApply_Click"/>
-                        <Button x:Name="BtnPidSave" Content="Speichern" Margin="0,0,6,6" Click="BtnPidSave_Click"/>
-                        <Button x:Name="BtnPidLoad" Content="Laden" Margin="0,0,0,6" Click="BtnPidLoad_Click"/>
+                        <Button x:Name="BtnPidSave" Content="Preset speichern" Margin="0,0,6,6" Click="BtnPidSave_Click"/>
+                        <Button x:Name="BtnPidLoad" Content="Preset löschen" Margin="0,0,0,6" Click="BtnPidLoad_Click"/>
                         <Button x:Name="BtnPidNeutral" Content="Not-Stopp 2.5V" Grid.ColumnSpan="2" Click="BtnPidNeutral_Click"/>
                     </UniformGrid>
                 </Grid>

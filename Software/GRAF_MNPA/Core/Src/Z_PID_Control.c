@@ -38,7 +38,6 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
 	int error = encoder_value - (int)Z_Axis_TargetPosition;
 	if (Z_Axis_TargetPosition != last_target) {
-		integral = 0.0f;
 		previous_error = 0.0f;
 		last_target = Z_Axis_TargetPosition;
 	}

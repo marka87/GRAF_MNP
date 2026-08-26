@@ -41,31 +41,28 @@ namespace MnpControl
         private const int LiveLogMaxLines = 5;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
-        private static readonly string PidProfilePath = System.IO.Path.Combine(
+        private static readonly string PidPresetPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "MnpControl", "pid_z_profile.json");
-
-        private sealed class PidProfile
-        {
-            public string Kp { get; set; } = "";
-            public string Ki { get; set; } = "";
-            public string Kd { get; set; } = "";
-        }
+            "MnpControl", "pid_z_presets.json");
 
         private sealed class PidPreset
         {
-            public string Name { get; init; } = "";
-            public string Kp { get; init; } = "";
-            public string Ki { get; init; } = "";
-            public string Kd { get; init; } = "";
+            public string Name { get; set; } = "";
+            public string Kp { get; set; } = "";
+            public string Ki { get; set; } = "";
+            public string Kd { get; set; } = "";
+            public bool IsBuiltIn { get; set; }
         }
 
-        private static readonly PidPreset[] PidPresets =
+        private static readonly PidPreset StablePreset = new PidPreset
         {
-            new PidPreset { Name = "Stabil (Empfohlen)", Kp = "0.003", Ki = "0.000001", Kd = "0.018" },
-            new PidPreset { Name = "Schneller", Kp = "0.0035", Ki = "0.000001", Kd = "0.016" },
-            new PidPreset { Name = "Feiner", Kp = "0.0025", Ki = "0.000001", Kd = "0.02" }
+            Name = "Stabil (Empfohlen)",
+            Kp = "0.003",
+            Ki = "0.000001",
+            Kd = "0.018",
+            IsBuiltIn = true
         };
+        private readonly List<PidPreset> _pidPresets = new List<PidPreset>();
 
         public MainWindow()
         {
@@ -77,7 +74,6 @@ namespace MnpControl
         _continue = true;
         UpdateButtonStates(string.Empty); // all disabled until connected + state received
         InitializePidPresets();
-        LoadPidProfileFromDisk();
 
         if (!TryOpenDeviceConnection())
         {
@@ -383,9 +379,30 @@ namespace MnpControl
 
         private void InitializePidPresets()
         {
-            CmbPidPreset.ItemsSource = PidPresets;
+            _pidPresets.Clear();
+            _pidPresets.Add(new PidPreset
+            {
+                Name = StablePreset.Name,
+                Kp = StablePreset.Kp,
+                Ki = StablePreset.Ki,
+                Kd = StablePreset.Kd,
+                IsBuiltIn = true
+            });
+
+            foreach (PidPreset preset in LoadUserPidPresetsFromDisk())
+            {
+                if (string.Equals(preset.Name, StablePreset.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                _pidPresets.Add(preset);
+            }
+
+            CmbPidPreset.ItemsSource = null;
+            CmbPidPreset.ItemsSource = _pidPresets;
             CmbPidPreset.DisplayMemberPath = nameof(PidPreset.Name);
             CmbPidPreset.SelectedIndex = 0;
+            CmbPidPreset.Text = StablePreset.Name;
         }
 
         private void AppendLiveLog(string line)
@@ -580,39 +597,74 @@ namespace MnpControl
             return ok && kp > 0.0f && ki > 0.0f && kd >= 0.0f;
         }
 
-        private void LoadPidProfileFromDisk()
+        private List<PidPreset> LoadUserPidPresetsFromDisk()
         {
+            List<PidPreset> presets = new List<PidPreset>();
             try
             {
-                if (!File.Exists(PidProfilePath)) return;
-                string json = File.ReadAllText(PidProfilePath);
-                PidProfile? profile = JsonSerializer.Deserialize<PidProfile>(json);
-                if (profile == null) return;
-                TxtPidKpNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Kp), CultureInfo.InvariantCulture));
-                TxtPidKiNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Ki), CultureInfo.InvariantCulture));
-                TxtPidKdNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Kd), CultureInfo.InvariantCulture));
+                if (!File.Exists(PidPresetPath))
+                {
+                    return presets;
+                }
+
+                string json = File.ReadAllText(PidPresetPath);
+                List<PidPreset>? loaded = JsonSerializer.Deserialize<List<PidPreset>>(json);
+                if (loaded == null)
+                {
+                    return presets;
+                }
+
+                foreach (PidPreset preset in loaded)
+                {
+                    if (string.IsNullOrWhiteSpace(preset.Name))
+                    {
+                        continue;
+                    }
+                    presets.Add(new PidPreset
+                    {
+                        Name = preset.Name.Trim(),
+                        Kp = preset.Kp,
+                        Ki = preset.Ki,
+                        Kd = preset.Kd,
+                        IsBuiltIn = false
+                    });
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"PID profile load error: {ex.Message}");
+                Debug.WriteLine($"PID preset load error: {ex.Message}");
             }
+
+            return presets;
         }
 
-        private void SavePidProfileToDisk()
+        private void SaveUserPidPresetsToDisk()
         {
-            string? dir = System.IO.Path.GetDirectoryName(PidProfilePath);
+            string? dir = System.IO.Path.GetDirectoryName(PidPresetPath);
             if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
-            PidProfile profile = new PidProfile
+
+            List<PidPreset> userPresets = new List<PidPreset>();
+            foreach (PidPreset preset in _pidPresets)
             {
-                Kp = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKpNew.Text), CultureInfo.InvariantCulture)),
-                Ki = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKiNew.Text), CultureInfo.InvariantCulture)),
-                Kd = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKdNew.Text), CultureInfo.InvariantCulture))
-            };
-            string json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(PidProfilePath, json);
+                if (preset.IsBuiltIn)
+                {
+                    continue;
+                }
+                userPresets.Add(new PidPreset
+                {
+                    Name = preset.Name,
+                    Kp = preset.Kp,
+                    Ki = preset.Ki,
+                    Kd = preset.Kd,
+                    IsBuiltIn = false
+                });
+            }
+
+            string json = JsonSerializer.Serialize(userPresets, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(PidPresetPath, json);
         }
 
         private void DevConnection_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -795,8 +847,64 @@ namespace MnpControl
         {
             try
             {
-                SavePidProfileToDisk();
-                TxtStatus.Text = "PID-Profil gespeichert";
+                if (!TryReadPidInput(out float kp, out float ki, out float kd))
+                {
+                    MessageBox.Show("Ungültige PID-Werte. Format z.B. KP 0.003, KI 0.000001, KD 0.018",
+                        "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string presetName = CmbPidPreset.Text.Trim();
+                if (string.IsNullOrWhiteSpace(presetName))
+                {
+                    MessageBox.Show("Bitte Preset-Namen eingeben.", "Eingabefehler",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.Equals(presetName, StablePreset.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("Das feste Preset 'Stabil (Empfohlen)' kann nicht überschrieben werden.",
+                        "Preset geschützt", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                PidPreset? existing = null;
+                foreach (PidPreset preset in _pidPresets)
+                {
+                    if (string.Equals(preset.Name, presetName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        existing = preset;
+                        break;
+                    }
+                }
+
+                string kpText = FormatPidDisplayValue(kp);
+                string kiText = FormatPidDisplayValue(ki);
+                string kdText = FormatPidDisplayValue(kd);
+                if (existing != null)
+                {
+                    existing.Kp = kpText;
+                    existing.Ki = kiText;
+                    existing.Kd = kdText;
+                }
+                else
+                {
+                    _pidPresets.Add(new PidPreset
+                    {
+                        Name = presetName,
+                        Kp = kpText,
+                        Ki = kiText,
+                        Kd = kdText,
+                        IsBuiltIn = false
+                    });
+                }
+
+                SaveUserPidPresetsToDisk();
+                CmbPidPreset.Items.Refresh();
+                CmbPidPreset.Text = presetName;
+                TxtStatus.Text = $"Preset gespeichert: {presetName}";
+                AppendLiveLog("Preset gespeichert: " + presetName);
             }
             catch (Exception ex)
             {
@@ -807,8 +915,52 @@ namespace MnpControl
 
         private void BtnPidLoad_Click(object sender, RoutedEventArgs e)
         {
-            LoadPidProfileFromDisk();
-            TxtStatus.Text = "PID-Profil geladen";
+            string presetName = CmbPidPreset.Text.Trim();
+            if (string.IsNullOrWhiteSpace(presetName))
+            {
+                TxtStatus.Text = "Preset-Name fehlt";
+                return;
+            }
+
+            PidPreset? presetToDelete = null;
+            foreach (PidPreset preset in _pidPresets)
+            {
+                if (string.Equals(preset.Name, presetName, StringComparison.OrdinalIgnoreCase))
+                {
+                    presetToDelete = preset;
+                    break;
+                }
+            }
+
+            if (presetToDelete == null)
+            {
+                TxtStatus.Text = $"Preset nicht gefunden: {presetName}";
+                return;
+            }
+
+            if (presetToDelete.IsBuiltIn)
+            {
+                TxtStatus.Text = "Stabil-Preset kann nicht gelöscht werden";
+                return;
+            }
+
+            MessageBoxResult result = MessageBox.Show(
+                $"Preset '{presetToDelete.Name}' löschen?",
+                "Preset löschen",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _pidPresets.Remove(presetToDelete);
+            SaveUserPidPresetsToDisk();
+            CmbPidPreset.Items.Refresh();
+            CmbPidPreset.SelectedIndex = 0;
+            CmbPidPreset.Text = StablePreset.Name;
+            TxtStatus.Text = $"Preset gelöscht: {presetToDelete.Name}";
+            AppendLiveLog("Preset gelöscht: " + presetToDelete.Name);
         }
 
         private void BtnPidNeutral_Click(object sender, RoutedEventArgs e)
@@ -818,8 +970,22 @@ namespace MnpControl
 
         private void BtnPidPresetApply_Click(object sender, RoutedEventArgs e)
         {
-            if (CmbPidPreset.SelectedItem is not PidPreset preset)
+            PidPreset? preset = CmbPidPreset.SelectedItem as PidPreset;
+            if (preset == null)
             {
+                string presetName = CmbPidPreset.Text.Trim();
+                foreach (PidPreset candidate in _pidPresets)
+                {
+                    if (string.Equals(candidate.Name, presetName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        preset = candidate;
+                        break;
+                    }
+                }
+            }
+            if (preset == null)
+            {
+                TxtStatus.Text = "Preset nicht gefunden";
                 return;
             }
 
