@@ -62,9 +62,9 @@ namespace MnpControl
 
         private static readonly PidPreset[] PidPresets =
         {
-            new PidPreset { Name = "Stabil (Empfohlen)", Kp = "0.0030", Ki = "0.000001", Kd = "0.018000" },
-            new PidPreset { Name = "Schneller", Kp = "0.0035", Ki = "0.000001", Kd = "0.016000" },
-            new PidPreset { Name = "Feiner", Kp = "0.0025", Ki = "0.000001", Kd = "0.020000" }
+            new PidPreset { Name = "Stabil (Empfohlen)", Kp = "0.003", Ki = "0.000001", Kd = "0.018" },
+            new PidPreset { Name = "Schneller", Kp = "0.0035", Ki = "0.000001", Kd = "0.016" },
+            new PidPreset { Name = "Feiner", Kp = "0.0025", Ki = "0.000001", Kd = "0.02" }
         };
 
         public MainWindow()
@@ -308,7 +308,7 @@ namespace MnpControl
 
             if (msg.StartsWith("PIDZ:", StringComparison.Ordinal))
             {
-                string payload = msg.Substring(5);
+                string payload = msg.Substring(5).Trim();
                 if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
                 {
                     TxtPidKpCurrent.Text = kp;
@@ -317,12 +317,17 @@ namespace MnpControl
                     TxtStatus.Text = "PID gelesen";
                     AppendLiveLog("RX PID gelesen");
                 }
+                else
+                {
+                    TxtStatus.Text = "PID-Formatfehler";
+                    AppendLiveLog("RX PIDZ parse error: " + payload);
+                }
                 return;
             }
 
             if (msg.StartsWith("PIDZ_SET:", StringComparison.Ordinal))
             {
-                string payload = msg.Substring(9);
+                string payload = msg.Substring(9).Trim();
                 if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
                 {
                     TxtPidKpCurrent.Text = kp;
@@ -330,6 +335,11 @@ namespace MnpControl
                     TxtPidKdCurrent.Text = kd;
                     TxtStatus.Text = "PID gesetzt";
                     AppendLiveLog("RX PID gesetzt");
+                }
+                else
+                {
+                    TxtStatus.Text = "PID-Formatfehler";
+                    AppendLiveLog("RX PIDZ_SET parse error: " + payload);
                 }
                 return;
             }
@@ -516,24 +526,41 @@ namespace MnpControl
             return value.Trim().Replace(',', '.');
         }
 
+        private static string FormatPidDisplayValue(float value)
+        {
+            return value.ToString("0.###############", CultureInfo.InvariantCulture);
+        }
+
         private static bool TryParsePidPayload(string payload, out string kp, out string ki, out string kd)
         {
             kp = string.Empty;
             ki = string.Empty;
             kd = string.Empty;
-
-            string[] parts = payload.Split(';', StringSplitOptions.None);
+            string[] parts;
+            if (payload.Contains(';', StringComparison.Ordinal))
+            {
+                parts = payload.Split(';', StringSplitOptions.TrimEntries);
+            }
+            else
+            {
+                parts = payload.Split(',', StringSplitOptions.TrimEntries);
+            }
             if (parts.Length != 3)
             {
                 return false;
             }
 
-            kp = NormalizeDecimalText(parts[0]);
-            ki = NormalizeDecimalText(parts[1]);
-            kd = NormalizeDecimalText(parts[2]);
-            return !string.IsNullOrWhiteSpace(kp)
-                && !string.IsNullOrWhiteSpace(ki)
-                && !string.IsNullOrWhiteSpace(kd);
+            if (!float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float kpValue)
+                || !float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float kiValue)
+                || !float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float kdValue))
+            {
+                return false;
+            }
+
+            kp = FormatPidDisplayValue(kpValue);
+            ki = FormatPidDisplayValue(kiValue);
+            kd = FormatPidDisplayValue(kdValue);
+            return true;
         }
 
         private bool TryReadPidInput(out float kp, out float ki, out float kd)
@@ -561,9 +588,9 @@ namespace MnpControl
                 string json = File.ReadAllText(PidProfilePath);
                 PidProfile? profile = JsonSerializer.Deserialize<PidProfile>(json);
                 if (profile == null) return;
-                TxtPidKpNew.Text = profile.Kp;
-                TxtPidKiNew.Text = profile.Ki;
-                TxtPidKdNew.Text = profile.Kd;
+                TxtPidKpNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Kp), CultureInfo.InvariantCulture));
+                TxtPidKiNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Ki), CultureInfo.InvariantCulture));
+                TxtPidKdNew.Text = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(profile.Kd), CultureInfo.InvariantCulture));
             }
             catch (Exception ex)
             {
@@ -580,9 +607,9 @@ namespace MnpControl
             }
             PidProfile profile = new PidProfile
             {
-                Kp = NormalizeDecimalText(TxtPidKpNew.Text),
-                Ki = NormalizeDecimalText(TxtPidKiNew.Text),
-                Kd = NormalizeDecimalText(TxtPidKdNew.Text)
+                Kp = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKpNew.Text), CultureInfo.InvariantCulture)),
+                Ki = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKiNew.Text), CultureInfo.InvariantCulture)),
+                Kd = FormatPidDisplayValue(float.Parse(NormalizeDecimalText(TxtPidKdNew.Text), CultureInfo.InvariantCulture))
             };
             string json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(PidProfilePath, json);
@@ -684,17 +711,43 @@ namespace MnpControl
 
         private void BtnUp_Click(object sender, RoutedEventArgs e)
         {
-        SendCommand("+");
+            if (TryReadStepCount(out uint steps))
+            {
+                SendCommand($"+{steps}");
+            }
         }
 
         private void BtnDown_Click(object sender, RoutedEventArgs e)
         {
-        SendCommand("-");
+            if (TryReadStepCount(out uint steps))
+            {
+                SendCommand($"-{steps}");
+            }
+        }
+
+        private bool TryReadStepCount(out uint steps)
+        {
+            steps = 0;
+            string text = TxtStepCount.Text.Trim();
+            if (!uint.TryParse(text, out steps) || steps == 0)
+            {
+                TxtStatus.Text = "Ungültige Schrittzahl";
+                AppendLiveLog("Step count invalid: " + text);
+                return false;
+            }
+
+            return true;
         }
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
             SendCommand("q");
+        }
+
+        private void BtnClearSummary_Click(object sender, RoutedEventArgs e)
+        {
+            TxtTestSummary.Clear();
+            _testSummaryLines.Clear();
         }
 
         private void BtnTestStart_click(object sender, RoutedEventArgs e)
@@ -732,9 +785,9 @@ namespace MnpControl
             string cmd = string.Format(
                 CultureInfo.InvariantCulture,
                 "P={0},{1},{2}",
-                kp.ToString(CultureInfo.InvariantCulture),
-                ki.ToString(CultureInfo.InvariantCulture),
-                kd.ToString(CultureInfo.InvariantCulture));
+                kp.ToString("0.######", CultureInfo.InvariantCulture),
+                ki.ToString("0.#########", CultureInfo.InvariantCulture),
+                kd.ToString("0.######", CultureInfo.InvariantCulture));
             SendCommand(cmd);
         }
 

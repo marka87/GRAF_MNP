@@ -323,12 +323,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 // UART-Verarbeitung
 void Process_UART_Command(const char *command) {
-	static const uint32_t step_size = 100; 	// Schrittgröße
 	uint32_t lower_limit = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
 	uint32_t upper_limit = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
 	char response[64] = { 0 }; 				// Rückmeldungspuffer
+	uint32_t step_size = 100;
 
-	if (command[0] == '+' && command[1] == '\0') { // Zielposition erhöhen
+	if (command[0] == '+' || command[0] == '-') {
+		if (command[1] != '\0') {
+			unsigned long parsed_step = 0;
+			if (sscanf(command + 1, "%lu", &parsed_step) != 1 || parsed_step == 0) {
+				snprintf(response, sizeof(response), "Ungueltig: +<zahl> oder -<zahl>\r\n");
+				uart_send_status();
+				uart_send_text(response, 50);
+				return;
+			}
+			step_size = (uint32_t) parsed_step;
+		}
+	}
+
+	if (command[0] == '+') { // Zielposition erhöhen
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
 		} else {
@@ -344,7 +357,7 @@ void Process_UART_Command(const char *command) {
 			Z_Target_SetRequested(next);
 		}
 
-	} else if (command[0] == '-' && command[1] == '\0') { // Zielposition verringern
+	} else if (command[0] == '-') { // Zielposition verringern
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
 		} else {
@@ -625,7 +638,7 @@ int main(void)
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 					const char *phase = TestRun_GetPhaseName();
 					snprintf(summary, sizeof(summary),
-						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -673,7 +686,7 @@ int main(void)
 				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 				const char *phase = TestRun_GetPhaseName();
 				snprintf(stats_msg, sizeof(stats_msg),
-					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n",
+					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
 					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 					(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -714,7 +727,7 @@ int main(void)
 				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 				const char *phase = TestRun_GetPhaseName();
 				snprintf(summary, sizeof(summary),
-					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n",
+					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
 					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 					(long)stats.z_ist_min, (long)stats.z_ist_max,
