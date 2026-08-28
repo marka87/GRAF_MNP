@@ -127,6 +127,14 @@
                 <Button x:Name="BtnDown" Content="▼" Width="44" Height="32" Click="BtnDown_Click"/>
                 <TextBlock Text="Steps" VerticalAlignment="Center" Margin="8,0,0,0"/>
             </StackPanel>
+
+            <StackPanel Orientation="Vertical" Margin="0,14,0,0">
+                <TextBlock Text="Geschwindigkeit (manuell)" Margin="0,0,0,4"/>
+                <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="5" Value="5" TickFrequency="1"
+                        IsSnapToTickEnabled="True" Width="140" HorizontalAlignment="Left"
+                        ValueChanged="SldSpeedLevel_ValueChanged"/>
+                <TextBlock x:Name="TxtSpeedLevel" Text="Stufe: 5/5" Margin="0,2,0,0"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Run mode controls -->

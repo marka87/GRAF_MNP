@@ -16,6 +16,8 @@ void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition);
 void Z_Axis_Control(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition, bool holding);
 void Z_PID_SetMode(bool fast_mode);
 void Z_PID_SetSchedulerEnabled(bool enabled);
+void Z_PID_SetSpeedLevel(uint8_t level);
+uint8_t Z_PID_GetSpeedLevel(void);
 bool Z_PID_IsSchedulerEnabled(void);
 void Z_PID_SetFastParameters(float kp, float ki, float kd);
 void Z_PID_SetSlowParameters(float kp, float ki, float kd);

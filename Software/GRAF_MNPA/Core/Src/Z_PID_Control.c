@@ -49,6 +49,14 @@ static uint32_t dist_fast_exit = DIST_FAST_EXIT_DEFAULT;
 static uint32_t fast_hold_target_delta = FAST_HOLD_TARGET_DELTA_DEFAULT;
 static uint32_t fast_hold_cycles = FAST_HOLD_CYCLES_DEFAULT;
 static bool scheduler_enabled = true;
+/* Geschwindigkeitsstufen 1-5: das PID-Ziel wird pro Zyklus nur um max. N Encoder-Schritte
+ * an das eigentliche Ziel herangeführt (Ziel-Rampe). Die Regelung selbst (PID-Gains, Spannung)
+ * bleibt unangetastet -> keine Instabilität, nur die Anfahrt wird gebremst.
+ * ponytail: Startwerte geschätzt, an realer Hardware feinjustieren. */
+static const uint32_t speed_level_step_per_cycle[5] = { 1u, 3u, 8u, 20u, 0xFFFFFFFFu };
+static uint8_t speed_level = 5u;
+static uint32_t ramped_target = 0u;
+static bool ramped_target_initialized = false;
 float voltage;
 
 static void clamp_integral_to_active_profile(void) {
@@ -76,8 +84,25 @@ static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki,
 void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	/* Istwert aus Encoder */
 	int encoder_value = Encoder_GetPosition_Z_AXIS();
+
+	if (!ramped_target_initialized) {
+		ramped_target = (uint32_t)encoder_value;
+		ramped_target_initialized = true;
+	}
+
+	/* Geschwindigkeitsstufe: das tatsächlich angefahrene Ziel nur schrittweise an
+	 * Z_Axis_TargetPosition heranführen (Ziel-Rampe statt Sprung). */
+	uint32_t max_step_per_cycle = speed_level_step_per_cycle[speed_level - 1u];
+	if (ramped_target < Z_Axis_TargetPosition) {
+		uint32_t remaining = Z_Axis_TargetPosition - ramped_target;
+		ramped_target += (remaining < max_step_per_cycle) ? remaining : max_step_per_cycle;
+	} else if (ramped_target > Z_Axis_TargetPosition) {
+		uint32_t remaining = ramped_target - Z_Axis_TargetPosition;
+		ramped_target -= (remaining < max_step_per_cycle) ? remaining : max_step_per_cycle;
+	}
+
 	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-	int error = encoder_value - (int)Z_Axis_TargetPosition;
+	int error = encoder_value - (int)ramped_target;
 	uint32_t target_delta =
 			(Z_Axis_TargetPosition > last_target)
 					? (Z_Axis_TargetPosition - last_target)
@@ -124,7 +149,7 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 			+ (active_profile->ki * integral)
 			+ (active_profile->kd * derivative);
 
-	/* Spannung berechnen */
+	/* Spannung berechnen (unskalierter PID-Output, volle Regelgüte) */
 	voltage = NEUTRAL_VOLTAGE + output;
 
 	/* Begrenzen der Spannung */
@@ -148,6 +173,17 @@ void Z_PID_GetParameters(float *kp, float *ki, float *kd) {
 	if (kp != NULL) *kp = active_profile->kp;
 	if (ki != NULL) *ki = active_profile->ki;
 	if (kd != NULL) *kd = active_profile->kd;
+}
+
+void Z_PID_SetSpeedLevel(uint8_t level) {
+	if (level < 1u || level > 5u) {
+		return;
+	}
+	speed_level = level;
+}
+
+uint8_t Z_PID_GetSpeedLevel(void) {
+	return speed_level;
 }
 
 void Z_PID_SetMode(bool fast_mode) {

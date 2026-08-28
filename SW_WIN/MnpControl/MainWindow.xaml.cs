@@ -106,6 +106,7 @@ namespace MnpControl
         SendCommand("PF?");
         SendCommand("PS?");
         SendCommand("SC?");
+        SendCommand("V?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -418,6 +419,19 @@ namespace MnpControl
             {
                 TxtStatus.Text = msg;
                 AppendLiveLog("RX " + msg);
+                return;
+            }
+
+            if (msg.StartsWith("ZV:", StringComparison.Ordinal) || msg.StartsWith("ZV_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(msg.IndexOf(':') + 1).Trim();
+                if (int.TryParse(payload, out int level) && level >= 1 && level <= 5)
+                {
+                    SldSpeedLevel.ValueChanged -= SldSpeedLevel_ValueChanged;
+                    SldSpeedLevel.Value = level;
+                    TxtSpeedLevel.Text = $"Stufe: {level}/5";
+                    SldSpeedLevel.ValueChanged += SldSpeedLevel_ValueChanged;
+                }
                 return;
             }
 
@@ -873,6 +887,18 @@ namespace MnpControl
             {
                 SendBoundedStep(steps, false);
             }
+        }
+
+        private void SldSpeedLevel_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!IsLoaded)
+            {
+                // Fires while InitializeComponent still builds the tree (TxtSpeedLevel not ready yet).
+                return;
+            }
+            int level = (int)Math.Round(e.NewValue);
+            TxtSpeedLevel.Text = $"Stufe: {level}/5";
+            SendCommand($"V={level}");
         }
 
         private void SendBoundedStep(uint steps, bool isUp)

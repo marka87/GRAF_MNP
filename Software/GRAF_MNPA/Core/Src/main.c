@@ -27,6 +27,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "display.h"
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
@@ -448,6 +449,8 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "PIDZS:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 	} else if (strcmp(command, "L?") == 0) {
 		snprintf(response, sizeof(response), "ZLIM:%lu;%lu\r\n", lower_limit, upper_limit);
+	} else if (strcmp(command, "V?") == 0) {
+		snprintf(response, sizeof(response), "ZV:%u\r\n", Z_PID_GetSpeedLevel());
 	} else if (strcmp(command, "SC?") == 0) {
 		uint32_t slow_enter = 0, fast_exit = 0, hold_delta = 0, hold_cycles = 0;
 		Z_PID_GetSchedulerParameters(&slow_enter, &fast_exit, &hold_delta, &hold_cycles);
@@ -484,6 +487,14 @@ void Process_UART_Command(const char *command) {
 			snprintf(response, sizeof(response), "ZSC_SET:%lu;%lu;%lu;%lu\r\n", slow_enter, fast_exit, hold_delta, hold_cycles);
 		} else {
 			snprintf(response, sizeof(response), "ZSC_ERR:Format SC=a,b,c,d\r\n");
+		}
+	} else if (command[0] == 'V' && command[1] == '=') {
+		int level = atoi(command + 2);
+		if (level >= 1 && level <= 5) {
+			Z_PID_SetSpeedLevel((uint8_t)level);
+			snprintf(response, sizeof(response), "ZV_SET:%u\r\n", (unsigned)level);
+		} else {
+			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..5\r\n");
 		}
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
