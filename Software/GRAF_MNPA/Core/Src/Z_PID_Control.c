@@ -91,14 +91,28 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	}
 
 	/* Geschwindigkeitsstufe: das tatsächlich angefahrene Ziel nur schrittweise an
-	 * Z_Axis_TargetPosition heranführen (Ziel-Rampe statt Sprung). */
-	uint32_t max_step_per_cycle = speed_level_step_per_cycle[speed_level - 1u];
-	if (ramped_target < Z_Axis_TargetPosition) {
-		uint32_t remaining = Z_Axis_TargetPosition - ramped_target;
-		ramped_target += (remaining < max_step_per_cycle) ? remaining : max_step_per_cycle;
-	} else if (ramped_target > Z_Axis_TargetPosition) {
-		uint32_t remaining = ramped_target - Z_Axis_TargetPosition;
-		ramped_target -= (remaining < max_step_per_cycle) ? remaining : max_step_per_cycle;
+	 * Z_Axis_TargetPosition heranführen (Ziel-Rampe statt Sprung).
+	 * Testabläufe (scheduler_enabled == false, siehe Z_PID_SetSchedulerEnabled) überspringen
+	 * die Rampe komplett -> Speed-Stufe bremst nur manuelles Fahren, nicht die Testabläufe. */
+	if (!scheduler_enabled) {
+		ramped_target = Z_Axis_TargetPosition;
+	} else {
+		uint32_t max_step_per_cycle = speed_level_step_per_cycle[speed_level - 1u];
+		if (ramped_target < Z_Axis_TargetPosition) {
+			uint32_t remaining = Z_Axis_TargetPosition - ramped_target;
+			/* Kurz vor dem Ziel sanft abbremsen (ein Viertel der Restdistanz, min. 1),
+			 * statt bis zum letzten Zyklus mit vollem Schritt durchzufahren. */
+			uint32_t eased_step = remaining / 4u;
+			if (eased_step < 1u) eased_step = 1u;
+			uint32_t step = (eased_step < max_step_per_cycle) ? eased_step : max_step_per_cycle;
+			ramped_target += (remaining < step) ? remaining : step;
+		} else if (ramped_target > Z_Axis_TargetPosition) {
+			uint32_t remaining = ramped_target - Z_Axis_TargetPosition;
+			uint32_t eased_step = remaining / 4u;
+			if (eased_step < 1u) eased_step = 1u;
+			uint32_t step = (eased_step < max_step_per_cycle) ? eased_step : max_step_per_cycle;
+			ramped_target -= (remaining < step) ? remaining : step;
+		}
 	}
 
 	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
