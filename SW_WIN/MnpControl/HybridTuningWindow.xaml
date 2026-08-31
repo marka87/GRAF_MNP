@@ -1,11 +1,11 @@
 <Window x:Class="MnpControl.HybridTuningWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Hybrid Tuning"
-        Width="460"
-        Height="540"
-        MinWidth="420"
-        MinHeight="420"
+        Title="Kaskaden-Tuning"
+        Width="420"
+        Height="380"
+        MinWidth="380"
+        MinHeight="320"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
     <DockPanel Margin="12">
@@ -16,7 +16,7 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
-                <GroupBox Header="FAST PID" Margin="0,0,0,8">
+                <GroupBox Header="POSITION PID (äußerer Regler -&gt; Soll-Geschwindigkeit)" Margin="0,0,0,8">
                     <Grid Margin="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -31,15 +31,15 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
-                        <TextBox x:Name="TxtFastKp" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPosKp" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="KI"/>
-                        <TextBox x:Name="TxtFastKi" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPosKi" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
                         <Label Grid.Row="4" Grid.Column="0" Content="KD"/>
-                        <TextBox x:Name="TxtFastKd" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtPosKd" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="MEDIUM PID" Margin="0,0,0,8">
+                <GroupBox Header="GESCHWINDIGKEIT PID (innerer Regler -&gt; Spannung)">
                     <Grid Margin="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -54,69 +54,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
-                        <TextBox x:Name="TxtMediumKp" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtVelKp" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
                         <Label Grid.Row="2" Grid.Column="0" Content="KI"/>
-                        <TextBox x:Name="TxtMediumKi" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtVelKi" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
                         <Label Grid.Row="4" Grid.Column="0" Content="KD"/>
-                        <TextBox x:Name="TxtMediumKd" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
-                    </Grid>
-                </GroupBox>
-
-                <GroupBox Header="SLOW PID" Margin="0,0,0,8">
-                    <Grid Margin="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="KP"/>
-                        <TextBox x:Name="TxtSlowKp" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="KI"/>
-                        <TextBox x:Name="TxtSlowKi" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="4" Grid.Column="0" Content="KD"/>
-                        <TextBox x:Name="TxtSlowKd" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
-                    </Grid>
-                </GroupBox>
-
-                <GroupBox Header="Hybrid Schwellen">
-                    <Grid Margin="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="6"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Grid.Column="0" Content="Slow Enter"/>
-                        <TextBox x:Name="TxtSlowEnter" Grid.Row="0" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="2" Grid.Column="0" Content="Slow Exit"/>
-                        <TextBox x:Name="TxtFastExit" Grid.Row="2" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="4" Grid.Column="0" Content="Medium Enter"/>
-                        <TextBox x:Name="TxtMediumEnter" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="6" Grid.Column="0" Content="Medium Exit"/>
-                        <TextBox x:Name="TxtMediumExit" Grid.Row="6" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="8" Grid.Column="0" Content="Hold Delta"/>
-                        <TextBox x:Name="TxtHoldDelta" Grid.Row="8" Grid.Column="2" TextAlignment="Right"/>
-                        <Label Grid.Row="10" Grid.Column="0" Content="Hold Cycles"/>
-                        <TextBox x:Name="TxtHoldCycles" Grid.Row="10" Grid.Column="2" TextAlignment="Right"/>
+                        <TextBox x:Name="TxtVelKd" Grid.Row="4" Grid.Column="2" TextAlignment="Right"/>
                     </Grid>
                 </GroupBox>
             </StackPanel>

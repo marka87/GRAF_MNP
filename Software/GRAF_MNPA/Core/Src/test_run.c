@@ -180,7 +180,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         s_stats.invalid_sensor_events++;
         s_stats.ds_errors++;
         s_stats.motor_faults++;
-        snprintf(s_error_msg, sizeof(s_error_msg), "Fehler: Drucksensor");
+        snprintf(s_error_msg, sizeof(s_error_msg), "Druck-Sen: %u > %u", ds_value, DS_ACTIVE_THRESHOLD);
         return TESTRUN_ERROR;
     }
 
@@ -202,7 +202,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             } else {
                 s_stats.no_sensor_errors++;
                 s_stats.invalid_sensor_events++;
-                snprintf(s_error_msg, sizeof(s_error_msg), "Fehler: NO-Sensor");
+                snprintf(s_error_msg, sizeof(s_error_msg), "NO-Sen fehlt @ %ld", (long)z_pos);
                 return TESTRUN_ERROR;
             }
         }

@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Text;
@@ -42,21 +42,12 @@ namespace MnpControl
         private uint? _zStepUpperLimit;
         private readonly HybridTuningConfig _hybridConfig = new HybridTuningConfig
         {
-            FastKp = 0.0031f,
-            FastKi = 0.000001f,
-            FastKd = 0.05f,
-            MediumKp = 0.004f,
-            MediumKi = 0.00001f,
-            MediumKd = 0.01f,
-            SlowKp = 0.005f,
-            SlowKi = 0.00002f,
-            SlowKd = 0.001f,
-            SlowEnter = 100u,
-            FastExit = 140u,
-            MediumEnter = 300u,
-            MediumExit = 400u,
-            HoldDelta = 50u,
-            HoldCycles = 30u
+            PosKp = 0.12f,
+            PosKi = 0.0f,
+            PosKd = 0.0f,
+            VelKp = 0.035f,
+            VelKi = 0.0003f,
+            VelKd = 0.0005f
         };
         private const int LiveLogMaxLines = 5;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
@@ -106,13 +97,9 @@ namespace MnpControl
 
         // Subscribe to DataReceived event for instant data processing
         _devConnection.DataReceived += DevConnection_DataReceived;
-        SendCommand("P?");
+        SendCommand("PP?");
         SendCommand("L?");
-        SendCommand("PF?");
-        SendCommand("PM?");
-        SendCommand("PS?");
-        SendCommand("SC?");
-        SendCommand("MC?");
+        SendCommand("PV?");
         SendCommand("V?");
         }
 
@@ -329,130 +316,51 @@ namespace MnpControl
                 return;
             }
 
-            if (msg.StartsWith("PIDZ:", StringComparison.Ordinal))
+            if (msg.StartsWith("PIDZP:", StringComparison.Ordinal) || msg.StartsWith("PIDZP_SET:", StringComparison.Ordinal))
             {
-                string payload = msg.Substring(5).Trim();
+                string payload = msg[(msg.StartsWith("PIDZP_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
                 if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
                 {
                     TxtPidKpCurrent.Text = kp;
                     TxtPidKiCurrent.Text = ki;
                     TxtPidKdCurrent.Text = kd;
-                    TxtStatus.Text = "PID gelesen";
-                    AppendLiveLog("RX PID gelesen");
+                    if (float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkp)
+                        && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float pki)
+                        && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkd))
+                    {
+                        _hybridConfig.PosKp = pkp;
+                        _hybridConfig.PosKi = pki;
+                        _hybridConfig.PosKd = pkd;
+                    }
+                    TxtStatus.Text = "Position-PID gelesen";
+                    AppendLiveLog("RX Position PID");
                 }
                 else
                 {
                     TxtStatus.Text = "PID-Formatfehler";
-                    AppendLiveLog("RX PIDZ parse error: " + payload);
+                    AppendLiveLog("RX PIDZP parse error: " + payload);
                 }
                 return;
             }
 
-            if (msg.StartsWith("PIDZ_SET:", StringComparison.Ordinal))
+            if (msg.StartsWith("PIDZV:", StringComparison.Ordinal) || msg.StartsWith("PIDZV_SET:", StringComparison.Ordinal))
             {
-                string payload = msg.Substring(9).Trim();
-                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd))
-                {
-                    TxtPidKpCurrent.Text = kp;
-                    TxtPidKiCurrent.Text = ki;
-                    TxtPidKdCurrent.Text = kd;
-                    TxtStatus.Text = "PID gesetzt";
-                    AppendLiveLog("RX PID gesetzt");
-                }
-                else
-                {
-                    TxtStatus.Text = "PID-Formatfehler";
-                    AppendLiveLog("RX PIDZ_SET parse error: " + payload);
-                }
-                return;
-            }
-
-            if (msg.StartsWith("PIDZF:", StringComparison.Ordinal) || msg.StartsWith("PIDZF_SET:", StringComparison.Ordinal))
-            {
-                string payload = msg[(msg.StartsWith("PIDZF_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
+                string payload = msg[(msg.StartsWith("PIDZV_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
                 if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
-                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float fkp)
-                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float fki)
-                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float fkd))
+                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkp)
+                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float vki)
+                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkd))
                 {
-                    _hybridConfig.FastKp = fkp;
-                    _hybridConfig.FastKi = fki;
-                    _hybridConfig.FastKd = fkd;
-                    AppendLiveLog("RX FAST PID");
+                    _hybridConfig.VelKp = vkp;
+                    _hybridConfig.VelKi = vki;
+                    _hybridConfig.VelKd = vkd;
+                    AppendLiveLog("RX Geschwindigkeit PID");
                 }
                 return;
             }
 
-            if (msg.StartsWith("PIDZS:", StringComparison.Ordinal) || msg.StartsWith("PIDZS_SET:", StringComparison.Ordinal))
-            {
-                string payload = msg[(msg.StartsWith("PIDZS_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
-                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
-                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float skp)
-                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float ski)
-                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float skd))
-                {
-                    _hybridConfig.SlowKp = skp;
-                    _hybridConfig.SlowKi = ski;
-                    _hybridConfig.SlowKd = skd;
-                    AppendLiveLog("RX SLOW PID");
-                }
-                return;
-            }
-
-            if (msg.StartsWith("PIDZM:", StringComparison.Ordinal) || msg.StartsWith("PIDZM_SET:", StringComparison.Ordinal))
-            {
-                string payload = msg[(msg.StartsWith("PIDZM_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
-                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
-                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float mkp)
-                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float mki)
-                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float mkd))
-                {
-                    _hybridConfig.MediumKp = mkp;
-                    _hybridConfig.MediumKi = mki;
-                    _hybridConfig.MediumKd = mkd;
-                    AppendLiveLog("RX MEDIUM PID");
-                }
-                return;
-            }
-
-            if (msg.StartsWith("ZSC:", StringComparison.Ordinal) || msg.StartsWith("ZSC_SET:", StringComparison.Ordinal))
-            {
-                string payload = msg[(msg.StartsWith("ZSC_SET:", StringComparison.Ordinal) ? 8 : 4)..].Trim();
-                string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
-                if (parts.Length == 4
-                    && uint.TryParse(parts[0], out uint slowEnter)
-                    && uint.TryParse(parts[1], out uint fastExit)
-                    && uint.TryParse(parts[2], out uint holdDelta)
-                    && uint.TryParse(parts[3], out uint holdCycles))
-                {
-                    _hybridConfig.SlowEnter = slowEnter;
-                    _hybridConfig.FastExit = fastExit;
-                    _hybridConfig.HoldDelta = holdDelta;
-                    _hybridConfig.HoldCycles = holdCycles;
-                    AppendLiveLog("RX HYBRID CFG");
-                }
-                return;
-            }
-
-            if (msg.StartsWith("ZMC:", StringComparison.Ordinal) || msg.StartsWith("ZMC_SET:", StringComparison.Ordinal))
-            {
-                string payload = msg[(msg.StartsWith("ZMC_SET:", StringComparison.Ordinal) ? 8 : 4)..].Trim();
-                string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
-                if (parts.Length == 2
-                    && uint.TryParse(parts[0], out uint mediumEnter)
-                    && uint.TryParse(parts[1], out uint mediumExit))
-                {
-                    _hybridConfig.MediumEnter = mediumEnter;
-                    _hybridConfig.MediumExit = mediumExit;
-                    AppendLiveLog("RX MEDIUM CFG");
-                }
-                return;
-            }
-
-            if (msg.StartsWith("PIDZ_ERR:", StringComparison.Ordinal)
-                || msg.StartsWith("PIDZF_ERR:", StringComparison.Ordinal)
-                || msg.StartsWith("PIDZS_ERR:", StringComparison.Ordinal)
-                || msg.StartsWith("ZSC_ERR:", StringComparison.Ordinal)
+            if (msg.StartsWith("PIDZP_ERR:", StringComparison.Ordinal)
+                || msg.StartsWith("PIDZV_ERR:", StringComparison.Ordinal)
                 || msg.StartsWith("Z_NEUTRAL:", StringComparison.Ordinal))
             {
                 TxtStatus.Text = msg;
@@ -744,7 +652,7 @@ namespace MnpControl
                 float.TryParse(kpText, NumberStyles.Float, CultureInfo.InvariantCulture, out kp) &&
                 float.TryParse(kiText, NumberStyles.Float, CultureInfo.InvariantCulture, out ki) &&
                 float.TryParse(kdText, NumberStyles.Float, CultureInfo.InvariantCulture, out kd);
-            return ok && kp > 0.0f && ki > 0.0f && kd >= 0.0f;
+            return ok && kp >= 0.0f && ki >= 0.0f && kd >= 0.0f;
         }
 
         private List<PidPreset> LoadUserPidPresetsFromDisk()
@@ -1001,7 +909,7 @@ namespace MnpControl
 
         private void BtnPidRead_Click(object sender, RoutedEventArgs e)
         {
-            SendCommand("P?");
+            SendCommand("PP?");
         }
 
         private void BtnPidApply_Click(object sender, RoutedEventArgs e)
@@ -1015,7 +923,7 @@ namespace MnpControl
 
             string cmd = string.Format(
                 CultureInfo.InvariantCulture,
-                "P={0},{1},{2}",
+                "PP={0},{1},{2}",
                 kp.ToString("0.######", CultureInfo.InvariantCulture),
                 ki.ToString("0.#########", CultureInfo.InvariantCulture),
                 kd.ToString("0.######", CultureInfo.InvariantCulture));
@@ -1151,21 +1059,12 @@ namespace MnpControl
         {
             HybridTuningWindow dialog = new HybridTuningWindow(new HybridTuningConfig
             {
-                FastKp = _hybridConfig.FastKp,
-                FastKi = _hybridConfig.FastKi,
-                FastKd = _hybridConfig.FastKd,
-                MediumKp = _hybridConfig.MediumKp,
-                MediumKi = _hybridConfig.MediumKi,
-                MediumKd = _hybridConfig.MediumKd,
-                SlowKp = _hybridConfig.SlowKp,
-                SlowKi = _hybridConfig.SlowKi,
-                SlowKd = _hybridConfig.SlowKd,
-                SlowEnter = _hybridConfig.SlowEnter,
-                FastExit = _hybridConfig.FastExit,
-                MediumEnter = _hybridConfig.MediumEnter,
-                MediumExit = _hybridConfig.MediumExit,
-                HoldDelta = _hybridConfig.HoldDelta,
-                HoldCycles = _hybridConfig.HoldCycles
+                PosKp = _hybridConfig.PosKp,
+                PosKi = _hybridConfig.PosKi,
+                PosKd = _hybridConfig.PosKd,
+                VelKp = _hybridConfig.VelKp,
+                VelKi = _hybridConfig.VelKi,
+                VelKd = _hybridConfig.VelKd
             })
             {
                 Owner = this
@@ -1177,60 +1076,30 @@ namespace MnpControl
                 return;
             }
 
-            _hybridConfig.FastKp = dialog.Config.FastKp;
-            _hybridConfig.FastKi = dialog.Config.FastKi;
-            _hybridConfig.FastKd = dialog.Config.FastKd;
-            _hybridConfig.MediumKp = dialog.Config.MediumKp;
-            _hybridConfig.MediumKi = dialog.Config.MediumKi;
-            _hybridConfig.MediumKd = dialog.Config.MediumKd;
-            _hybridConfig.SlowKp = dialog.Config.SlowKp;
-            _hybridConfig.SlowKi = dialog.Config.SlowKi;
-            _hybridConfig.SlowKd = dialog.Config.SlowKd;
-            _hybridConfig.SlowEnter = dialog.Config.SlowEnter;
-            _hybridConfig.FastExit = dialog.Config.FastExit;
-            _hybridConfig.MediumEnter = dialog.Config.MediumEnter;
-            _hybridConfig.MediumExit = dialog.Config.MediumExit;
-            _hybridConfig.HoldDelta = dialog.Config.HoldDelta;
-            _hybridConfig.HoldCycles = dialog.Config.HoldCycles;
+            _hybridConfig.PosKp = dialog.Config.PosKp;
+            _hybridConfig.PosKi = dialog.Config.PosKi;
+            _hybridConfig.PosKd = dialog.Config.PosKd;
+            _hybridConfig.VelKp = dialog.Config.VelKp;
+            _hybridConfig.VelKi = dialog.Config.VelKi;
+            _hybridConfig.VelKd = dialog.Config.VelKd;
 
-            string fastCmd = string.Format(
+            string posCmd = string.Format(
                 CultureInfo.InvariantCulture,
-                "PF={0},{1},{2}",
-                _hybridConfig.FastKp.ToString("0.######", CultureInfo.InvariantCulture),
-                _hybridConfig.FastKi.ToString("0.#########", CultureInfo.InvariantCulture),
-                _hybridConfig.FastKd.ToString("0.######", CultureInfo.InvariantCulture));
-            string mediumCmd = string.Format(
+                "PP={0},{1},{2}",
+                _hybridConfig.PosKp.ToString("0.######", CultureInfo.InvariantCulture),
+                _hybridConfig.PosKi.ToString("0.#########", CultureInfo.InvariantCulture),
+                _hybridConfig.PosKd.ToString("0.######", CultureInfo.InvariantCulture));
+            string velCmd = string.Format(
                 CultureInfo.InvariantCulture,
-                "PM={0},{1},{2}",
-                _hybridConfig.MediumKp.ToString("0.######", CultureInfo.InvariantCulture),
-                _hybridConfig.MediumKi.ToString("0.#########", CultureInfo.InvariantCulture),
-                _hybridConfig.MediumKd.ToString("0.######", CultureInfo.InvariantCulture));
-            string slowCmd = string.Format(
-                CultureInfo.InvariantCulture,
-                "PS={0},{1},{2}",
-                _hybridConfig.SlowKp.ToString("0.######", CultureInfo.InvariantCulture),
-                _hybridConfig.SlowKi.ToString("0.#########", CultureInfo.InvariantCulture),
-                _hybridConfig.SlowKd.ToString("0.######", CultureInfo.InvariantCulture));
-            string cfgCmd = string.Format(
-                CultureInfo.InvariantCulture,
-                "SC={0},{1},{2},{3}",
-                _hybridConfig.SlowEnter,
-                _hybridConfig.FastExit,
-                _hybridConfig.HoldDelta,
-                _hybridConfig.HoldCycles);
-            string mediumCfgCmd = string.Format(
-                CultureInfo.InvariantCulture,
-                "MC={0},{1}",
-                _hybridConfig.MediumEnter,
-                _hybridConfig.MediumExit);
+                "PV={0},{1},{2}",
+                _hybridConfig.VelKp.ToString("0.######", CultureInfo.InvariantCulture),
+                _hybridConfig.VelKi.ToString("0.#########", CultureInfo.InvariantCulture),
+                _hybridConfig.VelKd.ToString("0.######", CultureInfo.InvariantCulture));
 
-            SendCommand(fastCmd);
-            SendCommand(mediumCmd);
-            SendCommand(slowCmd);
-            SendCommand(cfgCmd);
-            SendCommand(mediumCfgCmd);
-            TxtStatus.Text = "Hybrid Tuning gesendet";
-            AppendLiveLog("Hybrid Tuning gespeichert");
+            SendCommand(posCmd);
+            SendCommand(velCmd);
+            TxtStatus.Text = "Kaskaden-Tuning gesendet";
+            AppendLiveLog("Kaskaden-Tuning gespeichert");
         }
 
         private void BtnPidPresetApply_Click(object sender, RoutedEventArgs e)

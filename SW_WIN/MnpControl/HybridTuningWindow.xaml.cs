@@ -5,21 +5,12 @@ namespace MnpControl
 {
     public sealed class HybridTuningConfig
     {
-        public float FastKp { get; set; }
-        public float FastKi { get; set; }
-        public float FastKd { get; set; }
-        public float MediumKp { get; set; }
-        public float MediumKi { get; set; }
-        public float MediumKd { get; set; }
-        public float SlowKp { get; set; }
-        public float SlowKi { get; set; }
-        public float SlowKd { get; set; }
-        public uint SlowEnter { get; set; }
-        public uint FastExit { get; set; }
-        public uint MediumEnter { get; set; }
-        public uint MediumExit { get; set; }
-        public uint HoldDelta { get; set; }
-        public uint HoldCycles { get; set; }
+        public float PosKp { get; set; }
+        public float PosKi { get; set; }
+        public float PosKd { get; set; }
+        public float VelKp { get; set; }
+        public float VelKi { get; set; }
+        public float VelKd { get; set; }
     }
 
     public partial class HybridTuningWindow : Window
@@ -30,78 +21,39 @@ namespace MnpControl
         {
             InitializeComponent();
             Config = config;
-            TxtFastKp.Text = config.FastKp.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtFastKi.Text = config.FastKi.ToString("0.#########", CultureInfo.InvariantCulture);
-            TxtFastKd.Text = config.FastKd.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtMediumKp.Text = config.MediumKp.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtMediumKi.Text = config.MediumKi.ToString("0.#########", CultureInfo.InvariantCulture);
-            TxtMediumKd.Text = config.MediumKd.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtSlowKp.Text = config.SlowKp.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtSlowKi.Text = config.SlowKi.ToString("0.#########", CultureInfo.InvariantCulture);
-            TxtSlowKd.Text = config.SlowKd.ToString("0.######", CultureInfo.InvariantCulture);
-            TxtSlowEnter.Text = config.SlowEnter.ToString(CultureInfo.InvariantCulture);
-            TxtFastExit.Text = config.FastExit.ToString(CultureInfo.InvariantCulture);
-            TxtMediumEnter.Text = config.MediumEnter.ToString(CultureInfo.InvariantCulture);
-            TxtMediumExit.Text = config.MediumExit.ToString(CultureInfo.InvariantCulture);
-            TxtHoldDelta.Text = config.HoldDelta.ToString(CultureInfo.InvariantCulture);
-            TxtHoldCycles.Text = config.HoldCycles.ToString(CultureInfo.InvariantCulture);
+            TxtPosKp.Text = config.PosKp.ToString("0.######", CultureInfo.InvariantCulture);
+            TxtPosKi.Text = config.PosKi.ToString("0.#########", CultureInfo.InvariantCulture);
+            TxtPosKd.Text = config.PosKd.ToString("0.######", CultureInfo.InvariantCulture);
+            TxtVelKp.Text = config.VelKp.ToString("0.######", CultureInfo.InvariantCulture);
+            TxtVelKi.Text = config.VelKi.ToString("0.#########", CultureInfo.InvariantCulture);
+            TxtVelKd.Text = config.VelKd.ToString("0.######", CultureInfo.InvariantCulture);
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            if (!float.TryParse(TxtFastKp.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float fastKp)
-                || !float.TryParse(TxtFastKi.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float fastKi)
-                || !float.TryParse(TxtFastKd.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float fastKd)
-                || !float.TryParse(TxtMediumKp.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float mediumKp)
-                || !float.TryParse(TxtMediumKi.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float mediumKi)
-                || !float.TryParse(TxtMediumKd.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float mediumKd)
-                || !float.TryParse(TxtSlowKp.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float slowKp)
-                || !float.TryParse(TxtSlowKi.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float slowKi)
-                || !float.TryParse(TxtSlowKd.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float slowKd)
-                || !uint.TryParse(TxtSlowEnter.Text.Trim(), out uint slowEnter)
-                || !uint.TryParse(TxtFastExit.Text.Trim(), out uint fastExit)
-                || !uint.TryParse(TxtMediumEnter.Text.Trim(), out uint mediumEnter)
-                || !uint.TryParse(TxtMediumExit.Text.Trim(), out uint mediumExit)
-                || !uint.TryParse(TxtHoldDelta.Text.Trim(), out uint holdDelta)
-                || !uint.TryParse(TxtHoldCycles.Text.Trim(), out uint holdCycles))
+            if (!float.TryParse(TxtPosKp.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float posKp)
+                || !float.TryParse(TxtPosKi.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float posKi)
+                || !float.TryParse(TxtPosKd.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float posKd)
+                || !float.TryParse(TxtVelKp.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float velKp)
+                || !float.TryParse(TxtVelKi.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float velKi)
+                || !float.TryParse(TxtVelKd.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float velKd))
             {
                 MessageBox.Show("Ungültige Eingabe.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (fastKp <= 0 || fastKi <= 0 || fastKd < 0
-                || mediumKp <= 0 || mediumKi <= 0 || mediumKd < 0
-                || slowKp <= 0 || slowKi <= 0 || slowKd < 0)
+            if (posKp < 0 || posKi < 0 || posKd < 0 || velKp < 0 || velKi < 0 || velKd < 0)
             {
-                MessageBox.Show("PID-Werte müssen positiv sein (KD darf 0 sein).", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            if (slowEnter == 0 || fastExit <= slowEnter || holdDelta == 0)
-            {
-                MessageBox.Show("Schwellen ungültig: FastExit muss größer als SlowEnter sein, Delta > 0.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            if (mediumEnter == 0 || mediumExit <= mediumEnter)
-            {
-                MessageBox.Show("Medium-Schwellen ungültig: Medium Exit muss größer als Medium Enter sein.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("PID-Werte dürfen nicht negativ sein.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            Config.FastKp = fastKp;
-            Config.FastKi = fastKi;
-            Config.FastKd = fastKd;
-            Config.MediumKp = mediumKp;
-            Config.MediumKi = mediumKi;
-            Config.MediumKd = mediumKd;
-            Config.SlowKp = slowKp;
-            Config.SlowKi = slowKi;
-            Config.SlowKd = slowKd;
-            Config.SlowEnter = slowEnter;
-            Config.FastExit = fastExit;
-            Config.MediumEnter = mediumEnter;
-            Config.MediumExit = mediumExit;
-            Config.HoldDelta = holdDelta;
-            Config.HoldCycles = holdCycles;
+            Config.PosKp = posKp;
+            Config.PosKi = posKi;
+            Config.PosKd = posKd;
+            Config.VelKp = velKp;
+            Config.VelKi = velKi;
+            Config.VelKd = velKd;
             DialogResult = true;
         }
     }

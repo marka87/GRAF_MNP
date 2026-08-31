@@ -2,7 +2,7 @@
  * Z_PID_Control.h
  *
  *  Created on: Jan 3, 2025
- *      Author: Mark
+ *      Author: Mark Angyal
  */
 
 #ifndef SRC_Z_PID_CONTROL_H_
@@ -12,24 +12,36 @@
 #include <stdint.h>
 
 extern float voltage;
-void Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition);
-void Z_Axis_Control(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition, bool holding);
-void Z_PID_SetMode(bool fast_mode);
+
+/* Führt einen 1ms-Regelzyklus aus. Gibt false zurück, wenn die Schutzüberwachung auslöst. */
+bool Z_Axis_PIDControl(ad5684_dac_t* dac, uint32_t Z_Axis_TargetPosition);
+
+/* Regler-Zustände (Integrale, Filter, Encoder-Referenz) sauber zurücksetzen */
+void Z_PID_Reset(void);
+
+/* Not-Stopp: Relais sofort abfallen lassen, DAC auf 2.5V, Regler resetten */
+void Z_PID_EmergencyStop(ad5684_dac_t *dac);
+
+/* DAC sofort auf 2.5V und Integrale löschen (ohne Relais-Abschaltung) */
+void Z_PID_EmergencyNeutral(ad5684_dac_t *dac);
+
 void Z_PID_SetSchedulerEnabled(bool enabled);
+bool Z_PID_IsSchedulerEnabled(void);
+
 void Z_PID_SetSpeedLevel(uint8_t level);
 uint8_t Z_PID_GetSpeedLevel(void);
-bool Z_PID_IsSchedulerEnabled(void);
-void Z_PID_SetFastParameters(float kp, float ki, float kd);
-void Z_PID_SetMediumParameters(float kp, float ki, float kd);
-void Z_PID_SetSlowParameters(float kp, float ki, float kd);
-void Z_PID_GetFastParameters(float *kp, float *ki, float *kd);
-void Z_PID_GetMediumParameters(float *kp, float *ki, float *kd);
-void Z_PID_GetSlowParameters(float *kp, float *ki, float *kd);
-void Z_PID_SetSchedulerParameters(uint32_t slow_enter, uint32_t fast_exit, uint32_t hold_target_delta, uint32_t hold_cycles);
-void Z_PID_GetSchedulerParameters(uint32_t *slow_enter, uint32_t *fast_exit, uint32_t *hold_target_delta, uint32_t *hold_cycles);
-void Z_PID_SetMediumSchedulerParameters(uint32_t medium_enter, uint32_t medium_exit);
-void Z_PID_GetMediumSchedulerParameters(uint32_t *medium_enter, uint32_t *medium_exit);
-void Z_PID_SetParameters(float kp, float ki, float kd);
-void Z_PID_GetParameters(float *kp, float *ki, float *kd);
-void Z_PID_EmergencyNeutral(ad5684_dac_t *dac);
+
+/* Äußerer Regler: Position -> Soll-Geschwindigkeit */
+void Z_PID_SetPositionParameters(float kp, float ki, float kd);
+void Z_PID_GetPositionParameters(float *kp, float *ki, float *kd);
+
+/* Innerer Regler: Geschwindigkeit -> Spannung */
+void Z_PID_SetVelocityParameters(float kp, float ki, float kd);
+void Z_PID_GetVelocityParameters(float *kp, float *ki, float *kd);
+
+/* Grund für die letzte Schutzabschaltung abfragen */
+const char* Z_PID_GetTripReason(void);
+
 #endif /* SRC_Z_PID_CONTROL_H_ */
+
+

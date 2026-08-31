@@ -2,30 +2,47 @@
  *
  *  	Created on: Jan 3, 2025
  *      Author: Mark Angyal
- *      Z-Achse PID-Regelung
+ *      Z-Achse Kaskaden-PID-Regelung & Schutzüberwachung
  */
 
 #include "Z_PID_Control.h"
-
-#include <sys/_stdint.h>
-
 #include "encoder.h"
+#include "main.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define FAST_KP_DEFAULT 0.0031f
-#define FAST_KI_DEFAULT 0.000001f
-#define FAST_KD_DEFAULT 0.050000f
-#define MEDIUM_KP_DEFAULT 0.0040f
-#define MEDIUM_KI_DEFAULT 0.000010f
-#define MEDIUM_KD_DEFAULT 0.010000f
-#define SLOW_KP_DEFAULT 0.0050f
-#define SLOW_KI_DEFAULT 0.000020f
-#define SLOW_KD_DEFAULT 0.001000f
-#define DIST_SLOW_ENTER_DEFAULT 100u
-#define DIST_FAST_EXIT_DEFAULT  140u
-#define DIST_MEDIUM_ENTER_DEFAULT 300u
-#define DIST_MEDIUM_EXIT_DEFAULT  400u
-#define FAST_HOLD_TARGET_DELTA_DEFAULT 50u
-#define FAST_HOLD_CYCLES_DEFAULT 30u
+/* Kaskadenregelung:
+ * - Äußerer Positions-Regler (P, optional I/D): Position -> Soll-Geschwindigkeit [Inc/ms]
+ * - Innerer Geschwindigkeits-Regler (PID): Ist- vs. Soll-Geschwindigkeit -> Spannung [V]
+ * - Der I-Anteil übernimmt die Haltespannung gegen Schwerkraft (~2.20 - 2.27V).
+ *
+ * Standard-Parameter:
+ * - Position: Kp=0.12 (100 Inc Fehler -> 12 Inc/ms Soll-Speed)
+ * - Velocity: Kp=0.035, Ki=0.0003, Kd=0.0005 (schnelle P-Reaktion, sanfter I-Aufbau)
+ */
+#define POSITION_KP_DEFAULT 0.12f
+#define POSITION_KI_DEFAULT 0.0f
+#define POSITION_KD_DEFAULT 0.0f
+#define VELOCITY_KP_DEFAULT 0.035f
+#define VELOCITY_KI_DEFAULT 0.0003f
+#define VELOCITY_KD_DEFAULT 0.0005f
+
+/* Geschwindigkeitsstufen 1-5 (Einheit: Encoder-Inc pro 1ms-Zyklus).
+ * Stufe 3 ist Standard (8 Inc/ms = 8000 Inc/s). */
+static const uint32_t speed_level_max_velocity[5] = { 1u, 3u, 8u, 15u, 25u };
+
+/* Glättung der Ist-Geschwindigkeit über N Zyklen (gleitender Mittelwert) */
+#define VELOCITY_SMOOTHING_SAMPLES 8u
+
+/* Maximale Spannungs-Autorität des I-Anteils (verhindert Windup / Überschwingen)
+ * Haltespannung liegt ca. 0.25V unter 2.5V (2.25V) -> 0.45V Puffer reicht vollkommen. */
+#define MAX_I_VOLTAGE_OFFSET 0.45f
+
+/* Sicherheitsschwellen */
+#define MAX_SAFE_VELOCITY 80.0f
+#define SAFETY_POSITION_MARGIN 400
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
@@ -35,153 +52,159 @@
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
 
-/* Statische Variablen für PID-Zustände */
-static float integral = 0.0f;
-static float previous_error = 0.0f;
+extern uint32_t z_encoder_start;
+extern uint32_t z_encoder_end;
+
+static char s_trip_reason[64] = "OK";
+
 typedef struct {
 	float kp;
 	float ki;
 	float kd;
 } z_pid_profile_t;
 
-static z_pid_profile_t fast_profile = { FAST_KP_DEFAULT, FAST_KI_DEFAULT, FAST_KD_DEFAULT };
-static z_pid_profile_t medium_profile = { MEDIUM_KP_DEFAULT, MEDIUM_KI_DEFAULT, MEDIUM_KD_DEFAULT };
-static z_pid_profile_t slow_profile = { SLOW_KP_DEFAULT, SLOW_KI_DEFAULT, SLOW_KD_DEFAULT };
-static z_pid_profile_t *active_profile = &fast_profile;
-static uint32_t last_target = 0u;
-static uint32_t fast_hold_cycles_left = 0u;
-static uint32_t dist_slow_enter = DIST_SLOW_ENTER_DEFAULT;
-static uint32_t dist_fast_exit = DIST_FAST_EXIT_DEFAULT;
-static uint32_t dist_medium_enter = DIST_MEDIUM_ENTER_DEFAULT;
-static uint32_t dist_medium_exit = DIST_MEDIUM_EXIT_DEFAULT;
-static uint32_t fast_hold_target_delta = FAST_HOLD_TARGET_DELTA_DEFAULT;
-static uint32_t fast_hold_cycles = FAST_HOLD_CYCLES_DEFAULT;
-static bool scheduler_enabled = true;
-/* Geschwindigkeitsstufen 1-5: das PID-Ziel wird pro Zyklus nur um max. N Encoder-Schritte
- * an das eigentliche Ziel herangeführt (Ziel-Rampe). Die Regelung selbst (PID-Gains, Spannung)
- * bleibt unangetastet -> keine Instabilität, nur die Anfahrt wird gebremst.
- * ponytail: Startwerte geschätzt, an realer Hardware feinjustieren. */
-static const uint32_t speed_level_step_per_cycle[5] = { 1u, 3u, 8u, 20u, 0xFFFFFFFFu };
-static uint8_t speed_level = 5u;
-static uint32_t ramped_target = 0u;
-static bool ramped_target_initialized = false;
-float voltage;
+static z_pid_profile_t position_profile = { POSITION_KP_DEFAULT, POSITION_KI_DEFAULT, POSITION_KD_DEFAULT };
+static z_pid_profile_t velocity_profile = { VELOCITY_KP_DEFAULT, VELOCITY_KI_DEFAULT, VELOCITY_KD_DEFAULT };
 
-static void clamp_integral_to_active_profile(void) {
-	float integral_limit = (active_profile->ki > 0.0f) ? (2.5f / active_profile->ki) : 0.0f;
-	if (integral > integral_limit) integral = integral_limit;
-	if (integral < -integral_limit) integral = -integral_limit;
+static float position_integral = 0.0f;
+static float position_previous_error = 0.0f;
+static float velocity_integral = 0.0f;
+static float velocity_previous_error = 0.0f;
+
+static int velocity_history[VELOCITY_SMOOTHING_SAMPLES] = { 0 };
+static uint32_t velocity_history_index = 0u;
+static bool velocity_history_filled = false;
+static int last_encoder_value = 0;
+static bool last_encoder_value_initialized = false;
+
+static uint8_t speed_level = 3u;
+static bool scheduler_enabled = true;
+float voltage = NEUTRAL_VOLTAGE;
+
+const char* Z_PID_GetTripReason(void) {
+	return s_trip_reason;
 }
 
-static void set_active_profile(z_pid_profile_t *new_profile) {
-	if (active_profile == new_profile) {
-		return;
-	}
-	active_profile = new_profile;
-	clamp_integral_to_active_profile();
+static void clamp_position_integral(void) {
+	float limit = (position_profile.ki > 0.0f) ? (5.0f / position_profile.ki) : 0.0f;
+	if (position_integral > limit) position_integral = limit;
+	if (position_integral < -limit) position_integral = -limit;
+}
+
+static void clamp_velocity_integral(void) {
+	float limit = (velocity_profile.ki > 0.0f) ? (MAX_I_VOLTAGE_OFFSET / velocity_profile.ki) : 0.0f;
+	if (velocity_integral > limit) velocity_integral = limit;
+	if (velocity_integral < -limit) velocity_integral = -limit;
 }
 
 static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki, float kd) {
 	if (profile == NULL) {
 		return;
 	}
-	if (kp <= 0.0f || ki <= 0.0f || kd < 0.0f) {
+	if (kp < 0.0f || ki < 0.0f || kd < 0.0f) {
 		return;
 	}
 	profile->kp = kp;
 	profile->ki = ki;
 	profile->kd = kd;
-	if (active_profile == profile) {
-		integral = 0.0f;
-		previous_error = 0.0f;
-	}
 }
 
-void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
+/* Gleitender Mittelwert der Ist-Geschwindigkeit (Encoder-Inc/Zyklus). */
+static float update_and_get_smoothed_velocity(int raw_velocity) {
+	velocity_history[velocity_history_index] = raw_velocity;
+	velocity_history_index = (velocity_history_index + 1u) % VELOCITY_SMOOTHING_SAMPLES;
+	if (velocity_history_index == 0u) {
+		velocity_history_filled = true;
+	}
+	uint32_t count = velocity_history_filled ? VELOCITY_SMOOTHING_SAMPLES : velocity_history_index;
+	if (count == 0u) {
+		return (float)raw_velocity;
+	}
+	long sum = 0;
+	for (uint32_t i = 0u; i < count; ++i) {
+		sum += velocity_history[i];
+	}
+	return (float)sum / (float)count;
+}
+
+void Z_PID_Reset(void) {
+	position_integral = 0.0f;
+	position_previous_error = 0.0f;
+	velocity_integral = 0.0f;
+	velocity_previous_error = 0.0f;
+	for (uint32_t i = 0u; i < VELOCITY_SMOOTHING_SAMPLES; ++i) {
+		velocity_history[i] = 0;
+	}
+	velocity_history_index = 0u;
+	velocity_history_filled = false;
+	last_encoder_value = Encoder_GetPosition_Z_AXIS();
+	last_encoder_value_initialized = true;
+	voltage = NEUTRAL_VOLTAGE;
+}
+
+bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	/* Istwert aus Encoder */
 	int encoder_value = Encoder_GetPosition_Z_AXIS();
 
-	if (!ramped_target_initialized) {
-		ramped_target = (uint32_t)encoder_value;
-		ramped_target_initialized = true;
+	if (!last_encoder_value_initialized) {
+		last_encoder_value = encoder_value;
+		last_encoder_value_initialized = true;
 	}
+	int raw_velocity = encoder_value - last_encoder_value;
+	last_encoder_value = encoder_value;
+	float actual_velocity = update_and_get_smoothed_velocity(raw_velocity);
 
-	/* Geschwindigkeitsstufe: das tatsächlich angefahrene Ziel nur schrittweise an
-	 * Z_Axis_TargetPosition heranführen (Ziel-Rampe statt Sprung).
-	 * Testabläufe (scheduler_enabled == false, siehe Z_PID_SetSchedulerEnabled) überspringen
-	 * die Rampe komplett -> Speed-Stufe bremst nur manuelles Fahren, nicht die Testabläufe. */
-	if (!scheduler_enabled) {
-		ramped_target = Z_Axis_TargetPosition;
-	} else {
-		uint32_t max_step_per_cycle = speed_level_step_per_cycle[speed_level - 1u];
-		if (ramped_target < Z_Axis_TargetPosition) {
-			uint32_t remaining = Z_Axis_TargetPosition - ramped_target;
-			/* Kurz vor dem Ziel sanft abbremsen (ein Viertel der Restdistanz, min. 1),
-			 * statt bis zum letzten Zyklus mit vollem Schritt durchzufahren. */
-			uint32_t eased_step = remaining / 4u;
-			if (eased_step < 1u) eased_step = 1u;
-			uint32_t step = (eased_step < max_step_per_cycle) ? eased_step : max_step_per_cycle;
-			ramped_target += (remaining < step) ? remaining : step;
-		} else if (ramped_target > Z_Axis_TargetPosition) {
-			uint32_t remaining = ramped_target - Z_Axis_TargetPosition;
-			uint32_t eased_step = remaining / 4u;
-			if (eased_step < 1u) eased_step = 1u;
-			uint32_t step = (eased_step < max_step_per_cycle) ? eased_step : max_step_per_cycle;
-			ramped_target -= (remaining < step) ? remaining : step;
+	/* --- Schutzüberwachung (Not-Stopp) --- */
+	/* 1. Überdrehzahl / Runaway */
+	if (fabsf(actual_velocity) > MAX_SAFE_VELOCITY) {
+		snprintf(s_trip_reason, sizeof(s_trip_reason), "Speed: %.1f > %.0f Inc/ms", (double)fabsf(actual_velocity), (double)MAX_SAFE_VELOCITY);
+		return false;
+	}
+	/* 2. Positionsgrenzen (wenn bereits referenziert) */
+	if (z_encoder_start != 0u || z_encoder_end != 0u) {
+		uint32_t lower = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
+		uint32_t upper = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+		if (encoder_value < ((int)lower - SAFETY_POSITION_MARGIN)) {
+			snprintf(s_trip_reason, sizeof(s_trip_reason), "Min-Limit: %d < %ld", encoder_value, (long)((int)lower - SAFETY_POSITION_MARGIN));
+			return false;
+		}
+		if (encoder_value > ((int)upper + SAFETY_POSITION_MARGIN)) {
+			snprintf(s_trip_reason, sizeof(s_trip_reason), "Max-Limit: %d > %ld", encoder_value, (long)((int)upper + SAFETY_POSITION_MARGIN));
+			return false;
 		}
 	}
 
-	/* Fehlerberechnung: Negative Werte => Spannung unter 2.5V, Positive => über 2.5V */
-	int error = encoder_value - (int)ramped_target;
-	uint32_t target_delta =
-			(Z_Axis_TargetPosition > last_target)
-					? (Z_Axis_TargetPosition - last_target)
-					: (last_target - Z_Axis_TargetPosition);
-	if (target_delta >= fast_hold_target_delta) {
-		fast_hold_cycles_left = fast_hold_cycles;
-	}
-	uint32_t abs_error = (error < 0) ? (uint32_t)(-error) : (uint32_t)error;
-	if (!scheduler_enabled) {
-		set_active_profile(&fast_profile);
-		fast_hold_cycles_left = 0u;
-	} else {
-		if (fast_hold_cycles_left > 0u) {
-			--fast_hold_cycles_left;
-			set_active_profile(&fast_profile);
-		} else if (active_profile == &fast_profile) {
-			if (abs_error <= dist_medium_enter) {
-				set_active_profile(&medium_profile);
-			}
-		} else if (active_profile == &medium_profile) {
-			if (abs_error <= dist_slow_enter) {
-				set_active_profile(&slow_profile);
-			} else if (abs_error >= dist_medium_exit) {
-				set_active_profile(&fast_profile);
-			}
-		} else { /* slow_profile */
-			if (abs_error >= dist_medium_exit) {
-				set_active_profile(&fast_profile);
-			} else if (abs_error >= dist_fast_exit) {
-				set_active_profile(&medium_profile);
-			}
-		}
-	}
-	if (Z_Axis_TargetPosition != last_target) {
-		previous_error = (float) error;
-		last_target = Z_Axis_TargetPosition;
-	}
-	// Integralanteil
-	integral += (float)error; // * DT
-	clamp_integral_to_active_profile();
-	/* Differentialanteil */
-	float derivative = (float)(error - previous_error); // / DT;
+	/* --- Äußerer Regler: Position -> Soll-Geschwindigkeit --- */
+	int position_error = encoder_value - (int)Z_Axis_TargetPosition;
+	position_integral += (float)position_error;
+	clamp_position_integral();
+	float position_derivative = (float)position_error - position_previous_error;
+	position_previous_error = (float)position_error;
 
-	/* PID-Berechnung */
-	float output = (active_profile->kp * (float)error)
-			+ (active_profile->ki * integral)
-			+ (active_profile->kd * derivative);
+	float desired_velocity = 0.0f;
+	if (abs(position_error) > 1) {
+		desired_velocity = -((position_profile.kp * (float)position_error)
+				+ (position_profile.ki * position_integral)
+				+ (position_profile.kd * position_derivative));
+	}
 
-	/* Spannung berechnen (unskalierter PID-Output, volle Regelgüte) */
+	/* Geschwindigkeitsbegrenzung nach Speed-Stufe */
+	uint32_t max_velocity = speed_level_max_velocity[speed_level - 1u];
+	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
+	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
+
+	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */
+	float velocity_error = actual_velocity - desired_velocity;
+	velocity_integral += velocity_error;
+	clamp_velocity_integral();
+	float velocity_derivative = velocity_error - velocity_previous_error;
+	velocity_previous_error = velocity_error;
+
+	float output = (velocity_profile.kp * velocity_error)
+			+ (velocity_profile.ki * velocity_integral)
+			+ (velocity_profile.kd * velocity_derivative);
+
+	/* Spannung berechnen */
 	voltage = NEUTRAL_VOLTAGE + output;
 
 	/* Begrenzen der Spannung */
@@ -192,19 +215,31 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 
 	/* Spannung an den DAC senden */
 	ad5684_set_voltage(dac, voltage, z_mot);
-
-	/* Fehler für den nächsten Zyklus speichern */
-	previous_error = (float) error;
+	return true;
 }
 
-void Z_PID_SetParameters(float kp, float ki, float kd) {
-	set_profile_parameters(active_profile, kp, ki, kd);
+void Z_PID_SetPositionParameters(float kp, float ki, float kd) {
+	set_profile_parameters(&position_profile, kp, ki, kd);
+	position_integral = 0.0f;
+	position_previous_error = 0.0f;
 }
 
-void Z_PID_GetParameters(float *kp, float *ki, float *kd) {
-	if (kp != NULL) *kp = active_profile->kp;
-	if (ki != NULL) *ki = active_profile->ki;
-	if (kd != NULL) *kd = active_profile->kd;
+void Z_PID_GetPositionParameters(float *kp, float *ki, float *kd) {
+	if (kp != NULL) *kp = position_profile.kp;
+	if (ki != NULL) *ki = position_profile.ki;
+	if (kd != NULL) *kd = position_profile.kd;
+}
+
+void Z_PID_SetVelocityParameters(float kp, float ki, float kd) {
+	set_profile_parameters(&velocity_profile, kp, ki, kd);
+	velocity_integral = 0.0f;
+	velocity_previous_error = 0.0f;
+}
+
+void Z_PID_GetVelocityParameters(float *kp, float *ki, float *kd) {
+	if (kp != NULL) *kp = velocity_profile.kp;
+	if (ki != NULL) *ki = velocity_profile.ki;
+	if (kd != NULL) *kd = velocity_profile.kd;
 }
 
 void Z_PID_SetSpeedLevel(uint8_t level) {
@@ -218,96 +253,24 @@ uint8_t Z_PID_GetSpeedLevel(void) {
 	return speed_level;
 }
 
-void Z_PID_SetMode(bool fast_mode) {
-	z_pid_profile_t *new_profile = fast_mode ? &fast_profile : &slow_profile;
-	if (active_profile == new_profile) {
-		return;
-	}
-	active_profile = new_profile;
-	clamp_integral_to_active_profile();
-}
-
 void Z_PID_SetSchedulerEnabled(bool enabled) {
 	scheduler_enabled = enabled;
-	if (!scheduler_enabled) {
-		fast_hold_cycles_left = 0u;
-		Z_PID_SetMode(true);
-	}
 }
 
 bool Z_PID_IsSchedulerEnabled(void) {
 	return scheduler_enabled;
 }
 
-void Z_PID_SetFastParameters(float kp, float ki, float kd) {
-	set_profile_parameters(&fast_profile, kp, ki, kd);
-}
-
-void Z_PID_SetMediumParameters(float kp, float ki, float kd) {
-	set_profile_parameters(&medium_profile, kp, ki, kd);
-}
-
-void Z_PID_SetSlowParameters(float kp, float ki, float kd) {
-	set_profile_parameters(&slow_profile, kp, ki, kd);
-}
-
-void Z_PID_GetFastParameters(float *kp, float *ki, float *kd) {
-	if (kp != NULL) *kp = fast_profile.kp;
-	if (ki != NULL) *ki = fast_profile.ki;
-	if (kd != NULL) *kd = fast_profile.kd;
-}
-
-void Z_PID_GetMediumParameters(float *kp, float *ki, float *kd) {
-	if (kp != NULL) *kp = medium_profile.kp;
-	if (ki != NULL) *ki = medium_profile.ki;
-	if (kd != NULL) *kd = medium_profile.kd;
-}
-
-void Z_PID_GetSlowParameters(float *kp, float *ki, float *kd) {
-	if (kp != NULL) *kp = slow_profile.kp;
-	if (ki != NULL) *ki = slow_profile.ki;
-	if (kd != NULL) *kd = slow_profile.kd;
-}
-
-void Z_PID_SetSchedulerParameters(uint32_t slow_enter, uint32_t fast_exit, uint32_t hold_target_delta, uint32_t hold_cycles_value) {
-	if (slow_enter == 0u || fast_exit == 0u || hold_target_delta == 0u) {
-		return;
-	}
-	if (fast_exit <= slow_enter) {
-		return;
-	}
-	dist_slow_enter = slow_enter;
-	dist_fast_exit = fast_exit;
-	fast_hold_target_delta = hold_target_delta;
-	fast_hold_cycles = hold_cycles_value;
-	if (fast_hold_cycles_left > fast_hold_cycles) {
-		fast_hold_cycles_left = fast_hold_cycles;
-	}
-}
-
-void Z_PID_GetSchedulerParameters(uint32_t *slow_enter, uint32_t *fast_exit, uint32_t *hold_target_delta, uint32_t *hold_cycles_value) {
-	if (slow_enter != NULL) *slow_enter = dist_slow_enter;
-	if (fast_exit != NULL) *fast_exit = dist_fast_exit;
-	if (hold_target_delta != NULL) *hold_target_delta = fast_hold_target_delta;
-	if (hold_cycles_value != NULL) *hold_cycles_value = fast_hold_cycles;
-}
-
-void Z_PID_SetMediumSchedulerParameters(uint32_t medium_enter, uint32_t medium_exit) {
-	if (medium_enter == 0u || medium_exit == 0u || medium_exit <= medium_enter) {
-		return;
-	}
-	dist_medium_enter = medium_enter;
-	dist_medium_exit = medium_exit;
-}
-
-void Z_PID_GetMediumSchedulerParameters(uint32_t *medium_enter, uint32_t *medium_exit) {
-	if (medium_enter != NULL) *medium_enter = dist_medium_enter;
-	if (medium_exit != NULL) *medium_exit = dist_medium_exit;
-}
-
-void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {
-	integral = 0.0f;
-	previous_error = 0.0f;
+void Z_PID_EmergencyStop(ad5684_dac_t *dac) {
+	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_RESET);
+	Z_PID_Reset();
 	voltage = NEUTRAL_VOLTAGE;
 	ad5684_set_voltage(dac, voltage, z_mot);
 }
+
+void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {
+	Z_PID_Reset();
+	voltage = NEUTRAL_VOLTAGE;
+	ad5684_set_voltage(dac, voltage, z_mot);
+}
+
