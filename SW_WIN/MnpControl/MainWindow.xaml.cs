@@ -45,11 +45,11 @@ namespace MnpControl
             PosKp = 0.12f,
             PosKi = 0.0f,
             PosKd = 0.0f,
-            VelKp = 0.035f,
-            VelKi = 0.0003f,
-            VelKd = 0.0005f
+            VelKp = 0.025f,
+            VelKi = 0.00025f,
+            VelKd = 0.0f
         };
-        private const int LiveLogMaxLines = 5;
+        private const int LiveLogMaxLines = 200;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
         private static readonly string PidPresetPath = System.IO.Path.Combine(
@@ -843,7 +843,7 @@ namespace MnpControl
                 return;
             }
             int level = (int)Math.Round(e.NewValue);
-            TxtSpeedLevel.Text = $"Stufe: {level}/5";
+            TxtSpeedLevel.Text = $"Stufe: {level}/10";
             SendCommand($"V={level}");
         }
 
@@ -887,6 +887,36 @@ namespace MnpControl
         {
             TxtTestSummary.Clear();
             _testSummaryLines.Clear();
+        }
+
+        private void BtnClearLog_Click(object sender, RoutedEventArgs e)
+        {
+            _liveLogLines.Clear();
+            _lastLiveLogLine = string.Empty;
+            TxtLiveLog.Text = string.Empty;
+        }
+
+        private void TxtStatus_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string text = TxtStatus.Text.ToUpperInvariant();
+            if (text.Contains("FEHLER") || text.Contains("NOT-STOPP") || text.Contains("ERROR") || text.Contains("LIMIT"))
+            {
+                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(254, 226, 226));
+                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(185, 28, 28));
+                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 113, 113));
+            }
+            else if (text.Contains("TEST_RUN") || text.Contains("RUN") || text.Contains("TEST_START") || text.Contains("CONNECTED"))
+            {
+                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 252, 231));
+                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 128, 61));
+                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(134, 239, 172));
+            }
+            else
+            {
+                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 250, 252));
+                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(15, 23, 42));
+                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(203, 213, 225));
+            }
         }
 
         private void BtnTestStart_click(object sender, RoutedEventArgs e)

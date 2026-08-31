@@ -19,29 +19,29 @@
  * - Der I-Anteil übernimmt die Haltespannung gegen Schwerkraft (~2.20 - 2.27V).
  *
  * Standard-Parameter:
- * - Position: Kp=0.12 (100 Inc Fehler -> 12 Inc/ms Soll-Speed)
- * - Velocity: Kp=0.035, Ki=0.0003, Kd=0.0005 (schnelle P-Reaktion, sanfter I-Aufbau)
+ * - Position: Kp=0.12, Ki=0, Kd=0 (reiner P-Lageregler)
+ * - Velocity: Kp=0.025, Ki=0.00025, Kd=0 (reiner PI-Geschwindigkeitsregler für seidenweichen Lauf)
  */
 #define POSITION_KP_DEFAULT 0.12f
 #define POSITION_KI_DEFAULT 0.0f
 #define POSITION_KD_DEFAULT 0.0f
-#define VELOCITY_KP_DEFAULT 0.035f
-#define VELOCITY_KI_DEFAULT 0.0003f
-#define VELOCITY_KD_DEFAULT 0.0005f
+#define VELOCITY_KP_DEFAULT 0.025f
+#define VELOCITY_KI_DEFAULT 0.00025f
+#define VELOCITY_KD_DEFAULT 0.0f
 
-/* Geschwindigkeitsstufen 1-5 (Einheit: Encoder-Inc pro 1ms-Zyklus).
- * Stufe 3 ist Standard (8 Inc/ms = 8000 Inc/s). */
-static const uint32_t speed_level_max_velocity[5] = { 1u, 3u, 8u, 15u, 25u };
-
-/* Glättung der Ist-Geschwindigkeit über N Zyklen (gleitender Mittelwert) */
-#define VELOCITY_SMOOTHING_SAMPLES 8u
+/* Geschwindigkeitsstufen 1-10 (Einheit: Encoder-Inc pro 1ms-Zyklus).
+ * Stufen: 1, 2, 4, 8, 14, 22, 32, 45, 60, 75 Inc/ms */
+#define SPEED_LEVEL_MAX_COUNT 10u
+static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
+	1u, 2u, 4u, 8u, 14u, 22u, 32u, 45u, 60u, 75u
+};
 
 /* Maximale Spannungs-Autorität des I-Anteils (verhindert Windup / Überschwingen)
  * Haltespannung liegt ca. 0.25V unter 2.5V (2.25V) -> 0.45V Puffer reicht vollkommen. */
 #define MAX_I_VOLTAGE_OFFSET 0.45f
 
 /* Sicherheitsschwellen */
-#define MAX_SAFE_VELOCITY 80.0f
+#define MAX_SAFE_VELOCITY 150.0f
 #define SAFETY_POSITION_MARGIN 400
 
 /* Spannungsgrenzen und Neutralspannung */
@@ -71,13 +71,11 @@ static float position_previous_error = 0.0f;
 static float velocity_integral = 0.0f;
 static float velocity_previous_error = 0.0f;
 
-static int velocity_history[VELOCITY_SMOOTHING_SAMPLES] = { 0 };
-static uint32_t velocity_history_index = 0u;
-static bool velocity_history_filled = false;
+static float smoothed_velocity = 0.0f;
 static int last_encoder_value = 0;
 static bool last_encoder_value_initialized = false;
 
-static uint8_t speed_level = 3u;
+static uint8_t speed_level = 7u;
 static bool scheduler_enabled = true;
 float voltage = NEUTRAL_VOLTAGE;
 
@@ -109,22 +107,11 @@ static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki,
 	profile->kd = kd;
 }
 
-/* Gleitender Mittelwert der Ist-Geschwindigkeit (Encoder-Inc/Zyklus). */
+/* 1st-Order Low-Pass (EMA) Filter für Ist-Geschwindigkeit:
+ * Eliminiert 1000-Hz Encoder-Quantisierungsrauschen und verhindert Rattern */
 static float update_and_get_smoothed_velocity(int raw_velocity) {
-	velocity_history[velocity_history_index] = raw_velocity;
-	velocity_history_index = (velocity_history_index + 1u) % VELOCITY_SMOOTHING_SAMPLES;
-	if (velocity_history_index == 0u) {
-		velocity_history_filled = true;
-	}
-	uint32_t count = velocity_history_filled ? VELOCITY_SMOOTHING_SAMPLES : velocity_history_index;
-	if (count == 0u) {
-		return (float)raw_velocity;
-	}
-	long sum = 0;
-	for (uint32_t i = 0u; i < count; ++i) {
-		sum += velocity_history[i];
-	}
-	return (float)sum / (float)count;
+	smoothed_velocity += 0.20f * ((float)raw_velocity - smoothed_velocity);
+	return smoothed_velocity;
 }
 
 void Z_PID_Reset(void) {
@@ -132,11 +119,7 @@ void Z_PID_Reset(void) {
 	position_previous_error = 0.0f;
 	velocity_integral = 0.0f;
 	velocity_previous_error = 0.0f;
-	for (uint32_t i = 0u; i < VELOCITY_SMOOTHING_SAMPLES; ++i) {
-		velocity_history[i] = 0;
-	}
-	velocity_history_index = 0u;
-	velocity_history_filled = false;
+	smoothed_velocity = 0.0f;
 	last_encoder_value = Encoder_GetPosition_Z_AXIS();
 	last_encoder_value_initialized = true;
 	voltage = NEUTRAL_VOLTAGE;
@@ -243,7 +226,7 @@ void Z_PID_GetVelocityParameters(float *kp, float *ki, float *kd) {
 }
 
 void Z_PID_SetSpeedLevel(uint8_t level) {
-	if (level < 1u || level > 5u) {
+	if (level < 1u || level > SPEED_LEVEL_MAX_COUNT) {
 		return;
 	}
 	speed_level = level;

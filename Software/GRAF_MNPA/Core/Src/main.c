@@ -455,11 +455,11 @@ void Process_UART_Command(const char *command) {
 		}
 	} else if (command[0] == 'V' && command[1] == '=') {
 		int level = atoi(command + 2);
-		if (level >= 1 && level <= 5) {
+		if (level >= 1 && level <= 10) {
 			Z_PID_SetSpeedLevel((uint8_t)level);
 			snprintf(response, sizeof(response), "ZV_SET:%u\r\n", (unsigned)level);
 		} else {
-			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..5\r\n");
+			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..10\r\n");
 		}
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
