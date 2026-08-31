@@ -14,11 +14,16 @@
 #define FAST_KP_DEFAULT 0.0031f
 #define FAST_KI_DEFAULT 0.000001f
 #define FAST_KD_DEFAULT 0.050000f
+#define MEDIUM_KP_DEFAULT 0.0040f
+#define MEDIUM_KI_DEFAULT 0.000010f
+#define MEDIUM_KD_DEFAULT 0.010000f
 #define SLOW_KP_DEFAULT 0.0050f
 #define SLOW_KI_DEFAULT 0.000020f
 #define SLOW_KD_DEFAULT 0.001000f
 #define DIST_SLOW_ENTER_DEFAULT 100u
 #define DIST_FAST_EXIT_DEFAULT  140u
+#define DIST_MEDIUM_ENTER_DEFAULT 300u
+#define DIST_MEDIUM_EXIT_DEFAULT  400u
 #define FAST_HOLD_TARGET_DELTA_DEFAULT 50u
 #define FAST_HOLD_CYCLES_DEFAULT 30u
 
@@ -40,12 +45,15 @@ typedef struct {
 } z_pid_profile_t;
 
 static z_pid_profile_t fast_profile = { FAST_KP_DEFAULT, FAST_KI_DEFAULT, FAST_KD_DEFAULT };
+static z_pid_profile_t medium_profile = { MEDIUM_KP_DEFAULT, MEDIUM_KI_DEFAULT, MEDIUM_KD_DEFAULT };
 static z_pid_profile_t slow_profile = { SLOW_KP_DEFAULT, SLOW_KI_DEFAULT, SLOW_KD_DEFAULT };
 static z_pid_profile_t *active_profile = &fast_profile;
 static uint32_t last_target = 0u;
 static uint32_t fast_hold_cycles_left = 0u;
 static uint32_t dist_slow_enter = DIST_SLOW_ENTER_DEFAULT;
 static uint32_t dist_fast_exit = DIST_FAST_EXIT_DEFAULT;
+static uint32_t dist_medium_enter = DIST_MEDIUM_ENTER_DEFAULT;
+static uint32_t dist_medium_exit = DIST_MEDIUM_EXIT_DEFAULT;
 static uint32_t fast_hold_target_delta = FAST_HOLD_TARGET_DELTA_DEFAULT;
 static uint32_t fast_hold_cycles = FAST_HOLD_CYCLES_DEFAULT;
 static bool scheduler_enabled = true;
@@ -63,6 +71,14 @@ static void clamp_integral_to_active_profile(void) {
 	float integral_limit = (active_profile->ki > 0.0f) ? (2.5f / active_profile->ki) : 0.0f;
 	if (integral > integral_limit) integral = integral_limit;
 	if (integral < -integral_limit) integral = -integral_limit;
+}
+
+static void set_active_profile(z_pid_profile_t *new_profile) {
+	if (active_profile == new_profile) {
+		return;
+	}
+	active_profile = new_profile;
+	clamp_integral_to_active_profile();
 }
 
 static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki, float kd) {
@@ -126,25 +142,27 @@ void Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	}
 	uint32_t abs_error = (error < 0) ? (uint32_t)(-error) : (uint32_t)error;
 	if (!scheduler_enabled) {
-		if (active_profile != &fast_profile) {
-			Z_PID_SetMode(true);
-		}
+		set_active_profile(&fast_profile);
 		fast_hold_cycles_left = 0u;
 	} else {
 		if (fast_hold_cycles_left > 0u) {
 			--fast_hold_cycles_left;
-			if (active_profile != &fast_profile) {
-				Z_PID_SetMode(true);
+			set_active_profile(&fast_profile);
+		} else if (active_profile == &fast_profile) {
+			if (abs_error <= dist_medium_enter) {
+				set_active_profile(&medium_profile);
 			}
-		} else {
-			if (active_profile == &fast_profile) {
-				if (abs_error <= dist_slow_enter) {
-					Z_PID_SetMode(false);
-				}
-			} else {
-				if (abs_error >= dist_fast_exit) {
-					Z_PID_SetMode(true);
-				}
+		} else if (active_profile == &medium_profile) {
+			if (abs_error <= dist_slow_enter) {
+				set_active_profile(&slow_profile);
+			} else if (abs_error >= dist_medium_exit) {
+				set_active_profile(&fast_profile);
+			}
+		} else { /* slow_profile */
+			if (abs_error >= dist_medium_exit) {
+				set_active_profile(&fast_profile);
+			} else if (abs_error >= dist_fast_exit) {
+				set_active_profile(&medium_profile);
 			}
 		}
 	}
@@ -225,6 +243,10 @@ void Z_PID_SetFastParameters(float kp, float ki, float kd) {
 	set_profile_parameters(&fast_profile, kp, ki, kd);
 }
 
+void Z_PID_SetMediumParameters(float kp, float ki, float kd) {
+	set_profile_parameters(&medium_profile, kp, ki, kd);
+}
+
 void Z_PID_SetSlowParameters(float kp, float ki, float kd) {
 	set_profile_parameters(&slow_profile, kp, ki, kd);
 }
@@ -233,6 +255,12 @@ void Z_PID_GetFastParameters(float *kp, float *ki, float *kd) {
 	if (kp != NULL) *kp = fast_profile.kp;
 	if (ki != NULL) *ki = fast_profile.ki;
 	if (kd != NULL) *kd = fast_profile.kd;
+}
+
+void Z_PID_GetMediumParameters(float *kp, float *ki, float *kd) {
+	if (kp != NULL) *kp = medium_profile.kp;
+	if (ki != NULL) *ki = medium_profile.ki;
+	if (kd != NULL) *kd = medium_profile.kd;
 }
 
 void Z_PID_GetSlowParameters(float *kp, float *ki, float *kd) {
@@ -262,6 +290,19 @@ void Z_PID_GetSchedulerParameters(uint32_t *slow_enter, uint32_t *fast_exit, uin
 	if (fast_exit != NULL) *fast_exit = dist_fast_exit;
 	if (hold_target_delta != NULL) *hold_target_delta = fast_hold_target_delta;
 	if (hold_cycles_value != NULL) *hold_cycles_value = fast_hold_cycles;
+}
+
+void Z_PID_SetMediumSchedulerParameters(uint32_t medium_enter, uint32_t medium_exit) {
+	if (medium_enter == 0u || medium_exit == 0u || medium_exit <= medium_enter) {
+		return;
+	}
+	dist_medium_enter = medium_enter;
+	dist_medium_exit = medium_exit;
+}
+
+void Z_PID_GetMediumSchedulerParameters(uint32_t *medium_enter, uint32_t *medium_exit) {
+	if (medium_enter != NULL) *medium_enter = dist_medium_enter;
+	if (medium_exit != NULL) *medium_exit = dist_medium_exit;
 }
 
 void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {

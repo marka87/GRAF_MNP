@@ -45,11 +45,16 @@ namespace MnpControl
             FastKp = 0.0031f,
             FastKi = 0.000001f,
             FastKd = 0.05f,
+            MediumKp = 0.004f,
+            MediumKi = 0.00001f,
+            MediumKd = 0.01f,
             SlowKp = 0.005f,
             SlowKi = 0.00002f,
             SlowKd = 0.001f,
             SlowEnter = 100u,
             FastExit = 140u,
+            MediumEnter = 300u,
+            MediumExit = 400u,
             HoldDelta = 50u,
             HoldCycles = 30u
         };
@@ -104,8 +109,10 @@ namespace MnpControl
         SendCommand("P?");
         SendCommand("L?");
         SendCommand("PF?");
+        SendCommand("PM?");
         SendCommand("PS?");
         SendCommand("SC?");
+        SendCommand("MC?");
         SendCommand("V?");
         }
 
@@ -392,6 +399,22 @@ namespace MnpControl
                 return;
             }
 
+            if (msg.StartsWith("PIDZM:", StringComparison.Ordinal) || msg.StartsWith("PIDZM_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg[(msg.StartsWith("PIDZM_SET:", StringComparison.Ordinal) ? 10 : 6)..].Trim();
+                if (TryParsePidPayload(payload, out string kp, out string ki, out string kd)
+                    && float.TryParse(kp, NumberStyles.Float, CultureInfo.InvariantCulture, out float mkp)
+                    && float.TryParse(ki, NumberStyles.Float, CultureInfo.InvariantCulture, out float mki)
+                    && float.TryParse(kd, NumberStyles.Float, CultureInfo.InvariantCulture, out float mkd))
+                {
+                    _hybridConfig.MediumKp = mkp;
+                    _hybridConfig.MediumKi = mki;
+                    _hybridConfig.MediumKd = mkd;
+                    AppendLiveLog("RX MEDIUM PID");
+                }
+                return;
+            }
+
             if (msg.StartsWith("ZSC:", StringComparison.Ordinal) || msg.StartsWith("ZSC_SET:", StringComparison.Ordinal))
             {
                 string payload = msg[(msg.StartsWith("ZSC_SET:", StringComparison.Ordinal) ? 8 : 4)..].Trim();
@@ -407,6 +430,21 @@ namespace MnpControl
                     _hybridConfig.HoldDelta = holdDelta;
                     _hybridConfig.HoldCycles = holdCycles;
                     AppendLiveLog("RX HYBRID CFG");
+                }
+                return;
+            }
+
+            if (msg.StartsWith("ZMC:", StringComparison.Ordinal) || msg.StartsWith("ZMC_SET:", StringComparison.Ordinal))
+            {
+                string payload = msg[(msg.StartsWith("ZMC_SET:", StringComparison.Ordinal) ? 8 : 4)..].Trim();
+                string[] parts = payload.Split(';', StringSplitOptions.TrimEntries);
+                if (parts.Length == 2
+                    && uint.TryParse(parts[0], out uint mediumEnter)
+                    && uint.TryParse(parts[1], out uint mediumExit))
+                {
+                    _hybridConfig.MediumEnter = mediumEnter;
+                    _hybridConfig.MediumExit = mediumExit;
+                    AppendLiveLog("RX MEDIUM CFG");
                 }
                 return;
             }
@@ -1116,11 +1154,16 @@ namespace MnpControl
                 FastKp = _hybridConfig.FastKp,
                 FastKi = _hybridConfig.FastKi,
                 FastKd = _hybridConfig.FastKd,
+                MediumKp = _hybridConfig.MediumKp,
+                MediumKi = _hybridConfig.MediumKi,
+                MediumKd = _hybridConfig.MediumKd,
                 SlowKp = _hybridConfig.SlowKp,
                 SlowKi = _hybridConfig.SlowKi,
                 SlowKd = _hybridConfig.SlowKd,
                 SlowEnter = _hybridConfig.SlowEnter,
                 FastExit = _hybridConfig.FastExit,
+                MediumEnter = _hybridConfig.MediumEnter,
+                MediumExit = _hybridConfig.MediumExit,
                 HoldDelta = _hybridConfig.HoldDelta,
                 HoldCycles = _hybridConfig.HoldCycles
             })
@@ -1137,11 +1180,16 @@ namespace MnpControl
             _hybridConfig.FastKp = dialog.Config.FastKp;
             _hybridConfig.FastKi = dialog.Config.FastKi;
             _hybridConfig.FastKd = dialog.Config.FastKd;
+            _hybridConfig.MediumKp = dialog.Config.MediumKp;
+            _hybridConfig.MediumKi = dialog.Config.MediumKi;
+            _hybridConfig.MediumKd = dialog.Config.MediumKd;
             _hybridConfig.SlowKp = dialog.Config.SlowKp;
             _hybridConfig.SlowKi = dialog.Config.SlowKi;
             _hybridConfig.SlowKd = dialog.Config.SlowKd;
             _hybridConfig.SlowEnter = dialog.Config.SlowEnter;
             _hybridConfig.FastExit = dialog.Config.FastExit;
+            _hybridConfig.MediumEnter = dialog.Config.MediumEnter;
+            _hybridConfig.MediumExit = dialog.Config.MediumExit;
             _hybridConfig.HoldDelta = dialog.Config.HoldDelta;
             _hybridConfig.HoldCycles = dialog.Config.HoldCycles;
 
@@ -1151,6 +1199,12 @@ namespace MnpControl
                 _hybridConfig.FastKp.ToString("0.######", CultureInfo.InvariantCulture),
                 _hybridConfig.FastKi.ToString("0.#########", CultureInfo.InvariantCulture),
                 _hybridConfig.FastKd.ToString("0.######", CultureInfo.InvariantCulture));
+            string mediumCmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "PM={0},{1},{2}",
+                _hybridConfig.MediumKp.ToString("0.######", CultureInfo.InvariantCulture),
+                _hybridConfig.MediumKi.ToString("0.#########", CultureInfo.InvariantCulture),
+                _hybridConfig.MediumKd.ToString("0.######", CultureInfo.InvariantCulture));
             string slowCmd = string.Format(
                 CultureInfo.InvariantCulture,
                 "PS={0},{1},{2}",
@@ -1164,10 +1218,17 @@ namespace MnpControl
                 _hybridConfig.FastExit,
                 _hybridConfig.HoldDelta,
                 _hybridConfig.HoldCycles);
+            string mediumCfgCmd = string.Format(
+                CultureInfo.InvariantCulture,
+                "MC={0},{1}",
+                _hybridConfig.MediumEnter,
+                _hybridConfig.MediumExit);
 
             SendCommand(fastCmd);
+            SendCommand(mediumCmd);
             SendCommand(slowCmd);
             SendCommand(cfgCmd);
+            SendCommand(mediumCfgCmd);
             TxtStatus.Text = "Hybrid Tuning gesendet";
             AppendLiveLog("Hybrid Tuning gespeichert");
         }

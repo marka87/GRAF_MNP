@@ -297,6 +297,19 @@ static bool parse_u32_quartet(const char *payload, uint32_t *v1, uint32_t *v2, u
 	return true;
 }
 
+static bool parse_u32_pair(const char *payload, uint32_t *v1, uint32_t *v2) {
+	if (payload == NULL || v1 == NULL || v2 == NULL) {
+		return false;
+	}
+	unsigned long a = 0, b = 0;
+	if (sscanf(payload, "%lu,%lu", &a, &b) != 2) {
+		return false;
+	}
+	*v1 = (uint32_t)a;
+	*v2 = (uint32_t)b;
+	return true;
+}
+
 /* Update Display */
 void update_display() {
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
@@ -447,6 +460,14 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		Z_PID_GetSlowParameters(&kp, &ki, &kd);
 		snprintf(response, sizeof(response), "PIDZS:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (strcmp(command, "PM?") == 0) {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		Z_PID_GetMediumParameters(&kp, &ki, &kd);
+		snprintf(response, sizeof(response), "PIDZM:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+	} else if (strcmp(command, "MC?") == 0) {
+		uint32_t medium_enter = 0, medium_exit = 0;
+		Z_PID_GetMediumSchedulerParameters(&medium_enter, &medium_exit);
+		snprintf(response, sizeof(response), "ZMC:%lu;%lu\r\n", medium_enter, medium_exit);
 	} else if (strcmp(command, "L?") == 0) {
 		snprintf(response, sizeof(response), "ZLIM:%lu;%lu\r\n", lower_limit, upper_limit);
 	} else if (strcmp(command, "V?") == 0) {
@@ -478,6 +499,23 @@ void Process_UART_Command(const char *command) {
 			snprintf(response, sizeof(response), "PIDZS_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZS_ERR:Format PS=kp,ki,kd\r\n");
+		}
+	} else if (command[0] == 'P' && command[1] == 'M' && command[2] == '=') {
+		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
+		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
+			Z_PID_SetMediumParameters(kp, ki, kd);
+			snprintf(response, sizeof(response), "PIDZM_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
+		} else {
+			snprintf(response, sizeof(response), "PIDZM_ERR:Format PM=kp,ki,kd\r\n");
+		}
+	} else if (command[0] == 'M' && command[1] == 'C' && command[2] == '=') {
+		uint32_t medium_enter = 0, medium_exit = 0;
+		if (parse_u32_pair(command + 3, &medium_enter, &medium_exit)) {
+			Z_PID_SetMediumSchedulerParameters(medium_enter, medium_exit);
+			Z_PID_GetMediumSchedulerParameters(&medium_enter, &medium_exit);
+			snprintf(response, sizeof(response), "ZMC_SET:%lu;%lu\r\n", medium_enter, medium_exit);
+		} else {
+			snprintf(response, sizeof(response), "ZMC_ERR:Format MC=a,b\r\n");
 		}
 	} else if (command[0] == 'S' && command[1] == 'C' && command[2] == '=') {
 		uint32_t slow_enter = 0, fast_exit = 0, hold_delta = 0, hold_cycles = 0;
