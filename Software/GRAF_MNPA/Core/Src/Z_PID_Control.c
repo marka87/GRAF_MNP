@@ -30,10 +30,11 @@
 #define VELOCITY_KD_DEFAULT 0.0f
 
 /* Geschwindigkeitsstufen 1-10 (Einheit: Encoder-Inc pro 1ms-Zyklus).
- * Stufen: 1, 2, 4, 8, 14, 22, 32, 45, 60, 75 Inc/ms */
+ * Perfekt abgestimmt auf die mechanische Bremsdynamik:
+ * Stufen: 1, 2, 4, 8, 14, 22, 32, 44, 55, 65 Inc/ms */
 #define SPEED_LEVEL_MAX_COUNT 10u
 static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
-	1u, 2u, 4u, 8u, 14u, 22u, 32u, 45u, 60u, 75u
+	1u, 2u, 4u, 8u, 14u, 22u, 32u, 44u, 55u, 65u
 };
 
 /* Maximale Spannungs-Autorität des I-Anteils (verhindert Windup / Überschwingen)
@@ -74,6 +75,8 @@ static float velocity_previous_error = 0.0f;
 static float smoothed_velocity = 0.0f;
 static int last_encoder_value = 0;
 static bool last_encoder_value_initialized = false;
+static uint32_t last_velocity_tick = 0u;
+static bool last_velocity_tick_initialized = false;
 
 static uint8_t speed_level = 7u;
 static bool scheduler_enabled = true;
@@ -109,8 +112,8 @@ static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki,
 
 /* 1st-Order Low-Pass (EMA) Filter für Ist-Geschwindigkeit:
  * Eliminiert 1000-Hz Encoder-Quantisierungsrauschen und verhindert Rattern */
-static float update_and_get_smoothed_velocity(int raw_velocity) {
-	smoothed_velocity += 0.20f * ((float)raw_velocity - smoothed_velocity);
+static float update_and_get_smoothed_velocity(float raw_velocity) {
+	smoothed_velocity += 0.20f * (raw_velocity - smoothed_velocity);
 	return smoothed_velocity;
 }
 
@@ -122,6 +125,8 @@ void Z_PID_Reset(void) {
 	smoothed_velocity = 0.0f;
 	last_encoder_value = Encoder_GetPosition_Z_AXIS();
 	last_encoder_value_initialized = true;
+	last_velocity_tick = HAL_GetTick();
+	last_velocity_tick_initialized = true;
 	voltage = NEUTRAL_VOLTAGE;
 }
 
@@ -133,8 +138,24 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 		last_encoder_value = encoder_value;
 		last_encoder_value_initialized = true;
 	}
-	int raw_velocity = encoder_value - last_encoder_value;
+	
+	/* Exakte Zeitdifferenz (ms) seit letztem Aufruf erfassen (schützt vor Display-/UART-Jitter) */
+	uint32_t now = HAL_GetTick();
+	if (!last_velocity_tick_initialized) {
+		last_velocity_tick = now;
+		last_velocity_tick_initialized = true;
+	}
+	uint32_t dt_ms = now - last_velocity_tick;
+	last_velocity_tick = now;
+	if (dt_ms == 0u) {
+		dt_ms = 1u;
+	} else if (dt_ms > 20u) {
+		dt_ms = 1u;
+	}
+
+	int raw_delta = encoder_value - last_encoder_value;
 	last_encoder_value = encoder_value;
+	float raw_velocity = (float)raw_delta / (float)dt_ms;
 	float actual_velocity = update_and_get_smoothed_velocity(raw_velocity);
 
 	/* --- Schutzüberwachung (Not-Stopp) --- */
