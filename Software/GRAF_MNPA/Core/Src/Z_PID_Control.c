@@ -37,9 +37,6 @@ static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
 	1u, 2u, 4u, 8u, 14u, 22u, 32u, 44u, 55u, 65u
 };
 
-/* Maximale Beschleunigung/VerzÃ¶gerung pro 1ms: 2.0 Inc/msÂ² (Ruckfreie Rampe) */
-#define MAX_ACCEL_PER_MS 2.0f
-
 /* Maximale Spannungs-AutoritÃ¤t des I-Anteils (verhindert Windup / Ãœberschwingen)
  * Haltespannung liegt ca. 0.25V unter 2.5V (2.25V) -> 0.45V Puffer reicht vollkommen. */
 #define MAX_I_VOLTAGE_OFFSET 0.45f
@@ -76,7 +73,6 @@ static float velocity_integral = 0.0f;
 static float velocity_previous_error = 0.0f;
 
 static float smoothed_velocity = 0.0f;
-static float ramped_velocity = 0.0f;
 static int last_encoder_value = 0;
 static bool last_encoder_value_initialized = false;
 static uint32_t last_velocity_tick = 0u;
@@ -127,7 +123,6 @@ void Z_PID_Reset(void) {
 	velocity_integral = 0.0f;
 	velocity_previous_error = 0.0f;
 	smoothed_velocity = 0.0f;
-	ramped_velocity = 0.0f;
 	last_encoder_value = Encoder_GetPosition_Z_AXIS();
 	last_encoder_value_initialized = true;
 	last_velocity_tick = HAL_GetTick();
@@ -208,18 +203,8 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
 
-	/* Beschleunigungs- und Bremsrampe: Sanfter, ruckfreier Geschwindigkeitsverlauf (kein 1-0 Schaltschock) */
-	float vel_diff = desired_velocity - ramped_velocity;
-	if (vel_diff > MAX_ACCEL_PER_MS) {
-		ramped_velocity += MAX_ACCEL_PER_MS;
-	} else if (vel_diff < -MAX_ACCEL_PER_MS) {
-		ramped_velocity -= MAX_ACCEL_PER_MS;
-	} else {
-		ramped_velocity = desired_velocity;
-	}
-
-	/* --- Innerer Regler: Ist- vs. Gerampte Soll-Geschwindigkeit -> Spannung --- */
-	float velocity_error = actual_velocity - ramped_velocity;
+	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */
+	float velocity_error = actual_velocity - desired_velocity;
 	velocity_integral += velocity_error;
 	clamp_velocity_integral();
 	float velocity_derivative = velocity_error - velocity_previous_error;
