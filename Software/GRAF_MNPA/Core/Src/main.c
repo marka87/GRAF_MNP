@@ -1,4 +1,4 @@
-﻿/* USER CODE BEGIN Header */
+/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * @file           : main.c
@@ -346,8 +346,16 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
 // UART-Verarbeitung
 void Process_UART_Command(const char *command) {
-	uint32_t lower_limit = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
-	uint32_t upper_limit = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+	uint32_t raw_min = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
+	uint32_t raw_max = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+
+	/* Dynamische Sicherheits-Grenzwerte fuer den Bediener:
+	 * Unteres Limit: gemessener harter Anschlag + 50
+	 * Oberes Limit:  gemessener harter Anschlag - 150 */
+	uint32_t lower_limit = raw_min + 50u;
+	uint32_t upper_limit = (raw_max > 150u) ? (raw_max - 150u) : raw_max;
+	if (upper_limit < lower_limit) upper_limit = lower_limit + 100u;
+
 	char response[128] = { 0 }; 				// Rückmeldungspuffer
 	uint32_t step_size = 100;
 
@@ -500,11 +508,11 @@ void Process_UART_Command(const char *command) {
 		}
 	} else if (command[0] == 'V' && command[1] == '=') {
 		int level = atoi(command + 2);
-		if (level >= 1 && level <= 10) {
+		if (level >= 1 && level <= 16) {
 			Z_PID_SetSpeedLevel((uint8_t)level);
 			snprintf(response, sizeof(response), "ZV_SET:%u\r\n", (unsigned)level);
 		} else {
-			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..10\r\n");
+			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..16\r\n");
 		}
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);

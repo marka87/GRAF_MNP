@@ -385,11 +385,11 @@ namespace MnpControl
             if (msg.StartsWith("ZV:", StringComparison.Ordinal) || msg.StartsWith("ZV_SET:", StringComparison.Ordinal))
             {
                 string payload = msg.Substring(msg.IndexOf(':') + 1).Trim();
-                if (int.TryParse(payload, out int level) && level >= 1 && level <= 10)
+                if (int.TryParse(payload, out int level) && level >= 1 && level <= 16)
                 {
                     SldSpeedLevel.ValueChanged -= SldSpeedLevel_ValueChanged;
                     SldSpeedLevel.Value = level;
-                    TxtSpeedLevel.Text = $"Stufe: {level}/10";
+                    TxtSpeedLevel.Text = $"Stufe: {level}/16";
                     SldSpeedLevel.ValueChanged += SldSpeedLevel_ValueChanged;
                 }
                 return;
@@ -1096,7 +1096,7 @@ namespace MnpControl
                 return;
             }
             int level = (int)Math.Round(e.NewValue);
-            TxtSpeedLevel.Text = $"Stufe: {level}/10";
+            TxtSpeedLevel.Text = $"Stufe: {level}/16";
             SendCommand($"V={level}");
         }
 

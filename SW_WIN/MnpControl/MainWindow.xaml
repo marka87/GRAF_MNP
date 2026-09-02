@@ -309,8 +309,8 @@
                         <!-- Speed Level Slider -->
                         <TextBlock Text="Geschwindigkeit (manuell)" FontSize="11.5" Foreground="#475569" Margin="0,0,0,2"/>
                         <DockPanel LastChildFill="True">
-                            <TextBlock x:Name="TxtSpeedLevel" DockPanel.Dock="Right" Text="Stufe: 7/10" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                            <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="10" Value="7" TickFrequency="1"
+                            <TextBlock x:Name="TxtSpeedLevel" DockPanel.Dock="Right" Text="Stufe: 7/16" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="7" TickFrequency="1"
                                     IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                     ValueChanged="SldSpeedLevel_ValueChanged"/>
                         </DockPanel>

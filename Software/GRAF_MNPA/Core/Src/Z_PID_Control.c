@@ -1,4 +1,4 @@
-﻿/* Z_PID_Control.c
+/* Z_PID_Control.c
  *
  *  	Created on: Jan 3, 2025
  *      Author: Mark Angyal
@@ -29,20 +29,21 @@
 #define VELOCITY_KI_DEFAULT 0.00025f
 #define VELOCITY_KD_DEFAULT 0.0f
 
-/* Geschwindigkeitsstufen 1-10 (Einheit: Encoder-Inc pro 1ms-Zyklus).
- * Perfekt abgestimmt auf die mechanische Bremsdynamik:
- * Stufen: 1, 2, 4, 8, 14, 22, 32, 44, 55, 65 Inc/ms */
-#define SPEED_LEVEL_MAX_COUNT 10u
+/* Geschwindigkeitsstufen 1-16 (Einheit: Encoder-Inc pro 1ms-Zyklus).
+ * Exakt wie bei der Original-Bestueckungsmaschine (16 Stufen):
+ * Stufen 1-10:  1, 2, 4, 8, 14, 22, 32, 44, 55, 65 Inc/ms
+ * Stufen 11-16: 76, 88, 100, 112, 124, 136 Inc/ms */
+#define SPEED_LEVEL_MAX_COUNT 16u
 static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
-	1u, 2u, 4u, 8u, 14u, 22u, 32u, 44u, 55u, 65u
+	1u, 2u, 4u, 8u, 14u, 22u, 32u, 44u, 55u, 65u, 76u, 88u, 100u, 112u, 124u, 136u
 };
 
-/* Maximale Spannungs-AutoritÃ¤t des I-Anteils (verhindert Windup / Ãœberschwingen)
+/* Maximale Spannungs-Autoritaet des I-Anteils (verhindert Windup / Ueberschwingen)
  * Haltespannung liegt ca. 0.25V unter 2.5V (2.25V) -> 0.45V Puffer reicht vollkommen. */
 #define MAX_I_VOLTAGE_OFFSET 0.45f
 
 /* Sicherheitsschwellen */
-#define MAX_SAFE_VELOCITY 150.0f
+#define MAX_SAFE_VELOCITY 175.0f
 #define SAFETY_POSITION_MARGIN 400
 
 /* Spannungsgrenzen und Neutralspannung */

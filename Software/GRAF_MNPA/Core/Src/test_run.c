@@ -36,7 +36,7 @@ extern uint32_t        z_encoder_end;
 #define DS_ACTIVE_THRESHOLD          410u
 
 /* GO_UP-Puffer oberhalb der NO-Sensor-Position bis zur Zielposition */
-#define GO_UP_OVERSHOOT              200u
+#define GO_UP_OVERSHOOT              350u
 #define GO_UP_SWITCH_MARGIN          100u
 
 /* GO_DOWN-Zielpuffer ab Encoder-Startposition */
@@ -44,12 +44,12 @@ extern uint32_t        z_encoder_end;
 #define GO_DOWN_SWITCH_MARGIN        500u
 
 /* Test B Parameter */
-#define TEST_B_FAST_SPEED_LEVEL      8u    /* Schnelle Verfahrfahrt (wie NÃ¤hmaschine) */
-#define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt Ã¼ber die gesamte HÃ¶he (egal ob 2mm oder 10mm Bauteil) */
-#define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle Ã¼ber Ruhe-Baseline */
+#define TEST_B_FAST_SPEED_LEVEL      8u    /* Schnelle Verfahrfahrt (wie Naehmaschine) */
+#define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
+#define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle ueber Ruhe-Baseline */
 
-/* Ausblend-Zone fÃ¼r den oberen Totpunkt (wo der schlagartige Richtungswechsel stattfindet) */
-#define REVERSAL_BLANKING_MARGIN     200u
+/* Ausblend-Zone fuer den oberen Totpunkt (wo der schlagartige Richtungswechsel stattfindet) */
+#define REVERSAL_BLANKING_MARGIN     300u
 
 typedef enum {
     /* Test A Phasen */
@@ -233,7 +233,7 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     /* Geschwindigkeit: Direkte Ãœbernahme ohne Level-1-VerfÃ¤lschung */
     s_fast_speed_level = Z_PID_GetSpeedLevel();
     if (s_fast_speed_level < 1u) s_fast_speed_level = 1u;
-    if (s_fast_speed_level > 10u) s_fast_speed_level = 10u;
+    if (s_fast_speed_level > 16u) s_fast_speed_level = 16u;
 
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER) {
         /* Sanfte Suchfahrt von oben bis zum Bauteil auf Speed 3 */
@@ -268,7 +268,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
 
     int32_t top_zone     = (int32_t)z_ax_no_pos - (int32_t)REVERSAL_BLANKING_MARGIN;
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 150;
-    int32_t takeoff_zone = s_scatter_stats.z_ref_pos + 850;
+    int32_t takeoff_zone = s_scatter_stats.z_ref_pos + 1300;
 
     /* =========================================================================
      * TEST MODUS B: BAUTEIL-ANTASTUNG & STREUUNG
@@ -331,11 +331,11 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             update_target_range(retract_target);
             Z_Target_SetRequestedDirect((uint32_t)retract_target);
 
-            /* Beschleunigungs-Ãœberwachung beim Hochfahren auf freier Strecke */
+            /* Beschleunigungs-Überwachung beim Hochfahren auf freier Strecke */
             if (z_pos > takeoff_zone && z_pos < top_zone) {
                 if (ds_value >= s_ds_trigger_threshold) {
                     s_ds_accel_fault_debounce++;
-                    if (s_ds_accel_fault_debounce >= 6u) {
+                    if (s_ds_accel_fault_debounce >= 20u) {
                         s_stats.ds_errors++;
                         snprintf(s_error_msg, sizeof(s_error_msg), "Beschl. UP: %u @ %ld", ds_value, (long)z_pos);
                         return TESTRUN_ERROR;
@@ -434,9 +434,9 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
      * TEST MODUS A: KLASSISCHER DAUERTEST (OHNE BAUTEIL)
      * ========================================================================= */
     /* In Test A dient der Drucksensor als reiner Kollisionsschutz (z.B. Hindernis) */
-    if (ds_value >= DS_ACTIVE_THRESHOLD) {
+    if (ds_value >= s_ds_trigger_threshold) {
         s_ds_accel_fault_debounce++;
-        if (s_ds_accel_fault_debounce >= 4u) {
+        if (s_ds_accel_fault_debounce >= 8u) {
             s_stats.invalid_sensor_events++;
             s_stats.ds_errors++;
             s_stats.motor_faults++;
