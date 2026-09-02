@@ -312,19 +312,22 @@ namespace MnpControl
                 CloseLogFile();
             }
 
-            string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (sSplit.Length >= 5)
+            if (!msg.Contains(':') && msg.Contains(';'))
             {
-                if (_isLoggingSession)
-                    _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
+                string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (sSplit.Length >= 5)
+                {
+                    if (_isLoggingSession)
+                        _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
 
-                TxtNadelOben.Text = sSplit[0] == "1" ? "Unten" : "Oben";
-                TxtDrucksensor.Text = sSplit[1];
-                TxtAaxisPos.Text = sSplit[2];
-                TxtZaxisPosIst.Text = sSplit[3];
-                TxtZaxisPosSoll.Text = sSplit[4];
-                TxtZDac.Text = sSplit.Length >= 6 ? sSplit[5] : string.Empty;
-                return;
+                    TxtNadelOben.Text = sSplit[0] == "1" ? "Unten" : "Oben";
+                    TxtDrucksensor.Text = sSplit[1];
+                    TxtAaxisPos.Text = sSplit[2];
+                    TxtZaxisPosIst.Text = sSplit[3];
+                    TxtZaxisPosSoll.Text = sSplit[4];
+                    TxtZDac.Text = sSplit.Length >= 6 ? sSplit[5] : string.Empty;
+                    return;
+                }
             }
 
             if (msg.StartsWith("PIDZP:", StringComparison.Ordinal) || msg.StartsWith("PIDZP_SET:", StringComparison.Ordinal))
@@ -430,7 +433,7 @@ namespace MnpControl
                     && int.TryParse(parts[3], out int minPos)
                     && int.TryParse(parts[4], out int maxPos)
                     && int.TryParse(parts[5], out int range)
-                    && float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out float mean))
+                    && float.TryParse(parts[6].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float mean))
                 {
                     string sign = delta >= 0 ? "+" : "";
                     string line = $"Zyklus {cycle:D2}: {touchPos,5} inc (Δ {sign}{delta,3} inc) | Min: {minPos} | Max: {maxPos} | Spanne: {range} inc";

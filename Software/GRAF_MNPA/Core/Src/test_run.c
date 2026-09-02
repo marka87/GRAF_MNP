@@ -1,4 +1,4 @@
-﻿/*
+/*
  * test_run.c - Testablauf (TEST_RUN State Handler)
  *
  * Verwaltet zwei Testmodi:
@@ -363,12 +363,12 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         else if (s_phase == PHASE_B_FAST_DOWN) {
             Z_PID_SetSpeedLevel(s_fast_speed_level);
 
-            int32_t down_target = s_scatter_stats.z_ref_pos - 15;
+            int32_t down_target = s_scatter_stats.z_ref_pos - 25;
             if (down_target < (int32_t)z_encoder_start) down_target = (int32_t)z_encoder_start;
             update_target_range(down_target);
             Z_Target_SetRequestedDirect((uint32_t)down_target);
 
-            /* Beschleunigungs-Ãœberwachung auf freier Fahrt nach unten */
+            /* Beschleunigungs-Überwachung auf freier Fahrt nach unten */
             if (z_pos < top_zone && z_pos > contact_zone) {
                 if (ds_value >= s_ds_trigger_threshold) {
                     s_ds_accel_fault_debounce++;
@@ -384,7 +384,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             /* Unten am Bauteil angekommen (legitimer Kontaktbereich): */
             else if (z_pos <= contact_zone) {
                 s_ds_accel_fault_debounce = 0;
-                if (ds_value >= s_ds_trigger_threshold || z_pos <= (s_scatter_stats.z_ref_pos + 10)) {
+                if (ds_value >= s_ds_trigger_threshold) {
                     int32_t touch_pos = z_pos;
                     int32_t delta = touch_pos - s_scatter_stats.z_ref_pos;
                     s_scatter_stats.last_delta = delta;
@@ -400,22 +400,26 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_current_cycle++;
                     s_stats.completed_cycles = s_current_cycle;
 
-                    /* Telegramm fÃ¼r Windows GUI senden */
+                    /* Telegramm für Windows GUI senden */
                     char cycle_msg[96];
                     snprintf(cycle_msg, sizeof(cycle_msg),
                              "TEST_B_CYCLE:%lu;%ld;%ld;%ld;%ld;%ld;%.1f\r\n",
                              (unsigned long)s_current_cycle, (long)touch_pos, (long)s_scatter_stats.last_delta,
                              (long)s_scatter_stats.z_min_pos, (long)s_scatter_stats.z_max_pos,
                              (long)s_scatter_stats.scatter_range, (double)s_scatter_stats.mean_pos);
-                    uart_send_text(cycle_msg, 10);
+                    uart_send_text(cycle_msg, 50);
 
                     if (s_current_cycle >= s_num_total_cycles) {
                         return TESTRUN_COMPLETE;
                     }
 
-                    /* NÃ¤chster Zyklus: Sofort wieder nach oben */
+                    /* Nächster Zyklus: Sofort wieder nach oben */
                     s_phase = PHASE_B_FAST_UP;
                     s_ds_accel_fault_debounce = 0;
+                } else if (z_pos <= (int32_t)(z_encoder_start + 15)) {
+                    /* Notstopp falls Bauteil komplett fehlt */
+                    snprintf(s_error_msg, sizeof(s_error_msg), "Kein Bauteil @ %ld", (long)z_pos);
+                    return TESTRUN_ERROR;
                 }
             } else {
                 /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine FehlerauslÃ¶sung */

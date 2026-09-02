@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
  * @file           : main.c
@@ -283,32 +283,43 @@ static bool parse_pid_triplet(const char *payload, float *kp, float *ki, float *
 }
 
 /* Update Display */
+/* Update Display (Minimal & Ruckfrei - waehrend TEST_RUN komplett deaktiviert) */
 void update_display() {
+	if (current_state == TEST_RUN) {
+		return;
+	}
+
 	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
 	int32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	int32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
 	float z_dac_voltage = voltage;
-	if (no_sen_state == GPIO_PIN_SET) { // Zeile 0: Nadel oben (High/Low)
-		sprintf(display_buffer[0], "Nadel oben:  HIGH");
-	} else {
-		sprintf(display_buffer[0], "Nadel oben:  LOW ");
-	}
-	uint16_t raw_value = ADC_Drucksensor(&hadc1); // Zeile 1: Drucksensor (ADC-Wert)
+
+	uint16_t raw_value = ADC_Drucksensor(&hadc1);
 	float sensorVoltage = (float) raw_value * (5.0f / 4095.0f);
-	sprintf(display_buffer[1], "Drucksensor: %.3f V", sensorVoltage);
-	sprintf(display_buffer[2], "A-AX:%5lu", a_axis_position); // Zeile 2 & 3: Achspositionen
-	sprintf(display_buffer[3], "Z-Ist:%5lu", z_axis_position);
-	sprintf(display_buffer[4], "Z-Soll:%5lu", Z_Axis_TargetPosition); // Zeile 4: Sollwert der Z-Achse
-	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
-		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
-	}
-	if (current_state != TEST_RUN) {
-		char datablock[256];
-		sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
-				sensorVoltage, (long)a_axis_position, (long)z_axis_position,
-				(long)Z_Axis_TargetPosition, z_dac_voltage);
-		uart_send_text(datablock, 50);
-	}
+
+	const char *st_name = "BEREIT";
+	if (current_state == IDLE_START) st_name = "BITTE REFERENZIEREN";
+	else if (current_state == EXEC_REFERENCE_RUN) st_name = "REFERENZIERE...";
+	else if (current_state == TEST_START) st_name = "BEREIT (START-POS)";
+	else if (current_state == STOP) st_name = "NOT-HALT / STOP";
+	else if (current_state == FEHLER) st_name = "FEHLER!";
+	else if (current_state == COMPLETED) st_name = "TEST BEENDET";
+
+	snprintf(display_buffer[0], sizeof(display_buffer[0]), "   GRAF MNP TEST");
+	snprintf(display_buffer[2], sizeof(display_buffer[2]), "Status: %-15s", st_name);
+	snprintf(display_buffer[4], sizeof(display_buffer[4]), "Z-Ist:  %ld", (long)z_axis_position);
+	snprintf(display_buffer[7], sizeof(display_buffer[7]), "  REF     HOME   RESET");
+
+	display_jazz_write_string_5x7(&display1, 0, display_buffer[0]);
+	display_jazz_write_string_5x7(&display1, 2, display_buffer[2]);
+	display_jazz_write_string_5x7(&display1, 4, display_buffer[4]);
+	display_jazz_write_string_5x7(&display1, 7, display_buffer[7]);
+
+	char datablock[256];
+	sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
+			sensorVoltage, (long)a_axis_position, (long)z_axis_position,
+			(long)Z_Axis_TargetPosition, z_dac_voltage);
+	uart_send_text(datablock, 50);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -877,15 +888,55 @@ int main(void)
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;
 			tick_100ms_testrun_elapsed = true;
-			update_display();
+			if (current_state != TEST_RUN) {
+				update_display();
+			}
 		}
 		if (HAL_GetTick() >= next_10ms_tick) {
 			next_10ms_tick = HAL_GetTick() + 10;
-//			tick_100ms_testrun_elapsed = true;
 
 			handle_button_ok();
 			handle_button_up();
 			handle_button_down();
+
+			/* Globale Taster-Funktionen (REF / HOME / RESET) */
+			if (btn_up_pressed) {
+				btn_up_pressed = 0;
+				/* Taste 1 (Links): REFERENZLAUF */
+				if (current_state != TEST_RUN) {
+					Z_PID_Reset();
+					Z_PID_SetSchedulerEnabled(true);
+					current_state = EXEC_REFERENCE_RUN;
+					uart_send_text("Referenzlauf via Taste gestartet.\r\n", 50);
+				}
+			}
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				/* Taste 2 (Mitte): HOME / START-FREIGABE / FEHLER QUITTIEREN */
+				if (current_state != TEST_RUN) {
+					HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
+					HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
+					Z_PID_Reset();
+					Z_PID_SetSchedulerEnabled(true);
+					uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+					Z_Target_SetRequestedDirect(home_pos);
+					current_state = TEST_START;
+					uart_send_text("Home / Freigabe via Taste OK.\r\n", 50);
+				}
+			}
+			if (btn_down_pressed) {
+				btn_down_pressed = 0;
+				/* Taste 3 (Rechts): NOT-HALT (im Test) oder HARDWARE RESET (im Stillstand) */
+				if (current_state == TEST_RUN) {
+					Z_PID_EmergencyStop(&dac);
+					current_state = STOP;
+					uart_send_text("NOT-HALT via Taste DOWN!\r\n", 50);
+				} else {
+					uart_send_text("System Reset via Taste DOWN...\r\n", 50);
+					HAL_Delay(50);
+					NVIC_SystemReset();
+				}
+			}
 		}
 		if (HAL_GetTick() >= next_1ms_tick) {
 			next_1ms_tick = HAL_GetTick() + 1;
