@@ -168,7 +168,7 @@ static void uart_send_status(void) {
 	HAL_UART_Transmit(&huart1, (const uint8_t*) buf, (uint16_t) strlen(buf), 100);
 }
 
-static void uart_send_text(const char *text, uint32_t timeout) {
+void uart_send_text(const char *text, uint32_t timeout) {
 	HAL_UART_Transmit(&huart1, (const uint8_t*) text, (uint16_t) strlen(text),
 			timeout);
 }
@@ -302,13 +302,14 @@ void update_display() {
 	for (int i = 0; i < DISPLAY_MAX_LINES; i++) {
 		display_jazz_write_string_5x7(&display1, i, display_buffer[i]);
 	}
-	char datablock[256];
-	sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
-			sensorVoltage, (long)a_axis_position, (long)z_axis_position,
-			(long)Z_Axis_TargetPosition, z_dac_voltage);
-	uart_send_text(datablock, 50);
+	if (current_state != TEST_RUN) {
+		char datablock[256];
+		sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
+				sensorVoltage, (long)a_axis_position, (long)z_axis_position,
+				(long)Z_Axis_TargetPosition, z_dac_voltage);
+		uart_send_text(datablock, 50);
+	}
 }
-
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart == &huart1) {
@@ -318,6 +319,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			uart_cmd_buf[uart_cmd_head] = UART1_rxBuffer[0];
 			uart_cmd_head = next;
 		}
+		HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
+	}
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+	if (huart == &huart1) {
+		__HAL_UART_CLEAR_OREFLAG(huart);
+		__HAL_UART_CLEAR_NEFLAG(huart);
+		__HAL_UART_CLEAR_FEFLAG(huart);
+		__HAL_UART_CLEAR_PEFLAG(huart);
 		HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
 	}
 }
@@ -387,28 +398,51 @@ void Process_UART_Command(const char *command) {
 		HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
 		Z_PID_Reset();
 		Z_PID_SetSchedulerEnabled(true);
-		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
+		uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+		Z_Target_SetRequestedDirect(home_pos);
 		current_state = TEST_START;
 		snprintf(response, sizeof(response), "Test/Manuell gestartet.\r\n");
-	} else if (strcmp(command, "1") == 0) { // Demo-Modus starten
+	} else if (strncmp(command, "TA=", 3) == 0 || strcmp(command, "TA") == 0) {
+		int cycles = (command[2] == '=') ? atoi(command + 3) : 10;
+		if (cycles <= 0) cycles = 1;
+		if (cycles > 100000) cycles = 100000;
 		Z_PID_SetSchedulerEnabled(false);
-		TestRun_Init(10);
+		TestRun_InitEx(TESTRUN_MODE_A_CLASSIC, (uint32_t)cycles);
 		current_state = TEST_RUN;
-		snprintf(response, sizeof(response),
-				"Demo-Modus gestartet (10 Zyklen).\r\n");
-
-	} else if (strcmp(command, "2") == 0) { // Kurz-Modus mit 1000 Zyklen
+		snprintf(response, sizeof(response), "TEST_A_START:%d Zyklen\r\n", cycles);
+	} else if (strncmp(command, "TB=", 3) == 0 || strcmp(command, "TB") == 0) {
+		int cycles = (command[2] == '=') ? atoi(command + 3) : 10;
+		if (cycles <= 0) cycles = 1;
+		if (cycles > 100000) cycles = 100000;
 		Z_PID_SetSchedulerEnabled(false);
-		TestRun_Init(1000);
+		TestRun_InitEx(TESTRUN_MODE_B_PROBE_SCATTER, (uint32_t)cycles);
 		current_state = TEST_RUN;
-		snprintf(response, sizeof(response),
-				"Kurz-Modus gestartet (1000 Zyklen).\r\n");
-	} else if (strcmp(command, "3") == 0) { // Lang-Modus mit 10000 Zyklen
-		Z_PID_SetSchedulerEnabled(false);
-		TestRun_Init(10000);
-		current_state = TEST_RUN;
-		snprintf(response, sizeof(response),
-				"Lang-Modus gestartet (10000 Zyklen).\r\n");
+		snprintf(response, sizeof(response), "TEST_B_START:%d Zyklen\r\n", cycles);
+	} else if (strncmp(command, "CFG_TB:", 7) == 0) {
+		const char *p = command + 7;
+		char buf[48];
+		strncpy(buf, p, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = '\0';
+		char *semi = strchr(buf, ';');
+		float dmot = 3.3f;
+		unsigned long delta = 90;
+		if (semi != NULL) {
+			*semi = '\0';
+			char *comma = strchr(buf, ',');
+			if (comma) *comma = '.';
+			parse_positive_decimal(buf, &dmot);
+			delta = strtoul(semi + 1, NULL, 10);
+		} else {
+			char *comma = strchr(buf, ',');
+			if (comma) *comma = '.';
+			parse_positive_decimal(buf, &dmot);
+		}
+		if (dmot > 20.0f) dmot = dmot / 1000.0f; /* falls in mV übergeben */
+		TestRun_SetDruckmotorVoltage(dmot);
+		if (delta > 0) TestRun_SetTriggerDeltaMv((uint32_t)delta);
+		snprintf(response, sizeof(response), "CFG_TB_OK:dmot=%.2f,delta=%lu\r\n", dmot, (unsigned long)TestRun_GetTriggerDeltaMv());
+	} else if (strcmp(command, "CFG_TB?") == 0) {
+		snprintf(response, sizeof(response), "CFG_TB:%.2f;%lu\r\n", TestRun_GetDruckmotorVoltage(), (unsigned long)TestRun_GetTriggerDeltaMv());
 	} else if (command[0] == 'Z' && command[1] != '\0') { // Z-Achse Zielposition direkt setzen (z.B. "Z1500")
 		if (current_state != TEST_START) {
 			snprintf(response, sizeof(response), "Ignoriert: kein TEST_START\r\n");
@@ -658,12 +692,14 @@ int main(void)
 				display_buffer[6][0] = '\0';
 				sprintf(display_buffer[7], "TEST ...");
 
-				if (HAL_GetTick() >= next_uart_status_tick) {
-					next_uart_status_tick = HAL_GetTick() + 500;
-					uart_send_status();
-					char info[40];
-					snprintf(info, sizeof(info), "TEST %lu/%lu\r\n", cyc, tot);
-					uart_send_text(info, 50);
+				if (TestRun_GetMode() != TESTRUN_MODE_B_PROBE_SCATTER) {
+					if (HAL_GetTick() >= next_uart_status_tick) {
+						next_uart_status_tick = HAL_GetTick() + 500;
+						uart_send_status();
+						char info[40];
+						snprintf(info, sizeof(info), "TEST %lu/%lu\r\n", cyc, tot);
+						uart_send_text(info, 50);
+					}
 				}
 
 				if (result == TESTRUN_COMPLETE) {
@@ -692,7 +728,8 @@ int main(void)
 					test_summary_sent = true;
 					red_light();
 					current_state = FEHLER;
-				}		} else if (current_state == STOP) {
+				}
+			} else if (current_state == STOP) {
 			d_mot_control(&dac, 2.5f);
 			yellow_light();
 			sprintf(display_buffer[5], "Test abgebrochen");
@@ -709,7 +746,8 @@ int main(void)
 				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
 				Z_PID_Reset();
-				Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
+				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+				Z_Target_SetRequestedDirect(home_pos);
 				current_state = TEST_START;
 			}
 		} else if (current_state == COMPLETED) {
@@ -724,23 +762,40 @@ int main(void)
 			/* Statistiken und Pufferdaten einmalig nach Testabschluss senden */
 			if (!completed_stats_sent) {
 				completed_stats_sent = true;
-				save_data_to_uart();
-				char stats_msg[320];
-				uint32_t time_min = stats.test_time_ms / 60000u;
-				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
-				const char *phase = TestRun_GetPhaseName();
-				snprintf(stats_msg, sizeof(stats_msg),
-					"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
-					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
-					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
-					(long)stats.z_ist_min, (long)stats.z_ist_max,
-					(long)stats.z_soll_min, (long)stats.z_soll_max,
-					(long)stats.last_ist_pos, (long)stats.last_soll_pos,
-					phase,
-					time_min, time_sec,
-					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
-				uart_send_text(stats_msg, 100);
+				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
+					TestBScatterStats_t b_stats;
+					TestRun_GetScatterStats(&b_stats);
+					char stats_msg[380];
+					snprintf(stats_msg, sizeof(stats_msg),
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f\r\n\r\n",
+						stats.total_cycles, stats.completed_cycles,
+						(long)b_stats.z_ref_pos,
+						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
+						(long)(b_stats.z_min_pos - b_stats.z_ref_pos),
+						(long)(b_stats.z_max_pos - b_stats.z_ref_pos),
+						(long)b_stats.scatter_range,
+						(double)b_stats.mean_pos,
+						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
+						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)));
+					uart_send_text(stats_msg, 100);
+				} else {
+					char stats_msg[320];
+					uint32_t time_min = stats.test_time_ms / 60000u;
+					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+					const char *phase = TestRun_GetPhaseName();
+					snprintf(stats_msg, sizeof(stats_msg),
+						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
+						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
+						(long)stats.z_ist_min, (long)stats.z_ist_max,
+						(long)stats.z_soll_min, (long)stats.z_soll_max,
+						(long)stats.last_ist_pos, (long)stats.last_soll_pos,
+						phase,
+						time_min, time_sec,
+						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
+						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
+					uart_send_text(stats_msg, 100);
+				}
 			}
 
 			if (HAL_GetTick() >= next_uart_status_tick) {
@@ -790,13 +845,14 @@ int main(void)
 				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
 				Z_PID_Reset();
-				Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
+				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+				Z_Target_SetRequestedDirect(home_pos);
 				current_state = TEST_START;
 			}
 		}
 		// Accumulate UART bytes into lines, process on '\n'
 		// Single-char and multi-char commands (e.g. "Z1500\n") both work
-		static char uart_line_buf[32];
+		static char uart_line_buf[64];
 		static uint8_t uart_line_len = 0;
 		if (uart_cmd_tail != uart_cmd_head) {
 			char c = (char)uart_cmd_buf[uart_cmd_tail];

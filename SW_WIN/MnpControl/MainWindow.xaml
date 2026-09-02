@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Window x:Class="MnpControl.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -164,18 +165,43 @@
                          BorderThickness="0"/>
             </GroupBox>
 
-            <!-- Test Summary -->
+            <!-- Test Summary & Visual Scatter Chart -->
             <GroupBox Grid.Column="2" Header="Test Summary &amp; Statistik">
-                <TextBox x:Name="TxtTestSummary"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"
-                         FontFamily="Consolas, monospace"
-                         FontSize="11.5"
-                         Background="#FAFAFA"
-                         Foreground="#1E293B"
-                         BorderThickness="0"/>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1.2*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="130"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBox x:Name="TxtTestSummary"
+                             Grid.Row="0"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas, monospace"
+                             FontSize="11.5"
+                             Background="#FAFAFA"
+                             Foreground="#1E293B"
+                             BorderThickness="0"/>
+
+                    <Border Grid.Row="1" Background="#E2E8F0" Height="1" Margin="0,4,0,4"/>
+
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <DockPanel Grid.Row="0" Margin="2,0,2,2" LastChildFill="False">
+                            <TextBlock x:Name="TxtScatterBadge" Text="Live Streuungs-Diagramm (&#x394; Inkremente)" FontSize="10.5" FontWeight="Bold" Foreground="#0284C7"/>
+                            <TextBlock x:Name="TxtScatterStatsLive" DockPanel.Dock="Right" Text="Warte auf Messwerte..." FontSize="10" Foreground="#64748B"/>
+                        </DockPanel>
+                        <Border Grid.Row="1" CornerRadius="4" Background="#0F172A" ClipToBounds="True">
+                            <Canvas x:Name="CanvasScatter" ClipToBounds="True" SizeChanged="CanvasScatter_SizeChanged"/>
+                        </Border>
+                    </Grid>
+                </Grid>
             </GroupBox>
         </Grid>
 
@@ -186,24 +212,57 @@
             <StackPanel Orientation="Vertical">
 
                 <!-- Ablaufsteuerung Card -->
-                <GroupBox Header="Ablaufsteuerung">
+                <GroupBox Header="Ablaufsteuerung &amp; Testl&#xE4;ufe">
                     <StackPanel Margin="2">
                         <Button x:Name="BtnStartReferenceRun"
                                 Style="{StaticResource PrimaryButtonStyle}"
-                                Content="🚀  Referenzlauf Starten"
+                                Content="&#x25B6;  Referenzlauf starten"
                                 Height="36"
-                                Margin="0,0,0,8"
+                                Margin="0,0,0,10"
                                 Click="BtnStartReferenceRun_Click"/>
 
-                        <UniformGrid Columns="3" Margin="0,0,0,8">
-                            <Button x:Name="BtnStartDemo" Content="Demo" Height="32" Margin="0,0,4,0" Click="BtnStartDemoRun_Click"/>
-                            <Button x:Name="BtnStartShort" Content="Kurz" Height="32" Margin="2,0,2,0" Click="BtnStartShortRun_Click"/>
-                            <Button x:Name="BtnStartLong" Content="Lang" Height="32" Margin="4,0,0,0" Click="BtnStartLongRun_Click"/>
+                        <!-- Test Cycles Input -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Zyklenzahl:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
+                            <TextBox x:Name="TxtTestCycles" Grid.Column="2" Height="30" Text="10" TextAlignment="Right"
+                                     VerticalContentAlignment="Center" Padding="6,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
+                        </Grid>
+
+                        <!-- Test B Parameter (Druckmotor & Schwelle) -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Druckmotor (V):" FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,2"/>
+                                <TextBox x:Name="TxtDMotVoltage" Height="28" Text="3.5" TextAlignment="Right"
+                                         VerticalContentAlignment="Center" Padding="4,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Schwelle &#x394; (mV):" FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,2"/>
+                                <TextBox x:Name="TxtTriggerDeltaMv" Height="28" Text="1500" TextAlignment="Right"
+                                         VerticalContentAlignment="Center" Padding="4,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Test A & Test B Buttons -->
+                        <UniformGrid Columns="2" Margin="0,0,0,8">
+                            <Button x:Name="BtnStartTestA" Content="&#x25B6;  Test A (Dauer)" Height="34" Margin="0,0,4,0"
+                                    Background="#F8FAFC" FontWeight="SemiBold" Click="BtnStartTestA_Click"/>
+                            <Button x:Name="BtnStartTestB" Content="Test B (Antastung)" Height="34" Margin="4,0,0,0"
+                                    Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8" FontWeight="Bold" Click="BtnStartTestB_Click"/>
                         </UniformGrid>
 
                         <Button x:Name="BtnTestStart"
-                                Content="⭮ / Start-Freigabe (OK)"
-                                Height="32"
+                                Content="Start-Freigabe (OK)"
+                                Height="30"
                                 Background="#F1F5F9"
                                 Click="BtnTestStart_click"/>
                     </StackPanel>
@@ -222,7 +281,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <Button x:Name="BtnUp" Grid.Column="0" Content="▲  HOCH" Width="80" Height="34" Click="BtnUp_Click"/>
+                            <Button x:Name="BtnUp" Grid.Column="0" Content="&#x25B2;  HOCH" Width="80" Height="34" Click="BtnUp_Click"/>
 
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                 <TextBox x:Name="TxtStepCount" Height="28" Text="100" TextAlignment="Center"
@@ -230,7 +289,7 @@
                                 <TextBlock Text="Schrittweite" FontSize="10.5" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <Button x:Name="BtnDown" Grid.Column="4" Content="▼  RUNTER" Width="80" Height="34" Click="BtnDown_Click"/>
+                            <Button x:Name="BtnDown" Grid.Column="4" Content="&#x25BC;  RUNTER" Width="80" Height="34" Click="BtnDown_Click"/>
                         </Grid>
 
                         <!-- Direct Position Input -->
@@ -244,7 +303,7 @@
                             <TextBox x:Name="TxtZPos" Grid.Column="0" Height="30" VerticalContentAlignment="Center"
                                      Text="0" TextAlignment="Right" Padding="6,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
                             <Button x:Name="BtnSetZPos" Grid.Column="2" Content="Anfahren" Height="30" Width="76"
-                                    Click="BtnSetZPos_Click"/>
+                                     Click="BtnSetZPos_Click"/>
                         </Grid>
 
                         <!-- Speed Level Slider -->
@@ -262,7 +321,7 @@
                 <GroupBox Header="Kaskaden-Regelung (PID)">
                     <StackPanel Margin="2">
                         <Button x:Name="BtnHybridTuning"
-                                Content="⚙️  Kaskaden-Tuning (PID) öffnen..."
+                                Content="Kaskaden-Tuning (PID) &#xF6;ffnen..."
                                 Height="34"
                                 Background="#F8FAFC"
                                 Click="BtnHybridTuning_Click"/>
@@ -287,7 +346,7 @@
         <!-- ======================================================= -->
         <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
             <Button x:Name="BtnReset"
-                    Content="🔄  µC RESET"
+                    Content="&#xB5;C Reset"
                     Width="110"
                     Height="36"
                     Background="#FEE2E2"
@@ -296,7 +355,7 @@
                     Click="BtnReset_Click"/>
 
             <Button x:Name="BtnStop"
-                    Content="⛔  STOPP"
+                    Content="STOPP"
                     Width="110"
                     Height="36"
                     Margin="10,0,0,0"
@@ -306,7 +365,7 @@
                     Click="BtnStop_Click"/>
 
             <Button x:Name="BtnClearSummary"
-                    Content="🧹  SUMMARY LEEREN"
+                    Content="Summary leeren"
                     Width="160"
                     Height="36"
                     Margin="10,0,0,0"

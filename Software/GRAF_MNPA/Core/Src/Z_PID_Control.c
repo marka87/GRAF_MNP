@@ -1,8 +1,8 @@
-/* Z_PID_Control.c
+﻿/* Z_PID_Control.c
  *
  *  	Created on: Jan 3, 2025
  *      Author: Mark Angyal
- *      Z-Achse Kaskaden-PID-Regelung & Schutzüberwachung
+ *      Z-Achse Kaskaden-PID-Regelung & SchutzÃ¼berwachung
  */
 
 #include "Z_PID_Control.h"
@@ -14,13 +14,13 @@
 #include <string.h>
 
 /* Kaskadenregelung:
- * - Äußerer Positions-Regler (P, optional I/D): Position -> Soll-Geschwindigkeit [Inc/ms]
+ * - Ã„uÃŸerer Positions-Regler (P, optional I/D): Position -> Soll-Geschwindigkeit [Inc/ms]
  * - Innerer Geschwindigkeits-Regler (PID): Ist- vs. Soll-Geschwindigkeit -> Spannung [V]
- * - Der I-Anteil übernimmt die Haltespannung gegen Schwerkraft (~2.20 - 2.27V).
+ * - Der I-Anteil Ã¼bernimmt die Haltespannung gegen Schwerkraft (~2.20 - 2.27V).
  *
  * Standard-Parameter:
  * - Position: Kp=0.12, Ki=0, Kd=0 (reiner P-Lageregler)
- * - Velocity: Kp=0.025, Ki=0.00025, Kd=0 (reiner PI-Geschwindigkeitsregler für seidenweichen Lauf)
+ * - Velocity: Kp=0.025, Ki=0.00025, Kd=0 (reiner PI-Geschwindigkeitsregler fÃ¼r seidenweichen Lauf)
  */
 #define POSITION_KP_DEFAULT 0.12f
 #define POSITION_KI_DEFAULT 0.0f
@@ -37,7 +37,10 @@ static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
 	1u, 2u, 4u, 8u, 14u, 22u, 32u, 44u, 55u, 65u
 };
 
-/* Maximale Spannungs-Autorität des I-Anteils (verhindert Windup / Überschwingen)
+/* Maximale Beschleunigung/VerzÃ¶gerung pro 1ms: 2.0 Inc/msÂ² (Ruckfreie Rampe) */
+#define MAX_ACCEL_PER_MS 2.0f
+
+/* Maximale Spannungs-AutoritÃ¤t des I-Anteils (verhindert Windup / Ãœberschwingen)
  * Haltespannung liegt ca. 0.25V unter 2.5V (2.25V) -> 0.45V Puffer reicht vollkommen. */
 #define MAX_I_VOLTAGE_OFFSET 0.45f
 
@@ -73,6 +76,7 @@ static float velocity_integral = 0.0f;
 static float velocity_previous_error = 0.0f;
 
 static float smoothed_velocity = 0.0f;
+static float ramped_velocity = 0.0f;
 static int last_encoder_value = 0;
 static bool last_encoder_value_initialized = false;
 static uint32_t last_velocity_tick = 0u;
@@ -110,7 +114,7 @@ static void set_profile_parameters(z_pid_profile_t *profile, float kp, float ki,
 	profile->kd = kd;
 }
 
-/* 1st-Order Low-Pass (EMA) Filter für Ist-Geschwindigkeit:
+/* 1st-Order Low-Pass (EMA) Filter fÃ¼r Ist-Geschwindigkeit:
  * Eliminiert 1000-Hz Encoder-Quantisierungsrauschen und verhindert Rattern */
 static float update_and_get_smoothed_velocity(float raw_velocity) {
 	smoothed_velocity += 0.20f * (raw_velocity - smoothed_velocity);
@@ -123,6 +127,7 @@ void Z_PID_Reset(void) {
 	velocity_integral = 0.0f;
 	velocity_previous_error = 0.0f;
 	smoothed_velocity = 0.0f;
+	ramped_velocity = 0.0f;
 	last_encoder_value = Encoder_GetPosition_Z_AXIS();
 	last_encoder_value_initialized = true;
 	last_velocity_tick = HAL_GetTick();
@@ -139,7 +144,7 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 		last_encoder_value_initialized = true;
 	}
 	
-	/* Exakte Zeitdifferenz (ms) seit letztem Aufruf erfassen (schützt vor Display-/UART-Jitter) */
+	/* Exakte Zeitdifferenz (ms) seit letztem Aufruf erfassen (schÃ¼tzt vor Display-/UART-Jitter) */
 	uint32_t now = HAL_GetTick();
 	if (!last_velocity_tick_initialized) {
 		last_velocity_tick = now;
@@ -149,17 +154,23 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	last_velocity_tick = now;
 	if (dt_ms == 0u) {
 		dt_ms = 1u;
-	} else if (dt_ms > 20u) {
-		dt_ms = 1u;
 	}
 
 	int raw_delta = encoder_value - last_encoder_value;
 	last_encoder_value = encoder_value;
-	float raw_velocity = (float)raw_delta / (float)dt_ms;
+
+	float raw_velocity = 0.0f;
+	if (dt_ms > 20u) {
+		/* Hauptschleife war durch Display/UART blockiert -> keinen kÃ¼nstlichen Peak berechnen */
+		raw_velocity = 0.0f;
+		smoothed_velocity = 0.0f;
+	} else {
+		raw_velocity = (float)raw_delta / (float)dt_ms;
+	}
 	float actual_velocity = update_and_get_smoothed_velocity(raw_velocity);
 
-	/* --- Schutzüberwachung (Not-Stopp) --- */
-	/* 1. Überdrehzahl / Runaway */
+	/* --- SchutzÃ¼berwachung (Not-Stopp) --- */
+	/* 1. Ãœberdrehzahl / Runaway */
 	if (fabsf(actual_velocity) > MAX_SAFE_VELOCITY) {
 		snprintf(s_trip_reason, sizeof(s_trip_reason), "Speed: %.1f > %.0f Inc/ms", (double)fabsf(actual_velocity), (double)MAX_SAFE_VELOCITY);
 		return false;
@@ -178,7 +189,7 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 		}
 	}
 
-	/* --- Äußerer Regler: Position -> Soll-Geschwindigkeit --- */
+	/* --- Ã„uÃŸerer Regler: Position -> Soll-Geschwindigkeit --- */
 	int position_error = encoder_value - (int)Z_Axis_TargetPosition;
 	position_integral += (float)position_error;
 	clamp_position_integral();
@@ -197,8 +208,18 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
 
-	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */
-	float velocity_error = actual_velocity - desired_velocity;
+	/* Beschleunigungs- und Bremsrampe: Sanfter, ruckfreier Geschwindigkeitsverlauf (kein 1-0 Schaltschock) */
+	float vel_diff = desired_velocity - ramped_velocity;
+	if (vel_diff > MAX_ACCEL_PER_MS) {
+		ramped_velocity += MAX_ACCEL_PER_MS;
+	} else if (vel_diff < -MAX_ACCEL_PER_MS) {
+		ramped_velocity -= MAX_ACCEL_PER_MS;
+	} else {
+		ramped_velocity = desired_velocity;
+	}
+
+	/* --- Innerer Regler: Ist- vs. Gerampte Soll-Geschwindigkeit -> Spannung --- */
+	float velocity_error = actual_velocity - ramped_velocity;
 	velocity_integral += velocity_error;
 	clamp_velocity_integral();
 	float velocity_derivative = velocity_error - velocity_previous_error;
@@ -277,4 +298,3 @@ void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {
 	voltage = NEUTRAL_VOLTAGE;
 	ad5684_set_voltage(dac, voltage, z_mot);
 }
-

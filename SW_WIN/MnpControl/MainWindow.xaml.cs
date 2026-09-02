@@ -52,6 +52,17 @@ namespace MnpControl
         private const int LiveLogMaxLines = 200;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
+
+        private sealed class ScatterPoint
+        {
+            public int Cycle { get; init; }
+            public int TouchPos { get; init; }
+            public int Delta { get; init; }
+        }
+
+        private readonly List<ScatterPoint> _scatterPoints = new();
+        private int _expectedCycles = 10;
+
         private static readonly string PidPresetPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "MnpControl", "pid_z_presets.json");
@@ -371,11 +382,11 @@ namespace MnpControl
             if (msg.StartsWith("ZV:", StringComparison.Ordinal) || msg.StartsWith("ZV_SET:", StringComparison.Ordinal))
             {
                 string payload = msg.Substring(msg.IndexOf(':') + 1).Trim();
-                if (int.TryParse(payload, out int level) && level >= 1 && level <= 5)
+                if (int.TryParse(payload, out int level) && level >= 1 && level <= 10)
                 {
                     SldSpeedLevel.ValueChanged -= SldSpeedLevel_ValueChanged;
                     SldSpeedLevel.Value = level;
-                    TxtSpeedLevel.Text = $"Stufe: {level}/5";
+                    TxtSpeedLevel.Text = $"Stufe: {level}/10";
                     SldSpeedLevel.ValueChanged += SldSpeedLevel_ValueChanged;
                 }
                 return;
@@ -397,6 +408,42 @@ namespace MnpControl
                 {
                     AppendLiveLog("RX ZLIM parse error: " + payload);
                 }
+                return;
+            }
+
+            if (msg.StartsWith("TEST_B_REF:", StringComparison.Ordinal))
+            {
+                string posStr = msg.Substring(11).Trim();
+                AppendTestBLog($"=== Referenz-Höhe erfasst: {posStr} inc ===");
+                AppendTestBLog("Starte schnelle Zyklen (Nähmaschine)...");
+                return;
+            }
+
+            if (msg.StartsWith("TEST_B_CYCLE:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(13).Trim();
+                string[] parts = payload.Split(';');
+                if (parts.Length >= 7
+                    && int.TryParse(parts[0], out int cycle)
+                    && int.TryParse(parts[1], out int touchPos)
+                    && int.TryParse(parts[2], out int delta)
+                    && int.TryParse(parts[3], out int minPos)
+                    && int.TryParse(parts[4], out int maxPos)
+                    && int.TryParse(parts[5], out int range)
+                    && float.TryParse(parts[6], NumberStyles.Float, CultureInfo.InvariantCulture, out float mean))
+                {
+                    string sign = delta >= 0 ? "+" : "";
+                    string line = $"Zyklus {cycle:D2}: {touchPos,5} inc (Δ {sign}{delta,3} inc) | Min: {minPos} | Max: {maxPos} | Spanne: {range} inc";
+                    AppendTestBLog(line);
+                    AddScatterPoint(cycle, touchPos, delta, minPos, maxPos, range, mean);
+                }
+                return;
+            }
+
+            if (msg.StartsWith("TEST_B_SUMMARY:", StringComparison.Ordinal))
+            {
+                TxtStatus.Text = "Test B abgeschlossen";
+                AppendTestBSummary(msg);
                 return;
             }
 
@@ -554,6 +601,223 @@ namespace MnpControl
             TxtTestSummary.ScrollToEnd();
         }
 
+        private void AppendTestBLog(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+            while (_testSummaryLines.Count >= 20)
+            {
+                _testSummaryLines.Dequeue();
+            }
+            _testSummaryLines.Enqueue(line);
+            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            TxtTestSummary.ScrollToEnd();
+        }
+
+        private void AppendTestBSummary(string line)
+        {
+            string payload = line;
+            int idx = payload.IndexOf("TEST_B_SUMMARY:", StringComparison.Ordinal);
+            if (idx >= 0) payload = payload.Substring(idx + "TEST_B_SUMMARY:".Length);
+
+            Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string part in payload.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                int eqIndex = part.IndexOf('=');
+                if (eqIndex > 0)
+                {
+                    values[part.Substring(0, eqIndex)] = part.Substring(eqIndex + 1);
+                }
+            }
+
+            string cycles = values.TryGetValue("cycles", out string? c) ? c : "?";
+            string done = values.TryGetValue("done", out string? d) ? d : "?";
+            string zRef = values.TryGetValue("z_ref", out string? zr) ? zr : "?";
+            string zMin = values.TryGetValue("z_min", out string? zmn) ? zmn : "?";
+            string zMax = values.TryGetValue("z_max", out string? zmx) ? zmx : "?";
+            string deltaMin = values.TryGetValue("delta_min", out string? dmn) ? dmn : "?";
+            string deltaMax = values.TryGetValue("delta_max", out string? dmx) ? dmx : "?";
+            string range = values.TryGetValue("range", out string? rng) ? rng : "?";
+            string mean = values.TryGetValue("mean", out string? mn) ? mn : "?";
+            string baselineV = values.TryGetValue("baseline_v", out string? bv) ? bv : "?";
+            string trigV = values.TryGetValue("trig_v", out string? tv) ? tv : "?";
+
+            float.TryParse(range, NumberStyles.Float, CultureInfo.InvariantCulture, out float rangeVal);
+
+            string sep = new string('=', 46);
+            _testSummaryLines.Enqueue(sep);
+            _testSummaryLines.Enqueue($"=== TEST B: BAUTEIL-ANTASTUNG & STREUUNG ===");
+            _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles}");
+            _testSummaryLines.Enqueue($"Start-Referenz (Z0): {zRef} inc");
+            _testSummaryLines.Enqueue($"Niedrigster Wert:    {zMin} inc (Delta: {deltaMin} inc)");
+            _testSummaryLines.Enqueue($"Höchster Wert:       {zMax} inc (Delta: +{deltaMax} inc)");
+            _testSummaryLines.Enqueue($"STREUUNG / SPANNE:   {range} inc (±{rangeVal / 2.0f:F1} inc)");
+            _testSummaryLines.Enqueue($"Mittelwert:          {mean} inc");
+            _testSummaryLines.Enqueue($"Sensor-Standby:      {baselineV} V (Trigger: {trigV} V)");
+            _testSummaryLines.Enqueue(sep);
+
+            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            TxtTestSummary.ScrollToEnd();
+        }
+
+        private void AddScatterPoint(int cycle, int touchPos, int delta, int minPos, int maxPos, int range, float mean)
+        {
+            _scatterPoints.Add(new ScatterPoint { Cycle = cycle, TouchPos = touchPos, Delta = delta });
+            string sign = delta >= 0 ? "+" : "";
+            TxtScatterStatsLive.Text = $"Zyklus {cycle:D2}/{_expectedCycles} | Letztes Δ: {sign}{delta} inc | Spanne: {range} inc (±{range / 2.0f:F1}) | Mittel: {mean:F1} inc";
+            RedrawScatterCanvas();
+        }
+
+        private void CanvasScatter_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            RedrawScatterCanvas();
+        }
+
+        private void RedrawScatterCanvas()
+        {
+            if (CanvasScatter == null) return;
+            CanvasScatter.Children.Clear();
+
+            double w = CanvasScatter.ActualWidth;
+            double h = CanvasScatter.ActualHeight;
+            if (w < 60 || h < 40) return;
+
+            double left = 32;
+            double right = 15;
+            double top = 12;
+            double bottom = 15;
+            double plotW = w - left - right;
+            double plotH = h - top - bottom;
+            double centerY = top + plotH / 2.0;
+
+            int maxAbsDelta = 10;
+            if (_scatterPoints.Count > 0)
+            {
+                maxAbsDelta = Math.Max(maxAbsDelta, _scatterPoints.Max(p => Math.Abs(p.Delta)));
+            }
+            int yRange = Math.Max(15, (int)(maxAbsDelta * 1.3));
+
+            // Nulllinie (Mitte)
+            var zeroLine = new System.Windows.Shapes.Line
+            {
+                X1 = left,
+                Y1 = centerY,
+                X2 = left + plotW,
+                Y2 = centerY,
+                Stroke = new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                StrokeThickness = 1.0,
+                StrokeDashArray = new DoubleCollection { 4, 3 }
+            };
+            CanvasScatter.Children.Add(zeroLine);
+
+            var zeroText = new TextBlock
+            {
+                Text = " 0",
+                FontSize = 9.5,
+                FontFamily = new FontFamily("Consolas, monospace"),
+                Foreground = new SolidColorBrush(Color.FromRgb(56, 189, 248))
+            };
+            Canvas.SetLeft(zeroText, 6);
+            Canvas.SetTop(zeroText, centerY - 7);
+            CanvasScatter.Children.Add(zeroText);
+
+            // Obere & Untere Toleranz-Rasterlinien
+            var topLine = new System.Windows.Shapes.Line
+            {
+                X1 = left,
+                Y1 = top,
+                X2 = left + plotW,
+                Y2 = top,
+                Stroke = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                StrokeThickness = 0.8,
+                StrokeDashArray = new DoubleCollection { 2, 2 }
+            };
+            CanvasScatter.Children.Add(topLine);
+
+            var topText = new TextBlock
+            {
+                Text = $"+{yRange}",
+                FontSize = 8.5,
+                FontFamily = new FontFamily("Consolas, monospace"),
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+            };
+            Canvas.SetLeft(topText, 2);
+            Canvas.SetTop(topText, top - 6);
+            CanvasScatter.Children.Add(topText);
+
+            var botLine = new System.Windows.Shapes.Line
+            {
+                X1 = left,
+                Y1 = top + plotH,
+                X2 = left + plotW,
+                Y2 = top + plotH,
+                Stroke = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                StrokeThickness = 0.8,
+                StrokeDashArray = new DoubleCollection { 2, 2 }
+            };
+            CanvasScatter.Children.Add(botLine);
+
+            var botText = new TextBlock
+            {
+                Text = $"-{yRange}",
+                FontSize = 8.5,
+                FontFamily = new FontFamily("Consolas, monospace"),
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+            };
+            Canvas.SetLeft(botText, 2);
+            Canvas.SetTop(botText, top + plotH - 6);
+            CanvasScatter.Children.Add(botText);
+
+            if (_scatterPoints.Count == 0) return;
+
+            int totalCycles = Math.Max(10, Math.Max(_expectedCycles, _scatterPoints.Count));
+            Point? prevPoint = null;
+
+            foreach (var p in _scatterPoints)
+            {
+                double x = left + (p.Cycle <= 1 ? 0 : (p.Cycle - 1.0) / (totalCycles - 1.0) * plotW);
+                double y = centerY - (p.Delta / (double)yRange) * (plotH / 2.0);
+                if (y < top) y = top;
+                if (y > top + plotH) y = top + plotH;
+
+                Point curPoint = new Point(x, y);
+
+                // Verbindungslinie
+                if (prevPoint.HasValue)
+                {
+                    var seg = new System.Windows.Shapes.Line
+                    {
+                        X1 = prevPoint.Value.X,
+                        Y1 = prevPoint.Value.Y,
+                        X2 = curPoint.X,
+                        Y2 = curPoint.Y,
+                        Stroke = new SolidColorBrush(Color.FromArgb(180, 56, 189, 248)),
+                        StrokeThickness = 1.5
+                    };
+                    CanvasScatter.Children.Add(seg);
+                }
+                prevPoint = curPoint;
+
+                // Punkt (Farbcodiert nach Abweichung)
+                Color dotColor = Math.Abs(p.Delta) <= 5 ? Color.FromRgb(34, 197, 94) :
+                                 Math.Abs(p.Delta) <= 15 ? Color.FromRgb(56, 189, 248) :
+                                 Math.Abs(p.Delta) <= 30 ? Color.FromRgb(245, 158, 11) :
+                                                           Color.FromRgb(239, 68, 68);
+
+                var dot = new System.Windows.Shapes.Ellipse
+                {
+                    Width = 7,
+                    Height = 7,
+                    Fill = new SolidColorBrush(dotColor),
+                    Stroke = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+                    StrokeThickness = 1.0,
+                    ToolTip = $"Zyklus {p.Cycle}: {p.TouchPos} inc (Δ {(p.Delta >= 0 ? "+" : "")}{p.Delta} inc)"
+                };
+                Canvas.SetLeft(dot, x - 3.5);
+                Canvas.SetTop(dot, y - 3.5);
+                CanvasScatter.Children.Add(dot);
+            }
+        }
+
         private static string GetStateFriendlyName(string state) => state switch
         {
             "IDLE_START"          => "Warte auf Referenzlauf",
@@ -575,9 +839,8 @@ namespace MnpControl
             bool isConnected  = _devConnection != null && _devConnection.IsOpen;
 
             BtnStartReferenceRun.IsEnabled = canRef;
-            BtnStartDemo.IsEnabled         = isTestStart;
-            BtnStartShort.IsEnabled        = isTestStart;
-            BtnStartLong.IsEnabled         = isTestStart;
+            BtnStartTestA.IsEnabled        = isTestStart;
+            BtnStartTestB.IsEnabled        = isTestStart;
             BtnTestStart.IsEnabled         = isIdle || state == "COMPLETED" || state == "STOP" || state == "FEHLER";
             BtnStop.IsEnabled              = isRunning;
             BtnUp.IsEnabled                = isTestStart;
@@ -799,20 +1062,7 @@ namespace MnpControl
             SendCommand("s");
         }
 
-        private void BtnStartDemoRun_Click(object sender, RoutedEventArgs e)
-        {
-            SendCommand("1");
-        }
 
-        private void BtnStartShortRun_Click(object sender, RoutedEventArgs e)
-        {
-            SendCommand("2");
-        }
-
-        private void BtnStartLongRun_Click(object sender, RoutedEventArgs e)
-        {
-            SendCommand("3");
-        }
 
         private void BtnReset_Click(object sender, RoutedEventArgs e)
         {
@@ -887,6 +1137,9 @@ namespace MnpControl
         {
             TxtTestSummary.Clear();
             _testSummaryLines.Clear();
+            _scatterPoints.Clear();
+            RedrawScatterCanvas();
+            TxtScatterStatsLive.Text = "Warte auf Messwerte...";
         }
 
         private void BtnClearLog_Click(object sender, RoutedEventArgs e)
@@ -917,6 +1170,56 @@ namespace MnpControl
                 TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(15, 23, 42));
                 TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(203, 213, 225));
             }
+        }
+
+
+
+        private void BtnStartTestA_Click(object sender, RoutedEventArgs e)
+        {
+            if (!uint.TryParse(TxtTestCycles.Text.Trim(), out uint cycles) || cycles == 0)
+            {
+                MessageBox.Show("Bitte eine gültige Zyklenzahl eingeben (z.B. 10, 50, 100).", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            _testSummaryLines.Clear();
+            _testSummaryLines.Enqueue($"=== TEST A GESTARTET ({cycles} Zyklen) ===");
+            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            SendCommand($"TA={cycles}");
+        }
+
+        private void BtnStartTestB_Click(object sender, RoutedEventArgs e)
+        {
+            if (!uint.TryParse(TxtTestCycles.Text.Trim(), out uint cycles) || cycles == 0)
+            {
+                MessageBox.Show("Bitte eine gültige Zyklenzahl eingeben (z.B. 10, 50, 100).", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            float dmot = 3.3f;
+            if (float.TryParse(TxtDMotVoltage.Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDmot))
+            {
+                dmot = parsedDmot;
+            }
+
+            uint deltaMv = 90;
+            if (uint.TryParse(TxtTriggerDeltaMv.Text.Trim(), out uint parsedDelta))
+            {
+                deltaMv = parsedDelta;
+            }
+
+            SendCommand($"CFG_TB:{dmot.ToString("F2", CultureInfo.InvariantCulture)};{deltaMv}");
+
+            _expectedCycles = (int)cycles;
+            _scatterPoints.Clear();
+            RedrawScatterCanvas();
+            TxtScatterStatsLive.Text = $"Starte {_expectedCycles} Zyklen...";
+
+            _testSummaryLines.Clear();
+            _testSummaryLines.Enqueue($"=== TEST B GESTARTET: ANTASTUNG & STREUUNG ({cycles} Zyklen) ===");
+            _testSummaryLines.Enqueue($"Parameter: Druckmotor={dmot:F2}V, Trigger-Delta={deltaMv}mV");
+            _testSummaryLines.Enqueue("Fahre 1. Referenz-Antastung an...");
+            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            SendCommand($"TB={cycles}");
         }
 
         private void BtnTestStart_click(object sender, RoutedEventArgs e)

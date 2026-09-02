@@ -15,6 +15,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+/* Test-Modi:
+ * TESTRUN_MODE_A_CLASSIC: Klassischer Dauertest (GO_UP / GO_DOWN zwischen NO-Sensor und Start)
+ * TESTRUN_MODE_B_PROBE_SCATTER: Bauteil-Antastung & Streuungs-Ermittlung */
+typedef enum {
+    TESTRUN_MODE_A_CLASSIC = 0,
+    TESTRUN_MODE_B_PROBE_SCATTER = 1,
+} TestRunMode_t;
+
 /* Rückgabewert von TestRun_Tick() */
 typedef enum {
     TESTRUN_CONTINUE,   /* Test läuft weiter              */
@@ -46,6 +54,19 @@ typedef struct {
     int32_t  last_cycle_lost_steps;/* Bewegungsverlust / fehlende Schritte     */
 } TestRunStats_t;
 
+/* Streuungs-Statistik für Test B */
+typedef struct {
+    int32_t  z_ref_pos;          /* Referenzposition (Zyklus 1) in inc */
+    int32_t  z_last_probe_pos;   /* Letzte Antastposition in inc */
+    int32_t  last_delta;         /* Abweichung zum Referenzwert in inc */
+    int32_t  z_min_pos;          /* Kleinste Antastposition */
+    int32_t  z_max_pos;          /* Größte Antastposition */
+    int32_t  scatter_range;      /* Spanne (Max - Min) in inc */
+    float    mean_pos;           /* Arithmetischer Mittelwert */
+    uint16_t baseline_adc;       /* Offset-Spannung in Standby (ADC) */
+    uint16_t trigger_adc;        /* Auslöse-Schwellwert (ADC) */
+} TestBScatterStats_t;
+
 typedef struct {
     uint32_t cycle_index;
     int32_t  start_pos;
@@ -59,6 +80,7 @@ typedef struct {
 
 /* Test initialisieren (vor jedem Teststart aufrufen) */
 void             TestRun_Init(uint32_t num_cycles);
+void             TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles);
 
 /* Tick-Funktion — einmal pro Hauptschleifen-Iteration aufrufen.
  * tick_100ms_elapsed: true wenn seit dem letzten Aufruf 100 ms vergangen sind. */
@@ -70,6 +92,12 @@ void             TestRun_GetErrorMessage(char *buf, size_t len);
 /* Statistiken des letzten / laufenden Tests abrufen */
 void             TestRun_GetStats(TestRunStats_t *out);
 
+/* Streuungs-Statistik von Test B abrufen */
+void             TestRun_GetScatterStats(TestBScatterStats_t *out);
+
+/* Aktuellen Test-Modus abrufen */
+TestRunMode_t    TestRun_GetMode(void);
+
 /* Messdaten des zuletzt abgeschlossenen Zyklus abrufen */
 void             TestRun_GetLastCycleMetrics(TestRunCycleMetrics_t *out);
 
@@ -77,5 +105,11 @@ void             TestRun_GetLastCycleMetrics(TestRunCycleMetrics_t *out);
 uint32_t         TestRun_GetCurrentCycle(void);
 uint32_t         TestRun_GetTotalCycles(void);
 const char      *TestRun_GetPhaseName(void);
+
+/* Parameter-Konfiguration für Testläufe */
+void             TestRun_SetDruckmotorVoltage(float voltage);
+float            TestRun_GetDruckmotorVoltage(void);
+void             TestRun_SetTriggerDeltaMv(uint32_t mv);
+uint32_t         TestRun_GetTriggerDeltaMv(void);
 
 #endif /* SRC_TEST_RUN_H_ */

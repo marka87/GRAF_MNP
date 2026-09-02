@@ -56,6 +56,7 @@ void Error_Handler(void);
 void Z_Target_SetRequested(uint32_t target);
 void Z_Target_SetRequestedDirect(uint32_t target);
 uint32_t Z_Target_GetRequested(void);
+void uart_send_text(const char *text, uint32_t timeout);
 
 /* USER CODE END EFP */
 
