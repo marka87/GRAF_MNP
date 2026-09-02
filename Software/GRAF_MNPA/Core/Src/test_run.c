@@ -30,10 +30,9 @@ extern uint32_t        z_encoder_start;
 extern uint32_t        z_encoder_end;
 
 /* Druckmotor-Spannung wÃ¤hrend der TestlÃ¤ufe (Gegendruck zur Vermeidung von Fehltriggerung) */
-#define TEST_D_MOT_VOLTAGE_DEFAULT   3.5f
+#define TEST_D_MOT_VOLTAGE_DEFAULT   3.0f
 
 /* Drucksensor-Schwellwert fÃ¼r Test A Kollisionsschutz (Sensor voll eingedrÃ¼ckt) */
-#define DS_ACTIVE_THRESHOLD          410u
 
 /* GO_UP-Puffer oberhalb der NO-Sensor-Position bis zur Zielposition */
 #define GO_UP_OVERSHOOT              350u
@@ -433,15 +432,20 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     /* =========================================================================
      * TEST MODUS A: KLASSISCHER DAUERTEST (OHNE BAUTEIL)
      * ========================================================================= */
-    /* In Test A dient der Drucksensor als reiner Kollisionsschutz (z.B. Hindernis) */
-    if (ds_value >= s_ds_trigger_threshold) {
-        s_ds_accel_fault_debounce++;
-        if (s_ds_accel_fault_debounce >= 8u) {
-            s_stats.invalid_sensor_events++;
-            s_stats.ds_errors++;
-            s_stats.motor_faults++;
-            snprintf(s_error_msg, sizeof(s_error_msg), "Druck-Sen Kollision: %u @ %ld", ds_value, (long)z_pos);
-            return TESTRUN_ERROR;
+    /* In Test A dient der Drucksensor als Kollisionsschutz gegen Hindernisse am Tisch (unten < 1200).
+     * Oben (> 1200) federt der Hebel beim rasanten Umkehren traegheitsbedingt aus. */
+    if (s_phase == PHASE_A_GO_DOWN && z_pos < 1200) {
+        if (ds_value >= s_ds_trigger_threshold) {
+            s_ds_accel_fault_debounce++;
+            if (s_ds_accel_fault_debounce >= 8u) {
+                s_stats.invalid_sensor_events++;
+                s_stats.ds_errors++;
+                s_stats.motor_faults++;
+                snprintf(s_error_msg, sizeof(s_error_msg), "Kollision Tisch: %u @ %ld", ds_value, (long)z_pos);
+                return TESTRUN_ERROR;
+            }
+        } else {
+            s_ds_accel_fault_debounce = 0;
         }
     } else {
         s_ds_accel_fault_debounce = 0;
