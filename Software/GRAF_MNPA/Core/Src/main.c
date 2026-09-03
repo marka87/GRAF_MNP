@@ -289,13 +289,7 @@ void update_display() {
 		return;
 	}
 
-	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
-	int32_t a_axis_position = Encoder_GetPosition_A_AXIS();
 	int32_t z_axis_position = Encoder_GetPosition_Z_AXIS();
-	float z_dac_voltage = voltage;
-
-	uint16_t raw_value = ADC_Drucksensor(&hadc1);
-	float sensorVoltage = (float) raw_value * (5.0f / 4095.0f);
 
 	const char *st_name = "BEREIT";
 	if (current_state == IDLE_START) st_name = "BITTE REFERENZIEREN";
@@ -315,10 +309,17 @@ void update_display() {
 	display_jazz_write_string_5x7(&display1, 4, display_buffer[4]);
 	display_jazz_write_string_5x7(&display1, 7, display_buffer[7]);
 
-	char datablock[256];
-	sprintf(datablock, "%d;%.3f;%ld;%ld;%ld;%.3f\r\n", no_sen_state,
-			sensorVoltage, (long)a_axis_position, (long)z_axis_position,
-			(long)Z_Axis_TargetPosition, z_dac_voltage);
+	/* Live-Telemetrie fuer Windows GUI (wird waehrend TEST_RUN ohnehin oben uebersprungen) */
+	GPIO_PinState no_sen_state = HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin);
+	int32_t a_axis_position = Encoder_GetPosition_A_AXIS();
+	float z_dac_voltage = voltage;
+	uint16_t raw_value = ADC_Drucksensor(&hadc1);
+	float sensorVoltage = (float)raw_value * (5.0f / 4095.0f);
+
+	char datablock[96];
+	snprintf(datablock, sizeof(datablock), "%d;%.3f;%ld;%ld;%ld;%.3f\r\n",
+			(int)no_sen_state, sensorVoltage, (long)a_axis_position,
+			(long)z_axis_position, (long)Z_Axis_TargetPosition, z_dac_voltage);
 	uart_send_text(datablock, 50);
 }
 
