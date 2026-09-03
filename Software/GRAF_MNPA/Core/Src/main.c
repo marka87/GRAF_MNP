@@ -621,22 +621,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		TestRunStats_t stats;
-
-		/* Druckmotor-Spannung nur bei Zustandswechsel einmalig neutralisieren (entlastet SPI-Bus) */
-		static run_state_t s_last_motor_state = STOP;
-		if (current_state != s_last_motor_state) {
-			if (current_state != TEST_RUN) {
-				d_mot_control(&dac, 2.5f);
-			}
-			s_last_motor_state = current_state;
-		}
-
 		if (current_state == IDLE_START) {
 			white_light();
+			d_mot_control(&dac, 2.5f);
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 500;
 				uart_send_status();
 				uart_send_text("Bitte Referenzieren\r\n", 100);
+			}
+
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				current_state = EXEC_REFERENCE_RUN;
 			}
 			//Referenzlauf starten
 		} else if (current_state == EXEC_REFERENCE_RUN) {
@@ -660,7 +656,6 @@ int main(void)
 			} else {
 				uart_send_status();
 				uart_send_text("A-Achse Referenz Fehler\r\n", 1000);
-				sprintf(display_buffer[6], "A-Achse Ref. Fehler");
 			    strcpy(error_message, "A-Achse Referenzfehler");
 				red_light();
 				current_state = FEHLER;
@@ -676,22 +671,47 @@ int main(void)
 
 		} else if (current_state == TEST_START) {
 			white_light();
+			d_mot_control(&dac, 2.5f);
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 500;
 				uart_send_status();
 				uart_send_text("Modus?\r\n", 100);
 			}
+			if (btn_up_pressed) {
+					btn_up_pressed = 0;
+					TestRun_Init(100);
+					current_state = TEST_RUN; // DEMO-Modus
+				} else if (btn_ok_pressed) {
+					btn_ok_pressed = 0;
+					TestRun_Init(1000);
+					current_state = TEST_RUN; // KURZ-Modus
+				} else if (btn_down_pressed) {
+					btn_down_pressed = 0;
+					TestRun_Init(10000);
+					current_state = TEST_RUN; // LANG-Modus
+				}
+			//Testlauf durchführen
+			} else if (current_state == TEST_RUN) {
+				white_light();
 
-		//Testlauf durchführen
-		} else if (current_state == TEST_RUN) {
-			white_light();
+				bool tick = tick_100ms_testrun_elapsed;
+				if (tick) tick_100ms_testrun_elapsed = false;
 
-			bool tick = tick_100ms_testrun_elapsed;
-			if (tick) tick_100ms_testrun_elapsed = false;
+				TestRunResult_t result = TestRun_Tick(tick);
+				uint32_t cyc = TestRun_GetCurrentCycle();
+				uint32_t tot = TestRun_GetTotalCycles();
 
-			TestRunResult_t result = TestRun_Tick(tick);
+				if (TestRun_GetMode() != TESTRUN_MODE_B_PROBE_SCATTER) {
+					if (HAL_GetTick() >= next_uart_status_tick) {
+						next_uart_status_tick = HAL_GetTick() + 500;
+						uart_send_status();
+						char info[40];
+						snprintf(info, sizeof(info), "TEST %lu/%lu\r\n", cyc, tot);
+						uart_send_text(info, 50);
+					}
+				}
 
-			if (result == TESTRUN_COMPLETE) {
+				if (result == TESTRUN_COMPLETE) {
 					completed_stats_sent = false;
 					test_summary_sent = false;
 					current_state = COMPLETED;
@@ -719,75 +739,55 @@ int main(void)
 					current_state = FEHLER;
 				}
 			} else if (current_state == STOP) {
-				yellow_light();
-				if (HAL_GetTick() >= next_uart_status_tick) {
-					next_uart_status_tick = HAL_GetTick() + 1000;
-					uart_send_status();
-					uart_send_text("Test abgebrochen\r\n", 50);
-				}
-			} else if (current_state == COMPLETED) {
-				green_light();
+			d_mot_control(&dac, 2.5f);
+			yellow_light();
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("Test abgebrochen\r\n", 50);
+			}
+			Z_Target_SetRequestedDirect((z_encoder_start + z_encoder_end) / 2);
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
+				Z_PID_Reset();
+				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+				Z_Target_SetRequestedDirect(home_pos);
+				current_state = TEST_START;
+			}
+		} else if (current_state == COMPLETED) {
+			green_light();
+			d_mot_control(&dac, 2.5f);
 
-				/* Statistiken und Pufferdaten einmalig nach Testabschluss senden */
-				if (!completed_stats_sent) {
-					completed_stats_sent = true;
-					if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
-						TestBScatterStats_t b_stats;
-						TestRun_GetScatterStats(&b_stats);
-						char stats_msg[380];
-						snprintf(stats_msg, sizeof(stats_msg),
-							"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f\r\n\r\n",
-							stats.total_cycles, stats.completed_cycles,
-							(long)b_stats.z_ref_pos,
-							(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
-							(long)(b_stats.z_min_pos - b_stats.z_ref_pos),
-							(long)(b_stats.z_max_pos - b_stats.z_ref_pos),
-							(long)b_stats.scatter_range,
-							(double)b_stats.mean_pos,
-							(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
-							(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)));
-						uart_send_text(stats_msg, 100);
-					} else {
-						char stats_msg[320];
-						uint32_t time_min = stats.test_time_ms / 60000u;
-						uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
-						const char *phase = TestRun_GetPhaseName();
-						snprintf(stats_msg, sizeof(stats_msg),
-							"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
-							stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
-							stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
-							(long)stats.z_ist_min, (long)stats.z_ist_max,
-							(long)stats.z_soll_min, (long)stats.z_soll_max,
-							(long)stats.last_ist_pos, (long)stats.last_soll_pos,
-							phase,
-							time_min, time_sec,
-							(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-							(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
-						uart_send_text(stats_msg, 100);
-					}
-				}
+			TestRun_GetStats(&stats);
 
-				if (HAL_GetTick() >= next_uart_status_tick) {
-					next_uart_status_tick = HAL_GetTick() + 1000;
-					uart_send_status();
-					uart_send_text("Test abgeschlossen\r\n", 50);
-				}
-				Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
-			} else if (current_state == FEHLER) {
-				red_light();
-				if (HAL_GetTick() >= next_uart_status_tick) {
-					next_uart_status_tick = HAL_GetTick() + 1000;
-					uart_send_status();
-					uart_send_text("FEHLER\r\n", 50);
-				}
-				if (!test_summary_sent) {
-					TestRun_GetStats(&stats);
-					char summary[400];
+			/* Statistiken und Pufferdaten einmalig nach Testabschluss senden */
+			if (!completed_stats_sent) {
+				completed_stats_sent = true;
+				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
+					TestBScatterStats_t b_stats;
+					TestRun_GetScatterStats(&b_stats);
+					char stats_msg[380];
+					snprintf(stats_msg, sizeof(stats_msg),
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f\r\n\r\n",
+						stats.total_cycles, stats.completed_cycles,
+						(long)b_stats.z_ref_pos,
+						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
+						(long)(b_stats.z_min_pos - b_stats.z_ref_pos),
+						(long)(b_stats.z_max_pos - b_stats.z_ref_pos),
+						(long)b_stats.scatter_range,
+						(double)b_stats.mean_pos,
+						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
+						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)));
+					uart_send_text(stats_msg, 100);
+				} else {
+					char stats_msg[320];
 					uint32_t time_min = stats.test_time_ms / 60000u;
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 					const char *phase = TestRun_GetPhaseName();
-					snprintf(summary, sizeof(summary),
-						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
+					snprintf(stats_msg, sizeof(stats_msg),
+						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -796,12 +796,60 @@ int main(void)
 						phase,
 						time_min, time_sec,
 						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
-					uart_send_text(summary, 100);
-					test_summary_sent = true;
+						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
+					uart_send_text(stats_msg, 100);
 				}
-				Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 			}
+
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("Test abgeschlossen\r\n", 50);
+			}
+			Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				current_state = TEST_START;
+			}
+		} else if (current_state == FEHLER) {
+			red_light();
+			d_mot_control(&dac, 2.5f);
+			if (HAL_GetTick() >= next_uart_status_tick) {
+				next_uart_status_tick = HAL_GetTick() + 1000;
+				uart_send_status();
+				uart_send_text("FEHLER\r\n", 50);
+			}
+			if (!test_summary_sent) {
+				TestRun_GetStats(&stats);
+				char summary[400];
+				uint32_t time_min = stats.test_time_ms / 60000u;
+				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
+				const char *phase = TestRun_GetPhaseName();
+				snprintf(summary, sizeof(summary),
+					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
+					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
+					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
+					(long)stats.z_ist_min, (long)stats.z_ist_max,
+					(long)stats.z_soll_min, (long)stats.z_soll_max,
+					(long)stats.last_ist_pos, (long)stats.last_soll_pos,
+					phase,
+					time_min, time_sec,
+					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
+					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
+				uart_send_text(summary, 100);
+				test_summary_sent = true;
+			}
+			Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
+			if (btn_ok_pressed) {
+				btn_ok_pressed = 0;
+				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
+				Z_PID_Reset();
+				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+				Z_Target_SetRequestedDirect(home_pos);
+				current_state = TEST_START;
+			}
+		}
 		// Accumulate UART bytes into lines, process on '\n'
 		// Single-char and multi-char commands (e.g. "Z1500\n") both work
 		static char uart_line_buf[64];
