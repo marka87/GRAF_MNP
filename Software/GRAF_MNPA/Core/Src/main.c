@@ -621,18 +621,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 	while (1) {
 		TestRunStats_t stats;
+
+		/* Druckmotor nur bei Zustandswechsel neutralisieren (entlastet SPI-Bus) */
+		static run_state_t s_last_motor_state = STOP;
+		if (current_state != s_last_motor_state) {
+			if (current_state != TEST_RUN) {
+				d_mot_control(&dac, 2.5f);
+			}
+			s_last_motor_state = current_state;
+		}
+
 		if (current_state == IDLE_START) {
 			white_light();
-			d_mot_control(&dac, 2.5f);
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 500;
 				uart_send_status();
 				uart_send_text("Bitte Referenzieren\r\n", 100);
-			}
-
-			if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				current_state = EXEC_REFERENCE_RUN;
 			}
 			//Referenzlauf starten
 		} else if (current_state == EXEC_REFERENCE_RUN) {
@@ -671,25 +675,11 @@ int main(void)
 
 		} else if (current_state == TEST_START) {
 			white_light();
-			d_mot_control(&dac, 2.5f);
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 500;
 				uart_send_status();
 				uart_send_text("Modus?\r\n", 100);
 			}
-			if (btn_up_pressed) {
-					btn_up_pressed = 0;
-					TestRun_Init(100);
-					current_state = TEST_RUN; // DEMO-Modus
-				} else if (btn_ok_pressed) {
-					btn_ok_pressed = 0;
-					TestRun_Init(1000);
-					current_state = TEST_RUN; // KURZ-Modus
-				} else if (btn_down_pressed) {
-					btn_down_pressed = 0;
-					TestRun_Init(10000);
-					current_state = TEST_RUN; // LANG-Modus
-				}
 			//Testlauf durchführen
 			} else if (current_state == TEST_RUN) {
 				white_light();
@@ -739,26 +729,14 @@ int main(void)
 					current_state = FEHLER;
 				}
 			} else if (current_state == STOP) {
-			d_mot_control(&dac, 2.5f);
 			yellow_light();
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 1000;
 				uart_send_status();
 				uart_send_text("Test abgebrochen\r\n", 50);
 			}
-			Z_Target_SetRequestedDirect((z_encoder_start + z_encoder_end) / 2);
-			if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
-				Z_PID_Reset();
-				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
-				Z_Target_SetRequestedDirect(home_pos);
-				current_state = TEST_START;
-			}
 		} else if (current_state == COMPLETED) {
 			green_light();
-			d_mot_control(&dac, 2.5f);
 
 			TestRun_GetStats(&stats);
 
@@ -807,13 +785,8 @@ int main(void)
 				uart_send_text("Test abgeschlossen\r\n", 50);
 			}
 			Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
-			if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				current_state = TEST_START;
-			}
 		} else if (current_state == FEHLER) {
 			red_light();
-			d_mot_control(&dac, 2.5f);
 			if (HAL_GetTick() >= next_uart_status_tick) {
 				next_uart_status_tick = HAL_GetTick() + 1000;
 				uart_send_status();
@@ -840,15 +813,6 @@ int main(void)
 				test_summary_sent = true;
 			}
 			Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
-			if (btn_ok_pressed) {
-				btn_ok_pressed = 0;
-				HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(GPIOB, A_AX_REL_EN_Pin, GPIO_PIN_SET);
-				Z_PID_Reset();
-				uint32_t home_pos = (z_ax_no_pos > 0) ? (z_ax_no_pos + 50) : clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
-				Z_Target_SetRequestedDirect(home_pos);
-				current_state = TEST_START;
-			}
 		}
 		// Accumulate UART bytes into lines, process on '\n'
 		// Single-char and multi-char commands (e.g. "Z1500\n") both work
