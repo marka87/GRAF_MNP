@@ -688,18 +688,6 @@ int main(void)
 				if (tick) tick_100ms_testrun_elapsed = false;
 
 				TestRunResult_t result = TestRun_Tick(tick);
-				uint32_t cyc = TestRun_GetCurrentCycle();
-				uint32_t tot = TestRun_GetTotalCycles();
-
-				if (TestRun_GetMode() != TESTRUN_MODE_B_PROBE_SCATTER) {
-					if (HAL_GetTick() >= next_uart_status_tick) {
-						next_uart_status_tick = HAL_GetTick() + 500;
-						uart_send_status();
-						char info[40];
-						snprintf(info, sizeof(info), "TEST %lu/%lu\r\n", cyc, tot);
-						uart_send_text(info, 50);
-					}
-				}
 
 				if (result == TESTRUN_COMPLETE) {
 					completed_stats_sent = false;
