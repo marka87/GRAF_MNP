@@ -13,6 +13,7 @@
 #include "ADC_read.h"
 #include "encoder.h"
 #include "d_mot_control.h"
+
 #include "data_buffer.h"
 #include "Reference_Run.h"
 #include "Z_PID_Control.h"
@@ -264,7 +265,10 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
 
     int32_t top_zone     = (int32_t)z_ax_no_pos - (int32_t)REVERSAL_BLANKING_MARGIN;
-    int32_t contact_zone = s_scatter_stats.z_ref_pos + 150;
+    int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
+    int32_t braking_dist = (int32_t)(s_fast_speed_level * 80);
+    if (braking_dist < 300) braking_dist = 300;
+    int32_t braking_zone = s_scatter_stats.z_ref_pos + braking_dist;
     int32_t takeoff_zone = s_scatter_stats.z_ref_pos + 1300;
 
     /* =========================================================================
@@ -358,7 +362,13 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             }
         }
         else if (s_phase == PHASE_B_FAST_DOWN) {
-            Z_PID_SetSpeedLevel(s_fast_speed_level);
+            /* Oberhalb der Bremszone mit voller Reisegeschwindigkeit nach unten sprinten */
+            if (z_pos > braking_zone) {
+                Z_PID_SetSpeedLevel(s_fast_speed_level);
+            } else {
+                /* In der Bremszone rechtzeitig vor dem Klotz abbremsen (geraeuschlos & materialschonend) */
+                Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
+            }
 
             int32_t down_target = s_scatter_stats.z_ref_pos - 25;
             if (down_target < (int32_t)z_encoder_start) down_target = (int32_t)z_encoder_start;
