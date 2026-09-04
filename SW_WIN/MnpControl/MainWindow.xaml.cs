@@ -435,10 +435,16 @@ namespace MnpControl
                     && int.TryParse(parts[5], out int range)
                     && float.TryParse(parts[6].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float mean))
                 {
+                    uint elapsedMs = 0;
+                    if (parts.Length >= 8)
+                    {
+                        uint.TryParse(parts[7], out elapsedMs);
+                    }
                     string sign = delta >= 0 ? "+" : "";
-                    string line = $"Zyklus {cycle:D2}: {touchPos,5} inc (Δ {sign}{delta,3} inc) | Min: {minPos} | Max: {maxPos} | Spanne: {range} inc";
+                    string timeStr = elapsedMs > 0 ? $" | Zeit: {elapsedMs / 1000.0f:F2}s" : "";
+                    string line = $"Zyklus {cycle:D2}: {touchPos,5} inc (Δ {sign}{delta,3} inc){timeStr} | Min: {minPos} | Max: {maxPos} | Spanne: {range} inc";
                     AppendTestBLog(line);
-                    AddScatterPoint(cycle, touchPos, delta, minPos, maxPos, range, mean);
+                    AddScatterPoint(cycle, touchPos, delta, minPos, maxPos, range, mean, elapsedMs);
                 }
                 return;
             }
@@ -643,13 +649,26 @@ namespace MnpControl
             string mean = values.TryGetValue("mean", out string? mn) ? mn : "?";
             string baselineV = values.TryGetValue("baseline_v", out string? bv) ? bv : "?";
             string trigV = values.TryGetValue("trig_v", out string? tv) ? tv : "?";
+            string timeMsStr = values.TryGetValue("time_ms", out string? tm) ? tm : null;
 
             float.TryParse(range, NumberStyles.Float, CultureInfo.InvariantCulture, out float rangeVal);
+            int.TryParse(done, out int doneVal);
 
             string sep = new string('=', 46);
             _testSummaryLines.Enqueue(sep);
-            _testSummaryLines.Enqueue($"=== TEST B: BAUTEIL-ANTASTUNG & STREUUNG ===");
+            _testSummaryLines.Enqueue($"=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
             _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles}");
+            if (!string.IsNullOrEmpty(timeMsStr) && float.TryParse(timeMsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float timeMs) && timeMs > 0)
+            {
+                float timeSec = timeMs / 1000.0f;
+                float freq = (doneVal > 0 && timeSec > 0.05f) ? (doneVal / timeSec) : 0.0f;
+                float msPerCycle = (freq > 0.0f) ? (1000.0f / freq) : 0.0f;
+                _testSummaryLines.Enqueue($"Gesamtdauer:         {timeSec:F2} s ({timeMs:F0} ms)");
+                if (freq > 0.0f)
+                {
+                    _testSummaryLines.Enqueue($"Geschwindigkeit:     {freq:F1} Takte/s (ca. {msPerCycle:F0} ms/Takt)");
+                }
+            }
             _testSummaryLines.Enqueue($"Start-Referenz (Z0): {zRef} inc");
             _testSummaryLines.Enqueue($"Niedrigster Wert:    {zMin} inc (Delta: {deltaMin} inc)");
             _testSummaryLines.Enqueue($"Höchster Wert:       {zMax} inc (Delta: +{deltaMax} inc)");
@@ -662,11 +681,18 @@ namespace MnpControl
             TxtTestSummary.ScrollToEnd();
         }
 
-        private void AddScatterPoint(int cycle, int touchPos, int delta, int minPos, int maxPos, int range, float mean)
+        private void AddScatterPoint(int cycle, int touchPos, int delta, int minPos, int maxPos, int range, float mean, uint elapsedMs = 0)
         {
             _scatterPoints.Add(new ScatterPoint { Cycle = cycle, TouchPos = touchPos, Delta = delta });
             string sign = delta >= 0 ? "+" : "";
-            TxtScatterStatsLive.Text = $"Zyklus {cycle:D2}/{_expectedCycles} | Letztes Δ: {sign}{delta} inc | Spanne: {range} inc (±{range / 2.0f:F1}) | Mittel: {mean:F1} inc";
+            string timeInfo = "";
+            if (elapsedMs > 0)
+            {
+                float sec = elapsedMs / 1000.0f;
+                float msPerCyc = (cycle > 0) ? ((float)elapsedMs / cycle) : 0f;
+                timeInfo = $" | Zeit: {sec:F2}s ({msPerCyc:F0}ms/Takt)";
+            }
+            TxtScatterStatsLive.Text = $"Zyklus {cycle:D2}/{_expectedCycles}{timeInfo} | Letztes Δ: {sign}{delta} inc | Spanne: {range} inc (±{range / 2.0f:F1}) | Mittel: {mean:F1} inc";
             RedrawScatterCanvas();
         }
 

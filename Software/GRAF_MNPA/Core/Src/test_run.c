@@ -13,7 +13,6 @@
 #include "ADC_read.h"
 #include "encoder.h"
 #include "d_mot_control.h"
-
 #include "data_buffer.h"
 #include "Reference_Run.h"
 #include "Z_PID_Control.h"
@@ -73,6 +72,7 @@ static int32_t                s_cycle_start_pos;
 static int32_t                s_cycle_trigger_pos;
 static int32_t                s_cycle_end_pos;
 static uint32_t               s_elapsed_ms;
+static uint32_t               s_fast_cycles_start_tick;
 
 static float                  s_dmot_voltage = TEST_D_MOT_VOLTAGE_DEFAULT;
 static uint32_t               s_trigger_delta_mv = TEST_B_TRIGGER_DELTA_MV_DEF;
@@ -228,10 +228,15 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_ds_trigger_debounce = 0;
     s_ds_accel_fault_debounce = 0;
 
-    /* Geschwindigkeit: Direkte Ãœbernahme ohne Level-1-VerfÃ¤lschung */
-    s_fast_speed_level = Z_PID_GetSpeedLevel();
+    /* Geschwindigkeit: Direkte Übernahme (falls noch im Kriechgang vom vorigen Test, gemerkten High-Speed-Wert behalten) */
+    uint8_t current_lvl = Z_PID_GetSpeedLevel();
+    if (current_lvl != TEST_B_SETUP_PROBE_SPEED || s_fast_speed_level == 0) {
+        s_fast_speed_level = current_lvl;
+    }
     if (s_fast_speed_level < 1u) s_fast_speed_level = 1u;
     if (s_fast_speed_level > 16u) s_fast_speed_level = 16u;
+
+    s_fast_cycles_start_tick = HAL_GetTick();
 
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER) {
         /* Sanfte Suchfahrt von oben bis zum Bauteil auf Speed 3 */
@@ -309,6 +314,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     uart_send_text(ref_msg, 10);
 
                     /* Setup abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
+                    s_fast_cycles_start_tick = HAL_GetTick();
                     s_phase = PHASE_B_FAST_UP;
                     Z_PID_SetSpeedLevel(s_fast_speed_level);
                 }
@@ -316,9 +322,9 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 s_ds_trigger_debounce = 0;
             }
 
-            /* Unteren Anschlag erreicht, aber kein Bauteil gefunden */
+            /* Unteren Anschlag erreicht, aber kein Messobjekt gefunden */
             if (z_pos <= (int32_t)(z_encoder_start + 15)) {
-                snprintf(s_error_msg, sizeof(s_error_msg), "Kein Bauteil @ %ld", (long)z_pos);
+                snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
                 return TESTRUN_ERROR;
             }
         }
@@ -388,7 +394,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_ds_accel_fault_debounce = 0;
                 }
             }
-            /* Unten am Bauteil angekommen (legitimer Kontaktbereich): */
+            /* Unten am Messobjekt angekommen (legitimer Kontaktbereich): */
             else if (z_pos <= contact_zone) {
                 s_ds_accel_fault_debounce = 0;
                 if (ds_value >= s_ds_trigger_threshold) {
@@ -407,16 +413,20 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_current_cycle++;
                     s_stats.completed_cycles = s_current_cycle;
 
-                    /* Telegramm für Windows GUI senden */
-                    char cycle_msg[96];
+                    /* Telegramm für Windows GUI senden (inkl. kumulierter Zeit in ms) */
+                    uint32_t elapsed_now = HAL_GetTick() - s_fast_cycles_start_tick;
+                    char cycle_msg[120];
                     snprintf(cycle_msg, sizeof(cycle_msg),
-                             "TEST_B_CYCLE:%lu;%ld;%ld;%ld;%ld;%ld;%.1f\r\n",
+                             "TEST_B_CYCLE:%lu;%ld;%ld;%ld;%ld;%ld;%.1f;%lu\r\n",
                              (unsigned long)s_current_cycle, (long)touch_pos, (long)s_scatter_stats.last_delta,
                              (long)s_scatter_stats.z_min_pos, (long)s_scatter_stats.z_max_pos,
-                             (long)s_scatter_stats.scatter_range, (double)s_scatter_stats.mean_pos);
+                             (long)s_scatter_stats.scatter_range, (double)s_scatter_stats.mean_pos,
+                             (unsigned long)elapsed_now);
                     uart_send_text(cycle_msg, 50);
 
                     if (s_current_cycle >= s_num_total_cycles) {
+                        s_stats.test_time_ms = elapsed_now;
+                        Z_PID_SetSpeedLevel(s_fast_speed_level);
                         return TESTRUN_COMPLETE;
                     }
 
@@ -424,12 +434,12 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_phase = PHASE_B_FAST_UP;
                     s_ds_accel_fault_debounce = 0;
                 } else if (z_pos <= (int32_t)(z_encoder_start + 15)) {
-                    /* Notstopp falls Bauteil komplett fehlt */
-                    snprintf(s_error_msg, sizeof(s_error_msg), "Kein Bauteil @ %ld", (long)z_pos);
+                    /* Notstopp falls Messobjekt komplett fehlt */
+                    snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
                     return TESTRUN_ERROR;
                 }
             } else {
-                /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine FehlerauslÃ¶sung */
+                /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine Fehlerauslösung */
                 s_ds_accel_fault_debounce = 0;
             }
         }
@@ -487,6 +497,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             s_phase = PHASE_A_GO_UP;
 
             if (s_current_cycle >= s_num_total_cycles) {
+                s_stats.test_time_ms = HAL_GetTick() - s_fast_cycles_start_tick;
+                Z_PID_SetSpeedLevel(s_fast_speed_level);
                 return TESTRUN_COMPLETE;
             }
         }
