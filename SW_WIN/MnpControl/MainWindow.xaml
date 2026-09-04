@@ -140,17 +140,18 @@
         <!-- Row 2: Logs (Live Log & Test Summary) -->
         <Grid Grid.Row="2" Grid.Column="0" Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.1*"/>
+                <ColumnDefinition Width="0.75*"/>
                 <ColumnDefinition Width="10"/>
-                <ColumnDefinition Width="0.9*"/>
+                <ColumnDefinition Width="1.25*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Live Log -->
             <GroupBox Grid.Column="0">
                 <GroupBox.Header>
                     <DockPanel LastChildFill="False">
-                        <TextBlock Text="Live Log (Verlauf)" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <TextBlock Text="Live Log (Status)" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         <Button DockPanel.Dock="Right" Content="Log leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearLog_Click"/>
+                        <CheckBox x:Name="ChkVerboseLog" DockPanel.Dock="Right" Content="Rohdaten" FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0" IsChecked="False" ToolTip="Ausführliche TX/RX Roh-Telegramme im Log anzeigen"/>
                     </DockPanel>
                 </GroupBox.Header>
                 <TextBox x:Name="TxtLiveLog"
@@ -159,19 +160,25 @@
                          TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto"
                          FontFamily="Consolas, monospace"
-                         FontSize="11.5"
+                         FontSize="11"
                          Background="#FAFAFA"
                          Foreground="#1E293B"
                          BorderThickness="0"/>
             </GroupBox>
 
             <!-- Test Summary & Visual Scatter Chart -->
-            <GroupBox Grid.Column="2" Header="Test Summary &amp; Statistik">
+            <GroupBox Grid.Column="2">
+                <GroupBox.Header>
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Text="Test Summary &amp; Statistik" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <Button DockPanel.Dock="Right" Content="Statistik leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearSummary_Click"/>
+                    </DockPanel>
+                </GroupBox.Header>
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="1.2*"/>
+                        <RowDefinition Height="1*"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="130"/>
+                        <RowDefinition Height="175"/>
                     </Grid.RowDefinitions>
 
                     <TextBox x:Name="TxtTestSummary"
@@ -306,11 +313,26 @@
                                      Click="BtnSetZPos_Click"/>
                         </Grid>
 
-                        <!-- Speed Level Slider -->
-                        <TextBlock Text="Geschwindigkeit (manuell)" FontSize="11.5" Foreground="#475569" Margin="0,0,0,2"/>
+                        <!-- Speed Level Slider & Presets -->
+                        <TextBlock Text="Geschwindigkeit &amp; Prüf-Modus:" FontSize="11.5" Foreground="#475569" Margin="0,0,0,4"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="1x Original" Height="26" FontSize="11" Padding="2"
+                                    ToolTip="Stufe 6: Reales Produktionstempo (ca. 3.3 Takte/s, 300ms/Takt)" Click="BtnSpeedPreset_Click" Tag="6"/>
+                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="2.5x Stress" Height="26" FontSize="11" Padding="2" FontWeight="SemiBold"
+                                    ToolTip="Stufe 11: Bewährter Standard-Stresstest (ca. 8.2 Takte/s, 122ms/Takt)" Click="BtnSpeedPreset_Click" Tag="11"/>
+                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed" Height="26" FontSize="11" Padding="2"
+                                    ToolTip="Stufe 16: Maximales Raketentempo (ca. 15 Takte/s, 65ms/Takt)" Click="BtnSpeedPreset_Click" Tag="16"/>
+                        </Grid>
                         <DockPanel LastChildFill="True">
-                            <TextBlock x:Name="TxtSpeedLevel" DockPanel.Dock="Right" Text="Stufe: 7/16" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                            <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="7" TickFrequency="1"
+                            <TextBlock x:Name="TxtSpeedLevel" DockPanel.Dock="Right" Text="Stufe: 11/16 (2.5x Stress)" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="11" TickFrequency="1"
                                     IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                     ValueChanged="SldSpeedLevel_ValueChanged"/>
                         </DockPanel>

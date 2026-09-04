@@ -111,5 +111,6 @@ void             TestRun_SetDruckmotorVoltage(float voltage);
 float            TestRun_GetDruckmotorVoltage(void);
 void             TestRun_SetTriggerDeltaMv(uint32_t mv);
 uint32_t         TestRun_GetTriggerDeltaMv(void);
+void             TestRun_RestoreSpeedLevel(void);
 
 #endif /* SRC_TEST_RUN_H_ */

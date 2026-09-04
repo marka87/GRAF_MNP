@@ -389,7 +389,7 @@ namespace MnpControl
                 {
                     SldSpeedLevel.ValueChanged -= SldSpeedLevel_ValueChanged;
                     SldSpeedLevel.Value = level;
-                    TxtSpeedLevel.Text = $"Stufe: {level}/16";
+                    TxtSpeedLevel.Text = $"Stufe: {level}/16 ({GetSpeedDescription(level)})";
                     SldSpeedLevel.ValueChanged += SldSpeedLevel_ValueChanged;
                 }
                 return;
@@ -453,6 +453,7 @@ namespace MnpControl
             {
                 TxtStatus.Text = "Test B abgeschlossen";
                 AppendTestBSummary(msg);
+                AppendLiveLog("[OK] Test B abgeschlossen");
                 return;
             }
 
@@ -460,6 +461,7 @@ namespace MnpControl
             {
                 TxtStatus.Text = "Test-Ergebnis";
                 AppendTestSummary(msg);
+                AppendLiveLog(msg.Contains("status=OK") ? "[OK] Test A abgeschlossen" : "[FEHLER] Test A abgebrochen");
                 return;
             }
 
@@ -476,8 +478,9 @@ namespace MnpControl
                 }
 
                 _currentDeviceState = state;
-                TxtStatus.Text = GetStateFriendlyName(state);
-                AppendLiveLog("STATE " + state);
+                string friendly = GetStateFriendlyName(state);
+                TxtStatus.Text = friendly;
+                AppendLiveLog("STATUS: " + friendly);
                 UpdateButtonStates(state);
                 if (state == "TEST_START")
                 {
@@ -487,7 +490,12 @@ namespace MnpControl
             }
 
             TxtStatus.Text = msg;
-            AppendLiveLog("RX " + msg);
+            bool isNoisy = msg.StartsWith("CFG_TB_OK", StringComparison.Ordinal)
+                        || msg.StartsWith("ZV_SET", StringComparison.Ordinal)
+                        || msg.StartsWith("Test/Manuell", StringComparison.Ordinal)
+                        || msg.StartsWith("Test abgeschlossen", StringComparison.Ordinal)
+                        || msg.StartsWith("Z_NEUTRAL", StringComparison.Ordinal);
+            AppendLiveLog("RX " + msg, isVerbose: isNoisy);
         }
 
         private void InitializePidPresets()
@@ -518,10 +526,15 @@ namespace MnpControl
             CmbPidPreset.Text = StablePreset.Name;
         }
 
-        private void AppendLiveLog(string line)
+        private void AppendLiveLog(string line, bool isVerbose = false)
         {
             if (string.IsNullOrWhiteSpace(line))
                 return;
+
+            if (isVerbose && ChkVerboseLog?.IsChecked != true)
+            {
+                return;
+            }
 
             if (string.Equals(_lastLiveLogLine, line, StringComparison.Ordinal))
             {
@@ -656,7 +669,7 @@ namespace MnpControl
 
             string sep = new string('=', 46);
             _testSummaryLines.Enqueue(sep);
-            _testSummaryLines.Enqueue($"=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
+            _testSummaryLines.Enqueue($"=== TEST B: BAUTEIL-ANTASTUNG & STREUUNG ===");
             _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles}");
             if (!string.IsNullOrEmpty(timeMsStr) && float.TryParse(timeMsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float timeMs) && timeMs > 0)
             {
@@ -685,6 +698,7 @@ namespace MnpControl
         {
             _scatterPoints.Add(new ScatterPoint { Cycle = cycle, TouchPos = touchPos, Delta = delta });
             string sign = delta >= 0 ? "+" : "";
+            TxtScatterStatsLive.Text = $"Zyklus {cycle:D2}/{_expectedCycles} | Letztes Δ: {sign}{delta} inc | Spanne: {range} inc (±{range / 2.0f:F1}) | Mittel: {mean:F1} inc";
             string timeInfo = "";
             if (elapsedMs > 0)
             {
@@ -1083,11 +1097,12 @@ namespace MnpControl
         }
 
         _devConnection.Write(command + "\n");
-        AppendLiveLog("TX " + command);
+        AppendLiveLog("TX " + command, isVerbose: true);
     }
 
         private void BtnStartReferenceRun_Click(object sender, RoutedEventArgs e)
         {
+            AppendLiveLog("[START] Referenzlauf gestartet");
             SendCommand("s");
         }
 
@@ -1122,9 +1137,32 @@ namespace MnpControl
                 return;
             }
             int level = (int)Math.Round(e.NewValue);
-            TxtSpeedLevel.Text = $"Stufe: {level}/16";
+            TxtSpeedLevel.Text = $"Stufe: {level}/16 ({GetSpeedDescription(level)})";
             SendCommand($"V={level}");
         }
+
+        private void BtnSpeedPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string tagStr && int.TryParse(tagStr, out int lvl))
+            {
+                SldSpeedLevel.Value = lvl;
+                AppendLiveLog($"[TEMPO] Stufe {lvl} gewählt ({btn.Content})");
+            }
+        }
+
+        private static string GetSpeedDescription(int level) => level switch
+        {
+            <= 3 => "Kriechgang",
+            4 or 5 => "Langsam",
+            6 => "1x Original",
+            7 or 8 => "Mittel",
+            9 or 10 => "Schnell",
+            11 => "2.5x Stress",
+            12 or 13 => "Sehr schnell",
+            14 or 15 => "Extrem-Stress",
+            16 => "Max-Speed",
+            _ => ""
+        };
 
         private void SendBoundedStep(uint steps, bool isUp)
         {
@@ -1159,6 +1197,7 @@ namespace MnpControl
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
+            AppendLiveLog("[STOPP] Durch Benutzer gestoppt -> Fahre Grundstellung");
             SendCommand("q");
         }
 
@@ -1210,9 +1249,26 @@ namespace MnpControl
                 MessageBox.Show("Bitte eine gültige Zyklenzahl eingeben (z.B. 10, 50, 100).", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+
+            float dmot = 3.5f;
+            if (float.TryParse(TxtDMotVoltage.Text.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDmot))
+            {
+                dmot = parsedDmot;
+            }
+
+            uint deltaMv = 1500;
+            if (uint.TryParse(TxtTriggerDeltaMv.Text.Trim(), out uint parsedDelta))
+            {
+                deltaMv = parsedDelta;
+            }
+
+            SendCommand($"CFG_TB:{dmot.ToString("F2", CultureInfo.InvariantCulture)};{deltaMv}");
+
+            _expectedCycles = (int)cycles;
             _testSummaryLines.Clear();
             _testSummaryLines.Enqueue($"=== TEST A GESTARTET ({cycles} Zyklen) ===");
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            AppendLiveLog($"[START] Test A gestartet ({cycles} Zyklen, Stufe {SldSpeedLevel.Value:F0})");
             SendCommand($"TA={cycles}");
         }
 
@@ -1248,6 +1304,7 @@ namespace MnpControl
             _testSummaryLines.Enqueue($"Parameter: Druckmotor={dmot:F2}V, Trigger-Delta={deltaMv}mV");
             _testSummaryLines.Enqueue("Fahre 1. Referenz-Antastung an...");
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            AppendLiveLog($"[START] Test B gestartet ({cycles} Zyklen, Stufe {SldSpeedLevel.Value:F0})");
             SendCommand($"TB={cycles}");
         }
 

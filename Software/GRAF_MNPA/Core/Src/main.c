@@ -520,9 +520,9 @@ void Process_UART_Command(const char *command) {
 		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 		snprintf(response, sizeof(response), "Z_NEUTRAL:2.5V\r\n");
 	} else if (strcmp(command, "q") == 0) {
+		Z_PID_EmergencyStop(&dac);
 		current_state = STOP;
-		Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
-		snprintf(response, sizeof(response), "Testablauf gestoppt -> Fahre Grundstellung.\r\n");
+		snprintf(response, sizeof(response), "Testablauf Abgebrochen.\r\n");
 	} else if (strcmp(command, "p") == 0) { // Performance measurement
 		perform_encoder_perf_test = true;
 		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
@@ -737,7 +737,7 @@ int main(void)
 					TestRun_GetScatterStats(&b_stats);
 					char stats_msg[380];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -746,23 +746,22 @@ int main(void)
 						(long)b_stats.scatter_range,
 						(double)b_stats.mean_pos,
 						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
-						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
-						(unsigned long)stats.test_time_ms);
+						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)));
 					uart_send_text(stats_msg, 100);
 				} else {
-					char stats_msg[340];
+					char stats_msg[320];
 					uint32_t time_min = stats.test_time_ms / 60000u;
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 					const char *phase = TestRun_GetPhaseName();
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,time_ms=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
+						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
 						(long)stats.z_soll_min, (long)stats.z_soll_max,
 						(long)stats.last_ist_pos, (long)stats.last_soll_pos,
 						phase,
-						time_min, time_sec, (unsigned long)stats.test_time_ms,
+						time_min, time_sec,
 						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
 						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
 					uart_send_text(stats_msg, 100);
@@ -869,11 +868,11 @@ int main(void)
 			}
 			if (btn_down_pressed) {
 				btn_down_pressed = 0;
-				/* Taste 3 (Rechts): STOPP (im Test) oder HARDWARE RESET (im Stillstand) */
+				/* Taste 3 (Rechts): NOT-HALT (im Test) oder HARDWARE RESET (im Stillstand) */
 				if (current_state == TEST_RUN) {
+					Z_PID_EmergencyStop(&dac);
 					current_state = STOP;
-					Z_Target_SetRequestedDirect(z_ax_no_pos + 50);
-					uart_send_text("STOPP via Taste DOWN -> Fahre Grundstellung\r\n", 50);
+					uart_send_text("NOT-HALT via Taste DOWN!\r\n", 50);
 				} else {
 					uart_send_text("System Reset via Taste DOWN...\r\n", 50);
 					HAL_Delay(50);
@@ -883,7 +882,7 @@ int main(void)
 		}
 		if (HAL_GetTick() >= next_1ms_tick) {
 			next_1ms_tick = HAL_GetTick() + 1;
-			if (current_state == TEST_START || current_state == TEST_RUN || current_state == COMPLETED || current_state == STOP) {
+			if (current_state == TEST_START || current_state == TEST_RUN || current_state == COMPLETED) {
 				A_Axis_PIDControl(&dac, A_Axis_TargetPosition);
 				if (!Z_Axis_PIDControl(&dac, Z_Axis_TargetPosition)) {
 					char reason_buf[64];
@@ -897,7 +896,7 @@ int main(void)
 					snprintf(uart_err, sizeof(uart_err), "NOT-STOPP: %s\r\n", reason_buf);
 					uart_send_text(uart_err, 50);
 				}
-			} else if (current_state == IDLE_START || current_state == FEHLER) {
+			} else if (current_state == IDLE_START || current_state == STOP || current_state == FEHLER) {
 				ad5684_set_voltage(&dac, 2.5f, a_mot);
 				ad5684_set_voltage(&dac, 2.5f, z_mot);
 			}
