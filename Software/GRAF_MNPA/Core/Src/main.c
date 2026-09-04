@@ -520,9 +520,11 @@ void Process_UART_Command(const char *command) {
 		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
 		snprintf(response, sizeof(response), "Z_NEUTRAL:2.5V\r\n");
 	} else if (strcmp(command, "q") == 0) {
-		Z_PID_EmergencyStop(&dac);
-		current_state = STOP;
-		snprintf(response, sizeof(response), "Testablauf Abgebrochen.\r\n");
+		TestRun_RestoreSpeedLevel();
+		uint32_t hold_pos = clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
+		Z_Target_SetRequestedDirect(hold_pos);
+		current_state = TEST_START;
+		snprintf(response, sizeof(response), "Test gestoppt (Position gehalten: %lu).\r\n", (unsigned long)hold_pos);
 	} else if (strcmp(command, "p") == 0) { // Performance measurement
 		perform_encoder_perf_test = true;
 		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
@@ -737,7 +739,7 @@ int main(void)
 					TestRun_GetScatterStats(&b_stats);
 					char stats_msg[380];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -746,7 +748,8 @@ int main(void)
 						(long)b_stats.scatter_range,
 						(double)b_stats.mean_pos,
 						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
-						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)));
+						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
+						(unsigned long)stats.test_time_ms);
 					uart_send_text(stats_msg, 100);
 				} else {
 					char stats_msg[320];
@@ -870,6 +873,7 @@ int main(void)
 				btn_down_pressed = 0;
 				/* Taste 3 (Rechts): NOT-HALT (im Test) oder HARDWARE RESET (im Stillstand) */
 				if (current_state == TEST_RUN) {
+					TestRun_RestoreSpeedLevel();
 					Z_PID_EmergencyStop(&dac);
 					current_state = STOP;
 					uart_send_text("NOT-HALT via Taste DOWN!\r\n", 50);

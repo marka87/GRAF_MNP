@@ -591,34 +591,60 @@ namespace MnpControl
                 runtime = $" | Zeit: {minutes}m {seconds}s";
             }
 
-            string header = $"{DateTime.Now:HH:mm:ss} TEST {status} ({cycles}/{done}) lost={lost} | Δ={delta} | overshoot={overshoot} | phase={phase}{runtime}";
-            string details = string.Format(
-                CultureInfo.InvariantCulture,
-                "IST min/max: {0} / {1} | SOLL min/max: {2} / {3} | NO-Sensor: {4} | Δ={5} | overshoot={6} | valid={7} | invalid={8} | motor_fault={9}{10}",
-                values.TryGetValue("z_ist_min", out string? istMin) ? istMin : "-",
-                values.TryGetValue("z_ist_max", out string? istMax) ? istMax : "-",
-                values.TryGetValue("z_soll_min", out string? sollMin) ? sollMin : "-",
-                values.TryGetValue("z_soll_max", out string? sollMax) ? sollMax : "-",
-                values.TryGetValue("no_sensor_pos", out string? noPos) ? noPos : "-",
-                delta,
-                overshoot,
-                validSensor,
-                invalidSensor,
-                motorFault,
-                runtime);
-
-            if (values.TryGetValue("last_error", out string? err) && !string.IsNullOrWhiteSpace(err))
+            string sep = new string('=', 46);
+            if (string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase))
             {
-                details += " | ERR: " + err;
+                while (_testSummaryLines.Count >= 10) _testSummaryLines.Dequeue();
+                _testSummaryLines.Enqueue(sep);
+                _testSummaryLines.Enqueue("=== TEST A: DAUERTEST (OHNE MESSOBJEKT) ===");
+                _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles} (Erfolgreich)");
+                if (!string.IsNullOrEmpty(runtime))
+                {
+                    _testSummaryLines.Enqueue($"Gesamtdauer:        {runtime.Replace(" | Zeit:", "").Trim()}");
+                }
+                string noSensor = values.TryGetValue("no_sensor_pos", out string? ns) ? ns : "-";
+                string istMinVal = values.TryGetValue("z_ist_min", out string? imin) ? imin : "-";
+                string istMaxVal = values.TryGetValue("z_ist_max", out string? imax) ? imax : "-";
+                string sollMinVal = values.TryGetValue("z_soll_min", out string? smin) ? smin : "-";
+                string sollMaxVal = values.TryGetValue("z_soll_max", out string? smax) ? smax : "-";
+                _testSummaryLines.Enqueue($"NO-Sensor Pos:       {noSensor} inc");
+                _testSummaryLines.Enqueue($"Hub (IST min..max):  {istMinVal} .. {istMaxVal} inc");
+                _testSummaryLines.Enqueue($"SOLL min..max:       {sollMinVal} .. {sollMaxVal} inc");
+                _testSummaryLines.Enqueue($"Overshoot / Lost:    {overshoot} inc / {lost} inc");
+                _testSummaryLines.Enqueue(sep);
+            }
+            else
+            {
+                string header = $"{DateTime.Now:HH:mm:ss} TEST {status} ({cycles}/{done}) lost={lost} | Δ={delta} | overshoot={overshoot} | phase={phase}{runtime}";
+                string details = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "IST min/max: {0} / {1} | SOLL min/max: {2} / {3} | NO-Sensor: {4} | Δ={5} | overshoot={6} | valid={7} | invalid={8} | motor_fault={9}{10}",
+                    values.TryGetValue("z_ist_min", out string? istMin) ? istMin : "-",
+                    values.TryGetValue("z_ist_max", out string? istMax) ? istMax : "-",
+                    values.TryGetValue("z_soll_min", out string? sollMin) ? sollMin : "-",
+                    values.TryGetValue("z_soll_max", out string? sollMax) ? sollMax : "-",
+                    values.TryGetValue("no_sensor_pos", out string? noPos) ? noPos : "-",
+                    delta,
+                    overshoot,
+                    validSensor,
+                    invalidSensor,
+                    motorFault,
+                    runtime);
+
+                if (values.TryGetValue("last_error", out string? err) && !string.IsNullOrWhiteSpace(err))
+                {
+                    details += " | ERR: " + err;
+                }
+
+                while (_testSummaryLines.Count >= 8)
+                {
+                    _testSummaryLines.Dequeue();
+                }
+
+                _testSummaryLines.Enqueue(header);
+                _testSummaryLines.Enqueue(details);
             }
 
-            while (_testSummaryLines.Count >= 8)
-            {
-                _testSummaryLines.Dequeue();
-            }
-
-            _testSummaryLines.Enqueue(header);
-            _testSummaryLines.Enqueue(details);
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             TxtTestSummary.ScrollToEnd();
         }
@@ -669,7 +695,7 @@ namespace MnpControl
 
             string sep = new string('=', 46);
             _testSummaryLines.Enqueue(sep);
-            _testSummaryLines.Enqueue($"=== TEST B: BAUTEIL-ANTASTUNG & STREUUNG ===");
+            _testSummaryLines.Enqueue($"=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
             _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles}");
             if (!string.IsNullOrEmpty(timeMsStr) && float.TryParse(timeMsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float timeMs) && timeMs > 0)
             {
