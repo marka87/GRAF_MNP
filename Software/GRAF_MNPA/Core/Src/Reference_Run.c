@@ -29,11 +29,11 @@ extern display_info_t display1;
 
 uint32_t A_Axis_TargetPosition = 0;
 uint32_t Z_Axis_TargetPosition = 0;
-uint32_t a_encoder_start = 0;
-uint32_t a_encoder_end = 0;
-uint32_t z_encoder_start = 0;
-uint32_t z_encoder_end = 0;
-uint32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
+int32_t a_encoder_start = 0;
+int32_t a_encoder_end = 0;
+int32_t z_encoder_start = 0;
+int32_t z_encoder_end = 0;
+int32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
 
 void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
@@ -97,13 +97,16 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 0, "Z-Achse Referenz");
 	HAL_GPIO_WritePin(GPIOB, Z_AX_REL_EN_Pin, GPIO_PIN_SET); // Relais aktivieren
-	// Schritt 1: Motor nach unten (2,8V)
-	ad5684_set_voltage(dac, 2.6f, z_mot);
 
-	HAL_Delay(1000);
-	// Anfangsposition speichern
-	z_encoder_start = Encoder_GetPosition_Z_AXIS();
-	// Schritt 2: Motor nach oben (2,1V)
+	// Schritt 1: Motor nach unten (2,8V) zum mechanischen Endanschlag fahren
+	ad5684_set_voltage(dac, 2.8f, z_mot);
+	HAL_Delay(1200);
+
+	// Unteren mechanischen Anschlag als absoluten Nullpunkt (0) kalibrieren
+	Encoder_Reset_Z_AXIS();
+	z_encoder_start = 0;
+
+	// Schritt 2: Motor nach oben (2,0V)
 	start_tick = HAL_GetTick();
 	ad5684_set_voltage(dac, 2.0f, z_mot);
 
@@ -129,22 +132,26 @@ void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 
 	HAL_Delay(500);
 
-	// Endposition speichern
+	// Endposition (oberer harter Anschlag) speichern
 	z_encoder_end = Encoder_GetPosition_Z_AXIS();
 
-	// Schritt 3: Motor stoppen
-	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
+	// Hub-Plausibilitaetspruefung: Mindestens 2000 Inc Hub und NO-Sensor plausibel
+	if (z_encoder_end < 2000 || z_ax_no_pos < 1000 || z_ax_no_pos > z_encoder_end) {
+		display_jazz_write_string_5x7(&display1, 0, "Z-Ref: HUB-ERR");
+		ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
+		*success = false;
+		return;
+	}
 
-	// ggf. langsamer fahren oder Feinposition
-	if (Encoder_GetPosition_Z_AXIS() > (z_encoder_start + 500)) {
-		ad5684_set_voltage(dac, 2.4f, z_mot); // Langsam
-	} else if (Encoder_GetPosition_Z_AXIS() > (z_encoder_start + 200)) {
-		ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot); // Minimal
+	// Schritt 3: Motor stoppen bzw. sanfte Haltespannung nach oben
+	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, z_mot);
+	if (Encoder_GetPosition_Z_AXIS() > 500) {
+		ad5684_set_voltage(dac, 2.4f, z_mot); // Sanft halten
 	}
 
 	HAL_Delay(100);
 
-	// Schritt 4: Mitte / oder Position wählen
-	Z_Axis_TargetPosition = z_ax_no_pos + 50; // // (z_encoder_start + z_encoder_end) / 2 ;z_ax_no_pos + 50;
+	// Schritt 4: Standby-Zielposition setzen
+	Z_Axis_TargetPosition = (uint32_t)(z_ax_no_pos + 50);
 
 }

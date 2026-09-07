@@ -90,6 +90,20 @@ int32_t Encoder_GetPosition_Z_AXIS(void) {
     return position;
 }
 
+void Encoder_Reset_Z_AXIS(void) {
+    __disable_irq();
+    __HAL_TIM_SET_COUNTER(&htim5, 0);
+    encoder_position_Z_AXIS = 0;
+    __enable_irq();
+}
+
+void Encoder_Reset_A_AXIS(void) {
+    __disable_irq();
+    __HAL_TIM_SET_COUNTER(&htim2, 0);
+    encoder_position_A_AXIS = 0;
+    __enable_irq();
+}
+
 
 //int32_t Encoder_GetPosition_Z_AXIS(void) {
 //    return __HAL_TIM_GET_COUNTER(&htim5);

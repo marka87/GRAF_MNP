@@ -54,8 +54,8 @@ static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
 /* DAC-Adresse */
 #define z_mot 0x02		//DAC-B...
 
-extern uint32_t z_encoder_start;
-extern uint32_t z_encoder_end;
+extern int32_t z_encoder_start;
+extern int32_t z_encoder_end;
 
 static char s_trip_reason[64] = "OK";
 
@@ -129,6 +129,7 @@ void Z_PID_Reset(void) {
 	last_velocity_tick = HAL_GetTick();
 	last_velocity_tick_initialized = true;
 	voltage = NEUTRAL_VOLTAGE;
+	snprintf(s_trip_reason, sizeof(s_trip_reason), "OK");
 }
 
 bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
@@ -172,15 +173,15 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 		return false;
 	}
 	/* 2. Positionsgrenzen (wenn bereits referenziert) */
-	if (z_encoder_start != 0u || z_encoder_end != 0u) {
-		uint32_t lower = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
-		uint32_t upper = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
-		if (encoder_value < ((int)lower - SAFETY_POSITION_MARGIN)) {
-			snprintf(s_trip_reason, sizeof(s_trip_reason), "Min-Limit: %d < %ld", encoder_value, (long)((int)lower - SAFETY_POSITION_MARGIN));
+	if (z_encoder_start != 0 || z_encoder_end != 0) {
+		int32_t lower = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
+		int32_t upper = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+		if (encoder_value < (lower - SAFETY_POSITION_MARGIN)) {
+			snprintf(s_trip_reason, sizeof(s_trip_reason), "Min-Limit: %d < %ld", encoder_value, (long)(lower - SAFETY_POSITION_MARGIN));
 			return false;
 		}
-		if (encoder_value > ((int)upper + SAFETY_POSITION_MARGIN)) {
-			snprintf(s_trip_reason, sizeof(s_trip_reason), "Max-Limit: %d > %ld", encoder_value, (long)((int)upper + SAFETY_POSITION_MARGIN));
+		if (encoder_value > (upper + SAFETY_POSITION_MARGIN)) {
+			snprintf(s_trip_reason, sizeof(s_trip_reason), "Max-Limit: %d > %ld", encoder_value, (long)(upper + SAFETY_POSITION_MARGIN));
 			return false;
 		}
 	}

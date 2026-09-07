@@ -88,11 +88,11 @@ run_state_t current_state = IDLE_START;
 
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-extern uint32_t a_encoder_start;
-extern uint32_t a_encoder_end;
-extern uint32_t z_encoder_start;
-extern uint32_t z_encoder_end;
-extern uint32_t z_ax_no_pos;
+extern int32_t a_encoder_start;
+extern int32_t a_encoder_end;
+extern int32_t z_encoder_start;
+extern int32_t z_encoder_end;
+extern int32_t z_ax_no_pos;
 extern char display_buffer[DISPLAY_MAX_LINES][30];
 extern float voltage;
 /* UART Callback */
@@ -347,14 +347,15 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
 // UART-Verarbeitung
 void Process_UART_Command(const char *command) {
-	uint32_t raw_min = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
-	uint32_t raw_max = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+	int32_t raw_min = (z_encoder_start < z_encoder_end) ? z_encoder_start : z_encoder_end;
+	int32_t raw_max = (z_encoder_start > z_encoder_end) ? z_encoder_start : z_encoder_end;
+	if (raw_min < 0) raw_min = 0;
 
 	/* Dynamische Sicherheits-Grenzwerte fuer den Bediener:
 	 * Unteres Limit: gemessener harter Anschlag + 50
 	 * Oberes Limit:  gemessener harter Anschlag - 150 */
-	uint32_t lower_limit = raw_min + 50u;
-	uint32_t upper_limit = (raw_max > 150u) ? (raw_max - 150u) : raw_max;
+	uint32_t lower_limit = (uint32_t)raw_min + 50u;
+	uint32_t upper_limit = (raw_max > 150) ? (uint32_t)(raw_max - 150) : (uint32_t)raw_max;
 	if (upper_limit < lower_limit) upper_limit = lower_limit + 100u;
 
 	char response[128] = { 0 }; 				// Rückmeldungspuffer

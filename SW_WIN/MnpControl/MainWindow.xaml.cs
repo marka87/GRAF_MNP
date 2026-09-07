@@ -62,6 +62,7 @@ namespace MnpControl
 
         private readonly List<ScatterPoint> _scatterPoints = new();
         private int _expectedCycles = 10;
+        private bool _isTestARunning = false;
 
         private static readonly string PidPresetPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -461,7 +462,15 @@ namespace MnpControl
             {
                 TxtStatus.Text = "Test-Ergebnis";
                 AppendTestSummary(msg);
-                AppendLiveLog(msg.Contains("status=OK") ? "[OK] Test A abgeschlossen" : "[FEHLER] Test A abgebrochen");
+                if (_isTestARunning)
+                {
+                    AppendLiveLog(msg.Contains("status=OK") ? "[OK] Test A abgeschlossen" : "[FEHLER] Test A abgebrochen");
+                    _isTestARunning = false;
+                }
+                else if (!msg.Contains("status=OK"))
+                {
+                    AppendLiveLog("[FEHLER] Not-Stopp ausgelöst");
+                }
                 return;
             }
 
@@ -1224,6 +1233,7 @@ namespace MnpControl
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
+            _isTestARunning = false;
             AppendLiveLog("[STOPP] Durch Benutzer gestoppt -> Fahre Grundstellung");
             SendCommand("q");
         }
@@ -1291,6 +1301,7 @@ namespace MnpControl
 
             SendCommand($"CFG_TB:{dmot.ToString("F2", CultureInfo.InvariantCulture)};{deltaMv}");
 
+            _isTestARunning = true;
             _expectedCycles = (int)cycles;
             _testSummaryLines.Clear();
             _testSummaryLines.Enqueue($"=== TEST A GESTARTET ({cycles} Zyklen) ===");

@@ -26,9 +26,9 @@
 /* Extern-Deklarationen */
 extern ad5684_dac_t    dac;
 extern ADC_HandleTypeDef hadc1;
-extern uint32_t        z_ax_no_pos;
-extern uint32_t        z_encoder_start;
-extern uint32_t        z_encoder_end;
+extern int32_t        z_ax_no_pos;
+extern int32_t        z_encoder_start;
+extern int32_t        z_encoder_end;
 
 /* Druckmotor-Spannung waehrend der Testlaeufe (Gegendruck zur Vermeidung von Fehltriggerung) */
 #define TEST_D_MOT_VOLTAGE_DEFAULT   3.5f
@@ -459,8 +459,10 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     /* =========================================================================
      * TEST MODUS A: KLASSISCHER DAUERTEST (OHNE BAUTEIL)
      * ========================================================================= */
-    /* In Test A dient der Drucksensor als reiner Kollisionsschutz (z.B. Hindernis) */
-    if (ds_value >= s_ds_trigger_threshold) {
+    /* In Test A dient der Drucksensor als reiner Kollisionsschutz (z.B. Hindernis).
+     * In der oberen Umkehrzone (z_pos >= top_zone) federt der Hebel/Sensor durch Bremsung/Umkehr
+     * aus -> dort wie in Test B ausblenden. */
+    if (z_pos < top_zone && ds_value >= s_ds_trigger_threshold) {
         s_ds_accel_fault_debounce++;
         if (s_ds_accel_fault_debounce >= 8u) {
             s_stats.invalid_sensor_events++;

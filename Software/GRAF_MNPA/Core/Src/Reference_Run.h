@@ -14,11 +14,11 @@
 
 extern uint32_t A_Axis_TargetPosition;
 extern uint32_t Z_Axis_TargetPosition;
-extern uint32_t a_encoder_start;
-extern uint32_t a_encoder_end;
-extern uint32_t z_encoder_start;
-extern uint32_t z_encoder_end;
-extern uint32_t z_ax_no_pos;
+extern int32_t a_encoder_start;
+extern int32_t a_encoder_end;
+extern int32_t z_encoder_start;
+extern int32_t z_encoder_end;
+extern int32_t z_ax_no_pos;
 
 //void A_Axis_ReferenceRun(ad5684_dac_t* dac);
 void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool* success);
