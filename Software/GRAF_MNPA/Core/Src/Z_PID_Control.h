@@ -42,6 +42,12 @@ void Z_PID_GetVelocityParameters(float *kp, float *ki, float *kd);
 /* Grund für die letzte Schutzabschaltung abfragen */
 const char* Z_PID_GetTripReason(void);
 
+/* Physikalische Kinematik aus Encoder-Messung (1ms-Abtastung) */
+void  Z_PID_ResetKinematics(void);
+float Z_PID_GetMaxVelocity_mm_s(void);
+float Z_PID_GetMaxAccel_g(void);
+float Z_PID_GetMaxDecel_g(void);
+
 #endif /* SRC_Z_PID_CONTROL_H_ */
 
 

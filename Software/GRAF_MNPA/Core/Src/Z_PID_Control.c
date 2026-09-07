@@ -74,6 +74,12 @@ static float velocity_integral = 0.0f;
 static float velocity_previous_error = 0.0f;
 
 static float smoothed_velocity = 0.0f;
+static float s_last_actual_velocity = 0.0f;
+static float s_smoothed_accel = 0.0f;
+static float s_max_velocity_inc_ms = 0.0f;
+static float s_max_accel_inc_ms2 = 0.0f;
+static float s_max_decel_inc_ms2 = 0.0f;
+
 static int last_encoder_value = 0;
 static bool last_encoder_value_initialized = false;
 static uint32_t last_velocity_tick = 0u;
@@ -124,6 +130,8 @@ void Z_PID_Reset(void) {
 	velocity_integral = 0.0f;
 	velocity_previous_error = 0.0f;
 	smoothed_velocity = 0.0f;
+	s_last_actual_velocity = 0.0f;
+	s_smoothed_accel = 0.0f;
 	last_encoder_value = Encoder_GetPosition_Z_AXIS();
 	last_encoder_value_initialized = true;
 	last_velocity_tick = HAL_GetTick();
@@ -166,7 +174,41 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	}
 	float actual_velocity = update_and_get_smoothed_velocity(raw_velocity);
 
-	/* --- SchutzÃ¼berwachung (Not-Stopp) --- */
+	/* 2. Ableitung: Beschleunigung a(t) = Delta v / Delta t [Inc/ms^2] */
+	float raw_accel = 0.0f;
+	if (dt_ms > 20u) {
+		raw_accel = 0.0f;
+		s_smoothed_accel = 0.0f;
+		s_last_actual_velocity = 0.0f;
+	} else {
+		raw_accel = (actual_velocity - s_last_actual_velocity) / (float)dt_ms;
+		s_last_actual_velocity = actual_velocity;
+	}
+	/* 1st-Order EMA Tiefpassfilter für Beschleunigung (Glättet 1-kHz Encoder-Quantisierungsrauschen) */
+	s_smoothed_accel += 0.20f * (raw_accel - s_smoothed_accel);
+
+	/* Kinematik-Spitzenwerte erfassen (nur bei intakter Abtastung <= 20ms) */
+	if (dt_ms <= 20u) {
+		float v_mag = fabsf(actual_velocity);
+		if (v_mag > s_max_velocity_inc_ms) {
+			s_max_velocity_inc_ms = v_mag;
+		}
+
+		float a_mag = fabsf(s_smoothed_accel);
+		if ((actual_velocity * s_smoothed_accel) >= 0.0f) {
+			/* Beschleunigen in Bewegungsrichtung */
+			if (a_mag > s_max_accel_inc_ms2) {
+				s_max_accel_inc_ms2 = a_mag;
+			}
+		} else {
+			/* Bremsen / Verzögern entgegen der Bewegungsrichtung */
+			if (a_mag > s_max_decel_inc_ms2) {
+				s_max_decel_inc_ms2 = a_mag;
+			}
+		}
+	}
+
+	/* --- Schutzüberwachung (Not-Stopp) --- */
 	/* 1. Ãœberdrehzahl / Runaway */
 	if (fabsf(actual_velocity) > MAX_SAFE_VELOCITY) {
 		snprintf(s_trip_reason, sizeof(s_trip_reason), "Speed: %.1f > %.0f Inc/ms", (double)fabsf(actual_velocity), (double)MAX_SAFE_VELOCITY);
@@ -284,4 +326,26 @@ void Z_PID_EmergencyNeutral(ad5684_dac_t *dac) {
 	Z_PID_Reset();
 	voltage = NEUTRAL_VOLTAGE;
 	ad5684_set_voltage(dac, voltage, z_mot);
+}
+
+void Z_PID_ResetKinematics(void) {
+	s_max_velocity_inc_ms = 0.0f;
+	s_max_accel_inc_ms2 = 0.0f;
+	s_max_decel_inc_ms2 = 0.0f;
+	s_last_actual_velocity = 0.0f;
+	s_smoothed_accel = 0.0f;
+}
+
+/* 100 Inc/mm -> 1 Inc/ms = 10 mm/s */
+float Z_PID_GetMaxVelocity_mm_s(void) {
+	return s_max_velocity_inc_ms * 10.0f;
+}
+
+/* 1 Inc/ms^2 = 10.0 m/s^2 -> 10.0 / 9.80665 g = ca. 1.0197 g */
+float Z_PID_GetMaxAccel_g(void) {
+	return s_max_accel_inc_ms2 * 1.019716f;
+}
+
+float Z_PID_GetMaxDecel_g(void) {
+	return s_max_decel_inc_ms2 * 1.019716f;
 }

@@ -238,8 +238,11 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_scatter_stats.baseline_adc = s_ds_baseline_adc;
     s_scatter_stats.trigger_adc  = s_ds_trigger_threshold;
 
-    /* Datenpuffer zurÃ¼cksetzen */
+    /* Datenpuffer zurücksetzen */
     data_buffer_reset();
+
+    /* Kinematik-Erfassung (v_max, a_max, Bremsen) für den Testlauf zurücksetzen */
+    Z_PID_ResetKinematics();
 
     /* Startposition erfassen und Ziel sofort auf Istwert setzen */
     int32_t z_pos_now = Encoder_GetPosition_Z_AXIS();
@@ -342,6 +345,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_phase = PHASE_B_FAST_UP;
                     s_fast_cycles_start_tick = HAL_GetTick();
                     Z_PID_SetSpeedLevel(s_fast_speed_level);
+                    Z_PID_ResetKinematics();
                 }
             } else {
                 s_ds_trigger_debounce = 0;
@@ -561,11 +565,21 @@ void TestRun_GetErrorMessage(char *buf, size_t len) {
 }
 
 void TestRun_GetStats(TestRunStats_t *out) {
-    if (out != NULL) *out = s_stats;
+    if (out != NULL) {
+        s_stats.max_velocity_mms = Z_PID_GetMaxVelocity_mm_s();
+        s_stats.max_accel_g = Z_PID_GetMaxAccel_g();
+        s_stats.max_decel_g = Z_PID_GetMaxDecel_g();
+        *out = s_stats;
+    }
 }
 
 void TestRun_GetScatterStats(TestBScatterStats_t *out) {
-    if (out != NULL) *out = s_scatter_stats;
+    if (out != NULL) {
+        s_scatter_stats.max_velocity_mms = Z_PID_GetMaxVelocity_mm_s();
+        s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();
+        s_scatter_stats.max_decel_g = Z_PID_GetMaxDecel_g();
+        *out = s_scatter_stats;
+    }
 }
 
 void TestRun_GetLastCycleMetrics(TestRunCycleMetrics_t *out) {

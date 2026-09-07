@@ -700,12 +700,12 @@ int main(void)
 				} else if (result == TESTRUN_ERROR) {
 					TestRun_GetErrorMessage(error_message, sizeof(error_message));
 					TestRun_GetStats(&stats);
-					char summary[400];
+					char summary[450];
 					uint32_t time_min = stats.test_time_ms / 60000u;
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 					const char *phase = TestRun_GetPhaseName();
 					snprintf(summary, sizeof(summary),
-						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
+						"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,v_max=%.1f,a_max=%.1f,a_brake=%.1f,last_error=%s\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -714,7 +714,9 @@ int main(void)
 						phase,
 						time_min, time_sec,
 						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
+						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos,
+						(double)stats.max_velocity_mms, (double)stats.max_accel_g, (double)stats.max_decel_g,
+						error_message);
 					uart_send_text(summary, 100);
 					test_summary_sent = true;
 					red_light();
@@ -738,9 +740,9 @@ int main(void)
 				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
 					TestBScatterStats_t b_stats;
 					TestRun_GetScatterStats(&b_stats);
-					char stats_msg[380];
+					char stats_msg[450];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -750,15 +752,16 @@ int main(void)
 						(double)b_stats.mean_pos,
 						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
 						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
-						(unsigned long)stats.test_time_ms);
+						(unsigned long)stats.test_time_ms,
+						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g);
 					uart_send_text(stats_msg, 100);
 				} else {
-					char stats_msg[320];
+					char stats_msg[450];
 					uint32_t time_min = stats.test_time_ms / 60000u;
 					uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 					const char *phase = TestRun_GetPhaseName();
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld\r\n\r\n",
+						"TEST_SUMMARY:status=OK,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,v_max=%.1f,a_max=%.1f,a_brake=%.1f\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 						stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 						(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -767,7 +770,8 @@ int main(void)
 						phase,
 						time_min, time_sec,
 						(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos);
+						(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos,
+						(double)stats.max_velocity_mms, (double)stats.max_accel_g, (double)stats.max_decel_g);
 					uart_send_text(stats_msg, 100);
 				}
 			}
@@ -787,12 +791,12 @@ int main(void)
 			}
 			if (!test_summary_sent) {
 				TestRun_GetStats(&stats);
-				char summary[400];
+				char summary[450];
 				uint32_t time_min = stats.test_time_ms / 60000u;
 				uint32_t time_sec = (stats.test_time_ms / 1000u) % 60u;
 				const char *phase = TestRun_GetPhaseName();
 				snprintf(summary, sizeof(summary),
-					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,last_error=%s\r\n\r\n",
+					"TEST_SUMMARY:status=ERROR,cycles=%lu,done=%lu,ds_err=%lu,no_err=%lu,valid_sensor=%lu,invalid_sensor=%lu,motor_fault=%lu,z_ist_min=%ld,z_ist_max=%ld,z_soll_min=%ld,z_soll_max=%ld,last_ist=%ld,last_soll=%ld,phase=%s,time_m=%lu,time_s=%lu,last_delta=%ld,overshoot=%ld,lost=%ld,no_sensor_pos=%ld,v_max=%.1f,a_max=%.1f,a_brake=%.1f,last_error=%s\r\n\r\n",
 					stats.total_cycles, stats.completed_cycles, stats.ds_errors, stats.no_sensor_errors,
 					stats.valid_sensor_events, stats.invalid_sensor_events, stats.motor_faults,
 					(long)stats.z_ist_min, (long)stats.z_ist_max,
@@ -801,7 +805,9 @@ int main(void)
 					phase,
 					time_min, time_sec,
 					(long)stats.last_cycle_delta, (long)stats.last_cycle_overshoot,
-					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos, error_message);
+					(long)stats.last_cycle_lost_steps, (long)stats.no_sensor_pos,
+					(double)stats.max_velocity_mms, (double)stats.max_accel_g, (double)stats.max_decel_g,
+					error_message);
 				uart_send_text(summary, 100);
 				test_summary_sent = true;
 			}

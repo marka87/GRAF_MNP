@@ -52,6 +52,9 @@ typedef struct {
     int32_t  last_cycle_delta;    /* Zugrundeliegende Bewegungsdifferenz       */
     int32_t  last_cycle_overshoot;/* Überschreitung der Ziel-Range in inc      */
     int32_t  last_cycle_lost_steps;/* Bewegungsverlust / fehlende Schritte     */
+    float    max_velocity_mms;    /* Max. Ist-Geschwindigkeit in mm/s          */
+    float    max_accel_g;         /* Max. Beschleunigung in g                  */
+    float    max_decel_g;         /* Max. Verzögerung / Bremsung in g          */
 } TestRunStats_t;
 
 /* Streuungs-Statistik für Test B */
@@ -65,6 +68,9 @@ typedef struct {
     float    mean_pos;           /* Arithmetischer Mittelwert */
     uint16_t baseline_adc;       /* Offset-Spannung in Standby (ADC) */
     uint16_t trigger_adc;        /* Auslöse-Schwellwert (ADC) */
+    float    max_velocity_mms;   /* Max. Ist-Geschwindigkeit in mm/s          */
+    float    max_accel_g;        /* Max. Beschleunigung in g                  */
+    float    max_decel_g;        /* Max. Verzögerung / Bremsung in g          */
 } TestBScatterStats_t;
 
 typedef struct {

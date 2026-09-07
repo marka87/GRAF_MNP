@@ -63,6 +63,10 @@ namespace MnpControl
         private readonly List<ScatterPoint> _scatterPoints = new();
         private int _expectedCycles = 10;
         private bool _isTestARunning = false;
+        private bool _isMimotTestActive = false;
+        private MimotTestConfig? _activeMimotConfig = null;
+        private DateTime _mimotStartTime = DateTime.MinValue;
+        private string? _lastGeneratedReportPath = null;
 
         private static readonly string PidPresetPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -454,7 +458,17 @@ namespace MnpControl
             {
                 TxtStatus.Text = "Test B abgeschlossen";
                 AppendTestBSummary(msg);
-                AppendLiveLog("[OK] Test B abgeschlossen");
+                string? vMaxB = ExtractSummaryParam(msg, "v_max");
+                string? aMaxB = ExtractSummaryParam(msg, "a_max");
+                string? aBrkB = ExtractSummaryParam(msg, "a_brake");
+                if (!string.IsNullOrEmpty(vMaxB))
+                {
+                    AppendLiveLog($"[OK] Test B abgeschlossen (v_max: {vMaxB} mm/s | a_max: +{aMaxB} g | Bremsen: -{aBrkB} g)");
+                }
+                else
+                {
+                    AppendLiveLog("[OK] Test B abgeschlossen");
+                }
                 return;
             }
 
@@ -464,7 +478,24 @@ namespace MnpControl
                 AppendTestSummary(msg);
                 if (_isTestARunning)
                 {
-                    AppendLiveLog(msg.Contains("status=OK") ? "[OK] Test A abgeschlossen" : "[FEHLER] Test A abgebrochen");
+                    if (msg.Contains("status=OK"))
+                    {
+                        string? vMaxA = ExtractSummaryParam(msg, "v_max");
+                        string? aMaxA = ExtractSummaryParam(msg, "a_max");
+                        string? aBrkA = ExtractSummaryParam(msg, "a_brake");
+                        if (!string.IsNullOrEmpty(vMaxA))
+                        {
+                            AppendLiveLog($"[OK] Test A abgeschlossen (v_max: {vMaxA} mm/s | a_max: +{aMaxA} g | Bremsen: -{aBrkA} g)");
+                        }
+                        else
+                        {
+                            AppendLiveLog("[OK] Test A abgeschlossen");
+                        }
+                    }
+                    else
+                    {
+                        AppendLiveLog("[FEHLER] Test A abgebrochen");
+                    }
                     _isTestARunning = false;
                 }
                 else if (!msg.Contains("status=OK"))
@@ -560,6 +591,15 @@ namespace MnpControl
             TxtLiveLog.ScrollToEnd();
         }
 
+        private static string? ExtractSummaryParam(string msg, string key)
+        {
+            int idx = msg.IndexOf(key + "=", StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return null;
+            int start = idx + key.Length + 1;
+            int end = msg.IndexOfAny(new[] { ',', '\r', '\n' }, start);
+            return (end >= 0 ? msg.Substring(start, end - start) : msg.Substring(start)).Trim();
+        }
+
         private void AppendTestSummary(string line)
         {
             if (string.IsNullOrWhiteSpace(line))
@@ -603,7 +643,7 @@ namespace MnpControl
             string sep = new string('=', 46);
             if (string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase))
             {
-                while (_testSummaryLines.Count >= 10) _testSummaryLines.Dequeue();
+                while (_testSummaryLines.Count >= 25) _testSummaryLines.Dequeue();
                 _testSummaryLines.Enqueue(sep);
                 _testSummaryLines.Enqueue("=== TEST A: DAUERTEST (OHNE MESSOBJEKT) ===");
                 _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles} (Erfolgreich)");
@@ -616,10 +656,23 @@ namespace MnpControl
                 string istMaxVal = values.TryGetValue("z_ist_max", out string? imax) ? imax : "-";
                 string sollMinVal = values.TryGetValue("z_soll_min", out string? smin) ? smin : "-";
                 string sollMaxVal = values.TryGetValue("z_soll_max", out string? smax) ? smax : "-";
+                string? vMax = values.TryGetValue("v_max", out string? vm) ? vm : null;
+                string? aMax = values.TryGetValue("a_max", out string? am) ? am : null;
+                string? aBrake = values.TryGetValue("a_brake", out string? ab) ? ab : null;
+
                 _testSummaryLines.Enqueue($"NO-Sensor Pos:       {noSensor} inc");
                 _testSummaryLines.Enqueue($"Hub (IST min..max):  {istMinVal} .. {istMaxVal} inc");
                 _testSummaryLines.Enqueue($"SOLL min..max:       {sollMinVal} .. {sollMaxVal} inc");
                 _testSummaryLines.Enqueue($"Overshoot / Lost:    {overshoot} inc / {lost} inc");
+                if (!string.IsNullOrEmpty(vMax) && float.TryParse(vMax, NumberStyles.Float, CultureInfo.InvariantCulture, out float vMaxVal))
+                {
+                    float mPerSec = vMaxVal / 1000.0f;
+                    _testSummaryLines.Enqueue($"Max. Geschw. (IST):  {vMaxVal:F0} mm/s (ca. {mPerSec:F2} m/s)");
+                }
+                if (!string.IsNullOrEmpty(aMax) && !string.IsNullOrEmpty(aBrake))
+                {
+                    _testSummaryLines.Enqueue($"Spitzen-Beschl.:     +{aMax} g | Bremsen: -{aBrake} g");
+                }
                 _testSummaryLines.Enqueue(sep);
             }
             else
@@ -640,12 +693,19 @@ namespace MnpControl
                     motorFault,
                     runtime);
 
+                if (values.TryGetValue("v_max", out string? errVMax) && !string.IsNullOrEmpty(errVMax))
+                {
+                    string errAMax = values.TryGetValue("a_max", out string? eam) ? eam : "?";
+                    string errABrk = values.TryGetValue("a_brake", out string? eab) ? eab : "?";
+                    details += $" | v_max={errVMax} mm/s | a_max=+{errAMax} g | Bremsen=-{errABrk} g";
+                }
+
                 if (values.TryGetValue("last_error", out string? err) && !string.IsNullOrWhiteSpace(err))
                 {
                     details += " | ERR: " + err;
                 }
 
-                while (_testSummaryLines.Count >= 8)
+                while (_testSummaryLines.Count >= 25)
                 {
                     _testSummaryLines.Dequeue();
                 }
@@ -656,6 +716,11 @@ namespace MnpControl
 
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             TxtTestSummary.ScrollToEnd();
+
+            if (_isMimotTestActive && _activeMimotConfig != null)
+            {
+                HandleMimotTestCompletion(values, status);
+            }
         }
 
         private void AppendTestBLog(string line)
@@ -697,10 +762,15 @@ namespace MnpControl
             string mean = values.TryGetValue("mean", out string? mn) ? mn : "?";
             string baselineV = values.TryGetValue("baseline_v", out string? bv) ? bv : "?";
             string trigV = values.TryGetValue("trig_v", out string? tv) ? tv : "?";
-            string timeMsStr = values.TryGetValue("time_ms", out string? tm) ? tm : null;
+            string? timeMsStr = values.TryGetValue("time_ms", out string? tm) ? tm : null;
+            string? vMax = values.TryGetValue("v_max", out string? vm) ? vm : null;
+            string? aMax = values.TryGetValue("a_max", out string? am) ? am : null;
+            string? aBrake = values.TryGetValue("a_brake", out string? ab) ? ab : null;
 
             float.TryParse(range, NumberStyles.Float, CultureInfo.InvariantCulture, out float rangeVal);
             int.TryParse(done, out int doneVal);
+
+            while (_testSummaryLines.Count >= 25) _testSummaryLines.Dequeue();
 
             string sep = new string('=', 46);
             _testSummaryLines.Enqueue(sep);
@@ -723,10 +793,24 @@ namespace MnpControl
             _testSummaryLines.Enqueue($"STREUUNG / SPANNE:   {range} inc (±{rangeVal / 2.0f:F1} inc)");
             _testSummaryLines.Enqueue($"Mittelwert:          {mean} inc");
             _testSummaryLines.Enqueue($"Sensor-Standby:      {baselineV} V (Trigger: {trigV} V)");
+            if (!string.IsNullOrEmpty(vMax) && float.TryParse(vMax, NumberStyles.Float, CultureInfo.InvariantCulture, out float vMaxVal))
+            {
+                float mPerSec = vMaxVal / 1000.0f;
+                _testSummaryLines.Enqueue($"Max. Geschw. (IST):  {vMaxVal:F0} mm/s (ca. {mPerSec:F2} m/s)");
+            }
+            if (!string.IsNullOrEmpty(aMax) && !string.IsNullOrEmpty(aBrake))
+            {
+                _testSummaryLines.Enqueue($"Spitzen-Beschl.:     +{aMax} g | Bremsen: -{aBrake} g");
+            }
             _testSummaryLines.Enqueue(sep);
 
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             TxtTestSummary.ScrollToEnd();
+
+            if (_isMimotTestActive && _activeMimotConfig != null)
+            {
+                HandleMimotTestBCompletion(values);
+            }
         }
 
         private void AddScatterPoint(int cycle, int touchPos, int delta, int minPos, int maxPos, int range, float mean, uint elapsedMs = 0)
@@ -1344,6 +1428,189 @@ namespace MnpControl
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             AppendLiveLog($"[START] Test B gestartet ({cycles} Zyklen, Stufe {SldSpeedLevel.Value:F0})");
             SendCommand($"TB={cycles}");
+        }
+
+        private void BtnStartMimotTest_Click(object sender, RoutedEventArgs e)
+        {
+            int defaultCycles = 10;
+            if (int.TryParse(TxtTestCycles.Text.Trim(), out int parsed) && parsed > 0)
+            {
+                defaultCycles = parsed;
+            }
+
+            var dialog = new MimotTestDialog(defaultCycles)
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            _activeMimotConfig = dialog.Config;
+            _isMimotTestActive = true;
+            _mimotStartTime = DateTime.Now;
+
+            TxtTestCycles.Text = _activeMimotConfig.Cycles.ToString();
+
+            string testTypeName = _activeMimotConfig.TestType == MimotTestType.BestueckenTestB
+                ? "Dauertest Bestücken (Test B)"
+                : "Dauertest Z-Achse (Test A)";
+
+            AppendLiveLog($"[MIMOT] Abnahmeprüflauf ({testTypeName}) gestartet: SN {_activeMimotConfig.SerialNumber} (Prüfer: {_activeMimotConfig.OperatorId}, {_activeMimotConfig.Cycles} Zyklen)");
+
+            if (_activeMimotConfig.TestType == MimotTestType.BestueckenTestB)
+            {
+                BtnStartTestB_Click(sender, e);
+            }
+            else
+            {
+                BtnStartTestA_Click(sender, e);
+            }
+        }
+
+        private void BtnOpenReportsFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string targetDir = System.IO.Path.Combine(baseDir, "Testprotokolle");
+                System.IO.Directory.CreateDirectory(targetDir);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = targetDir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ordner konnte nicht geöffnet werden: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void HandleMimotTestCompletion(Dictionary<string, string> values, string status)
+        {
+            if (_activeMimotConfig == null) return;
+
+            var result = new MimotTestResult
+            {
+                Config = _activeMimotConfig,
+                StartTime = _mimotStartTime,
+                EndTime = DateTime.Now,
+                ErrorMessage = values.TryGetValue("last_error", out string? err) ? (err ?? "keine") : "keine"
+            };
+
+            if (int.TryParse(values.TryGetValue("done", out string? d) ? d : "0", out int doneVal))
+                result.CompletedCycles = doneVal;
+            if (int.TryParse(values.TryGetValue("lost", out string? l) ? l : "0", out int lostVal))
+                result.LostSteps = lostVal;
+            if (int.TryParse(values.TryGetValue("overshoot", out string? over) ? over : "0", out int overVal))
+                result.Overshoot = overVal;
+            if (int.TryParse(values.TryGetValue("z_ist_min", out string? imin) ? imin : "0", out int istMinVal))
+                result.IstMin = istMinVal;
+            if (int.TryParse(values.TryGetValue("z_ist_max", out string? imax) ? imax : "0", out int istMaxVal))
+                result.IstMax = istMaxVal;
+            if (int.TryParse(values.TryGetValue("z_soll_min", out string? smin) ? smin : "0", out int sollMinVal))
+                result.SollMin = sollMinVal;
+            if (int.TryParse(values.TryGetValue("z_soll_max", out string? smax) ? smax : "0", out int sollMaxVal))
+                result.SollMax = sollMaxVal;
+            if (int.TryParse(values.TryGetValue("no_sensor_pos", out string? ns) ? ns : "0", out int noPosVal))
+                result.NoSensorPos = noPosVal;
+
+            if (float.TryParse(values.TryGetValue("v_max", out string? vm) ? vm : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float vmVal))
+                result.MaxVelocityMmS = vmVal;
+            if (float.TryParse(values.TryGetValue("a_max", out string? am) ? am : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float amVal))
+                result.MaxAccelG = amVal;
+            if (float.TryParse(values.TryGetValue("a_brake", out string? ab) ? ab : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float abVal))
+                result.MaxDecelG = abVal;
+
+            FinalizeMimotReport(result);
+        }
+
+        private void HandleMimotTestBCompletion(Dictionary<string, string> values)
+        {
+            if (_activeMimotConfig == null) return;
+
+            var result = new MimotTestResult
+            {
+                Config = _activeMimotConfig,
+                StartTime = _mimotStartTime,
+                EndTime = DateTime.Now,
+                ErrorMessage = "keine"
+            };
+
+            if (int.TryParse(values.TryGetValue("done", out string? d) ? d : "0", out int doneVal))
+                result.CompletedCycles = doneVal;
+            if (int.TryParse(values.TryGetValue("range", out string? rng) ? rng : "0", out int rangeVal))
+                result.ScatterRange = rangeVal;
+            if (float.TryParse(values.TryGetValue("mean", out string? mn) ? mn : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float meanVal))
+                result.MeanPosition = meanVal;
+            if (float.TryParse(values.TryGetValue("baseline_v", out string? bv) ? bv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float bvVal))
+                result.BaselineVoltage = bvVal;
+            if (float.TryParse(values.TryGetValue("trig_v", out string? tv) ? tv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float tvVal))
+                result.TriggerVoltage = tvVal;
+
+            if (float.TryParse(values.TryGetValue("v_max", out string? vm) ? vm : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float vmVal))
+                result.MaxVelocityMmS = vmVal;
+            if (float.TryParse(values.TryGetValue("a_max", out string? am) ? am : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float amVal))
+                result.MaxAccelG = amVal;
+            if (float.TryParse(values.TryGetValue("a_brake", out string? ab) ? ab : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float abVal))
+                result.MaxDecelG = abVal;
+
+            if (_zStepUpperLimit.HasValue && _zStepUpperLimit.Value > 0)
+            {
+                result.NoSensorPos = (int)_zStepUpperLimit.Value;
+            }
+
+            FinalizeMimotReport(result);
+        }
+
+        private void FinalizeMimotReport(MimotTestResult result)
+        {
+            _isMimotTestActive = false;
+
+            try
+            {
+                var (txtPath, htmlPath) = MimotReportGenerator.GenerateAndSave(result);
+                _lastGeneratedReportPath = htmlPath;
+
+                string statusText = result.OverallSuccess ? "BESTANDEN (PASS)" : "NICHT BESTANDEN (FAIL)";
+                AppendLiveLog($"[MIMOT] Prüfprotokoll generiert: {statusText}");
+                AppendLiveLog($"[MIMOT] Datei: {System.IO.Path.GetFileName(txtPath)}");
+
+                _testSummaryLines.Enqueue(new string('=', 46));
+                _testSummaryLines.Enqueue($"★ MIMOT TEST: {statusText}");
+                _testSummaryLines.Enqueue($"Protokoll: {System.IO.Path.GetFileName(txtPath)}");
+                _testSummaryLines.Enqueue(new string('=', 46));
+                TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+                TxtTestSummary.ScrollToEnd();
+
+                var mbRes = MessageBox.Show(
+                    $"Der MIMOT-Abnahmeprüflauf ist abgeschlossen!\n\n" +
+                    $"Ergebnis: {statusText}\n" +
+                    $"Seriennummer: {result.Config.SerialNumber}\n" +
+                    $"Prüfer: {result.Config.OperatorId}\n" +
+                    $"Zyklen: {result.CompletedCycles} / {result.Config.Cycles}\n\n" +
+                    $"Protokolle wurden gespeichert in:\n{System.IO.Path.GetDirectoryName(txtPath)}\n\n" +
+                    $"Möchten Sie das Prüfprotokoll jetzt ansehen?",
+                    $"MIMOT Test — {statusText}",
+                    MessageBoxButton.YesNo,
+                    result.OverallSuccess ? MessageBoxImage.Information : MessageBoxImage.Warning);
+
+                if (mbRes == MessageBoxResult.Yes)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = htmlPath,
+                        UseShellExecute = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Fehler beim Erstellen des Prüfberichts: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void BtnTestStart_click(object sender, RoutedEventArgs e)

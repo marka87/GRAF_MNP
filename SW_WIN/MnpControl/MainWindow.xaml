@@ -172,6 +172,7 @@
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="Test Summary &amp; Statistik" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         <Button DockPanel.Dock="Right" Content="Statistik leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearSummary_Click"/>
+                        <Button DockPanel.Dock="Right" Content="📁 Protokolle" Padding="8,1" FontSize="11" Height="22" Margin="0,0,8,0" Click="BtnOpenReportsFolder_Click" ToolTip="Öffnet den Ordner mit den gespeicherten Mimot-Prüfberichten"/>
                     </DockPanel>
                 </GroupBox.Header>
                 <Grid>
@@ -260,12 +261,24 @@
                         </Grid>
 
                         <!-- Test A & Test B Buttons -->
-                        <UniformGrid Columns="2" Margin="0,0,0,8">
+                        <UniformGrid Columns="2" Margin="0,0,0,6">
                             <Button x:Name="BtnStartTestA" Content="&#x25B6;  Test A (Dauer)" Height="34" Margin="0,0,4,0"
                                     Background="#F8FAFC" FontWeight="SemiBold" Click="BtnStartTestA_Click"/>
                             <Button x:Name="BtnStartTestB" Content="Test B (Antastung)" Height="34" Margin="4,0,0,0"
                                     Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8" FontWeight="Bold" Click="BtnStartTestB_Click"/>
                         </UniformGrid>
+
+                        <!-- MIMOT TEST Button -->
+                        <Button x:Name="BtnStartMimotTest"
+                                Content="&#x2605;  MIMOT TEST (Abnahmeprotokoll)"
+                                Height="36"
+                                Margin="0,0,0,8"
+                                Background="#FEF3C7"
+                                BorderBrush="#D97706"
+                                Foreground="#92400E"
+                                FontWeight="Bold"
+                                Click="BtnStartMimotTest_Click"
+                                ToolTip="Führt eine Mimot-Werksabnahme mit Seriennummer, Checkliste und automatischem Prüfprotokoll (TXT/PDF) durch"/>
 
                         <Button x:Name="BtnTestStart"
                                 Content="Start-Freigabe (OK)"
