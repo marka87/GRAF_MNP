@@ -1180,12 +1180,13 @@ namespace MnpControl
         {
             <= 3 => "Kriechgang",
             4 or 5 => "Langsam",
-            6 => "1x Original",
-            7 or 8 => "Mittel",
-            9 or 10 => "Schnell",
-            11 => "2.5x Stress",
-            12 or 13 => "Sehr schnell",
-            14 or 15 => "Extrem-Stress",
+            6 or 7 => "Moderat",
+            8 or 9 => "Mittel",
+            10 or 11 => "Schnell",
+            12 => "Sehr schnell",
+            13 => "Mimot Maschine (Original)",
+            14 => "Schnell-Stress",
+            15 => "Extrem-Stress",
             16 => "Max-Speed",
             _ => ""
         };

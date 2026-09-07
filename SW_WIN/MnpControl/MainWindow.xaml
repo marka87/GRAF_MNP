@@ -323,19 +323,17 @@
                                 <ColumnDefinition Width="4"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="1x Original" Height="26" FontSize="11" Padding="2"
-                                    ToolTip="Stufe 6: Reales Produktionstempo (ca. 3.3 Takte/s, 300ms/Takt)" Click="BtnSpeedPreset_Click" Tag="6"/>
-                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="2.5x Stress" Height="26" FontSize="11" Padding="2" FontWeight="SemiBold"
-                                    ToolTip="Stufe 11: Bewährter Standard-Stresstest (ca. 8.2 Takte/s, 122ms/Takt)" Click="BtnSpeedPreset_Click" Tag="11"/>
-                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed" Height="26" FontSize="11" Padding="2"
-                                    ToolTip="Stufe 16: Maximales Raketentempo (ca. 15 Takte/s, 65ms/Takt)" Click="BtnSpeedPreset_Click" Tag="16"/>
+                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="Mimot (13)" Height="26" FontSize="11" Padding="2"
+                                    ToolTip="Stufe 13: Reales Mimot-Maschinentempo (ca. 3.3 Takte/s, 307ms/Takt)" Click="BtnSpeedPreset_Click" Tag="13"/>
+                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="Stress (15)" Height="26" FontSize="11" Padding="2" FontWeight="SemiBold"
+                                    ToolTip="Stufe 15: Erhöhter Stresstest" Click="BtnSpeedPreset_Click" Tag="15"/>
+                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed (16)" Height="26" FontSize="11" Padding="2"
+                                    ToolTip="Stufe 16: Maximales Tempo (ca. 8.2 Takte/s, 122ms/Takt)" Click="BtnSpeedPreset_Click" Tag="16"/>
                         </Grid>
-                        <DockPanel LastChildFill="True">
-                            <TextBlock x:Name="TxtSpeedLevel" DockPanel.Dock="Right" Text="Stufe: 11/16 (2.5x Stress)" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                            <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="11" TickFrequency="1"
-                                    IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                    ValueChanged="SldSpeedLevel_ValueChanged"/>
-                        </DockPanel>
+                        <TextBlock x:Name="TxtSpeedLevel" Text="Stufe: 13/16 (Mimot Maschine)" FontWeight="Bold" FontSize="12" Margin="0,4,0,2"/>
+                        <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="13" TickFrequency="1"
+                                IsSnapToTickEnabled="True" Height="26" VerticalAlignment="Center"
+                                ValueChanged="SldSpeedLevel_ValueChanged"/>
                     </StackPanel>
                 </GroupBox>
 
