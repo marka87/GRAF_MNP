@@ -41,6 +41,21 @@ extern int32_t        z_encoder_end;
 #define GO_DOWN_TARGET_OFFS          400u
 #define GO_DOWN_SWITCH_MARGIN        500u
 
+/* Test A Zielhöhe über NO-Sensor und geschwindigkeitsabhängige Bremsweg-Kompensation */
+#define TEST_A_UP_TARGET_HEIGHT      250
+
+static int32_t get_test_a_down_overshoot(uint8_t speed) {
+    if (speed <= 6u) return 10;
+    int32_t os = 60 + (int32_t)(speed - 8) * 31;
+    return (os < 10) ? 10 : os;
+}
+
+static int32_t get_test_a_up_overshoot(uint8_t speed) {
+    if (speed <= 4u) return 10;
+    int32_t os = 75 + (int32_t)(speed - 8) * 22;
+    return (os < 10) ? 10 : os;
+}
+
 /* Test B Parameter */
 #define TEST_B_FAST_SPEED_LEVEL      8u    /* Schnelle Verfahrfahrt (wie Naehmaschine) */
 #define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
@@ -85,6 +100,7 @@ static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
 static uint32_t               s_ds_filter_acc = 0;
 static uint32_t               s_fast_cycles_start_tick = 0;
+static bool                   s_no_sen_tripped_in_cycle = false;
 
 /* 4-Sample Exponential Moving Average Filter fÃ¼r Drucksensor */
 static uint16_t read_filtered_ds(void) {
@@ -241,11 +257,16 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     if (s_fast_speed_level < 1u) s_fast_speed_level = 1u;
     if (s_fast_speed_level > 16u) s_fast_speed_level = 16u;
 
+    s_no_sen_tripped_in_cycle = false;
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER) {
         /* Sanfte Suchfahrt von oben bis zum Bauteil auf Speed 3 */
         s_phase = PHASE_B_SETUP_SLOW_PROBE;
         Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
     } else {
+        int32_t init_target_down = (int32_t)z_encoder_start + GO_DOWN_TARGET_OFFS;
+        int32_t init_target_up = (int32_t)z_ax_no_pos + TEST_A_UP_TARGET_HEIGHT;
+        update_target_range(init_target_down);
+        update_target_range(init_target_up);
         s_phase = PHASE_A_GO_UP;
         Z_PID_SetSpeedLevel(s_fast_speed_level);
     }
@@ -478,19 +499,31 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
 
     if (s_phase == PHASE_A_GO_UP) {
         s_cycle_start_pos = Encoder_GetPosition_Z_AXIS();
-        int32_t target_up = (int32_t)z_ax_no_pos + GO_UP_OVERSHOOT;
+        int32_t target_up = (int32_t)z_ax_no_pos + TEST_A_UP_TARGET_HEIGHT;
         update_target_range(target_up);
         Z_Target_SetRequestedDirect((uint32_t)target_up);
 
-        /* Nadel-oben Sensor (NO-Sensor) MUSS oben immer erreicht werden */
+        int32_t switch_up = target_up - get_test_a_up_overshoot(s_fast_speed_level);
+        if (switch_up < (int32_t)z_ax_no_pos) switch_up = (int32_t)z_ax_no_pos;
+
+        /* Nadel-oben Sensor (NO-Sensor) erfassen */
         if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) {
-            s_cycle_trigger_pos = z_pos;
-            s_stats.no_sensor_pos = z_ax_no_pos;
-            s_stats.valid_sensor_events++;
-            if (s_cycle_trigger_pos < s_stats.z_trigger_pos_min) s_stats.z_trigger_pos_min = s_cycle_trigger_pos;
-            if (s_cycle_trigger_pos > s_stats.z_trigger_pos_max) s_stats.z_trigger_pos_max = s_cycle_trigger_pos;
-            s_phase = PHASE_A_GO_DOWN;
-        } else if (z_pos >= (int32_t)(z_ax_no_pos + GO_UP_OVERSHOOT)) {
+            if (!s_no_sen_tripped_in_cycle) {
+                s_no_sen_tripped_in_cycle = true;
+                s_cycle_trigger_pos = z_pos;
+                s_stats.no_sensor_pos = z_ax_no_pos;
+                s_stats.valid_sensor_events++;
+                if (s_cycle_trigger_pos < s_stats.z_trigger_pos_min) s_stats.z_trigger_pos_min = s_cycle_trigger_pos;
+                if (s_cycle_trigger_pos > s_stats.z_trigger_pos_max) s_stats.z_trigger_pos_max = s_cycle_trigger_pos;
+            }
+        }
+
+        if (s_no_sen_tripped_in_cycle) {
+            if (z_pos >= switch_up) {
+                s_phase = PHASE_A_GO_DOWN;
+                s_no_sen_tripped_in_cycle = false;
+            }
+        } else if (z_pos >= (int32_t)(target_up + 100)) {
             s_stats.no_sensor_errors++;
             s_stats.invalid_sensor_events++;
             snprintf(s_error_msg, sizeof(s_error_msg), "NO-Sen fehlt @ %ld", (long)z_pos);
@@ -502,12 +535,14 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         update_target_range(target_down);
         Z_Target_SetRequestedDirect((uint32_t)target_down);
 
-        if (z_pos <= (int32_t)(z_encoder_start + GO_DOWN_SWITCH_MARGIN)) {
+        int32_t switch_down = target_down + get_test_a_down_overshoot(s_fast_speed_level);
+        if (z_pos <= switch_down) {
             s_cycle_end_pos = z_pos;
             update_cycle_metrics();
             s_current_cycle++;
             s_stats.completed_cycles = s_current_cycle;
             s_phase = PHASE_A_GO_UP;
+            s_no_sen_tripped_in_cycle = false;
 
             if (s_current_cycle >= s_num_total_cycles) {
                 TestRun_RestoreSpeedLevel();
