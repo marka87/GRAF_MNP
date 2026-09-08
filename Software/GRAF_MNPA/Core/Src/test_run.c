@@ -61,8 +61,15 @@ static int32_t get_test_a_up_overshoot(uint8_t speed) {
 #define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
 #define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle ueber Ruhe-Baseline */
 
-/* Ausblend-Zone fuer den oberen Totpunkt (wo der schlagartige Richtungswechsel stattfindet) */
-#define REVERSAL_BLANKING_MARGIN     300u
+/* Dynamische Ausblend-Zone für den oberen Totpunkt:
+ * Bei Stufe 16 (bis zu 985 mm/s und +8.5 g Beschleunigung) federt die Nadel
+ * durch die Massenträgheit über eine Strecke von ca. 6-8 mm (600-800 Inc) in den Sensor.
+ * Der Ausblendbereich passt sich daher dynamisch an die gewählte Geschwindigkeit an. */
+static int32_t get_reversal_blanking_margin(uint8_t speed) {
+    if (speed <= 4u) return 300;
+    int32_t margin = 300 + (int32_t)(speed - 4u) * 45;
+    return (margin > 850) ? 850 : margin;
+}
 
 typedef enum {
     /* Test A Phasen */
@@ -297,7 +304,12 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         log_data_point(z_pos, z_target);
     }
 
-    int32_t top_zone     = (int32_t)z_ax_no_pos - (int32_t)REVERSAL_BLANKING_MARGIN;
+    int32_t top_zone     = (int32_t)z_ax_no_pos - get_reversal_blanking_margin(s_fast_speed_level);
+    if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER && s_scatter_stats.z_ref_pos > 0) {
+        if (top_zone < (s_scatter_stats.z_ref_pos + 150)) {
+            top_zone = s_scatter_stats.z_ref_pos + 150;
+        }
+    }
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
     int32_t braking_dist = (int32_t)(s_fast_speed_level * 80);
     if (braking_dist < 300) braking_dist = 300;
@@ -415,9 +427,12 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
 
             /* Beschleunigungs-Überwachung auf freier Fahrt nach unten */
             if (z_pos < top_zone && z_pos > contact_zone) {
-                if (ds_value >= s_ds_trigger_threshold) {
+                /* Auf freier Flugstrecke nur echte Kollisionen erkennen (Sicherheitsabstand gegen Flugvibrationen) */
+                uint16_t collision_threshold = s_ds_trigger_threshold + 600u;
+                if (collision_threshold < 2000u) collision_threshold = 2000u; /* ca. 2.44 V */
+                if (ds_value >= collision_threshold) {
                     s_ds_accel_fault_debounce++;
-                    if (s_ds_accel_fault_debounce >= 6u) {
+                    if (s_ds_accel_fault_debounce >= 20u) {
                         s_stats.ds_errors++;
                         snprintf(s_error_msg, sizeof(s_error_msg), "Beschl. DOWN: %u @ %ld", ds_value, (long)z_pos);
                         TestRun_RestoreSpeedLevel();
@@ -487,9 +502,11 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     /* In Test A dient der Drucksensor als reiner Kollisionsschutz (z.B. Hindernis).
      * In der oberen Umkehrzone (z_pos >= top_zone) federt der Hebel/Sensor durch Bremsung/Umkehr
      * aus -> dort wie in Test B ausblenden. */
-    if (z_pos < top_zone && ds_value >= s_ds_trigger_threshold) {
+    uint16_t test_a_col_thresh = s_ds_trigger_threshold + 600u;
+    if (test_a_col_thresh < 2000u) test_a_col_thresh = 2000u;
+    if (z_pos < top_zone && ds_value >= test_a_col_thresh) {
         s_ds_accel_fault_debounce++;
-        if (s_ds_accel_fault_debounce >= 8u) {
+        if (s_ds_accel_fault_debounce >= 20u) {
             s_stats.invalid_sensor_events++;
             s_stats.ds_errors++;
             s_stats.motor_faults++;

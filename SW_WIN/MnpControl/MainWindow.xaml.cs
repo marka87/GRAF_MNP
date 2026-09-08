@@ -1544,6 +1544,8 @@ namespace MnpControl
                 result.CompletedCycles = doneVal;
             if (int.TryParse(values.TryGetValue("range", out string? rng) ? rng : "0", out int rangeVal))
                 result.ScatterRange = rangeVal;
+            if (int.TryParse(values.TryGetValue("delta_max", out string? dmax) ? dmax : "0", out int dmaxVal))
+                result.ContactTravelInc = Math.Max(1, Math.Abs(dmaxVal));
             if (float.TryParse(values.TryGetValue("mean", out string? mn) ? mn : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float meanVal))
                 result.MeanPosition = meanVal;
             if (float.TryParse(values.TryGetValue("baseline_v", out string? bv) ? bv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float bvVal))

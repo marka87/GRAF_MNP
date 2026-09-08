@@ -64,3 +64,4 @@ namespace MnpControl
         public float MaxDecelG { get; set; } = 0;
     }
 }
+
