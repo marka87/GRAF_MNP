@@ -119,7 +119,7 @@
                 <Label Grid.Row="0" Grid.Column="0" Content="Nadel-Oben Sensor:" VerticalAlignment="Center"/>
                 <TextBox x:Name="TxtNadelOben" Grid.Row="0" Grid.Column="2" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
 
-                <Label Grid.Row="2" Grid.Column="0" Content="Drucksensor (V):" VerticalAlignment="Center"/>
+                <Label Grid.Row="2" Grid.Column="0" Content="Drucksensor (V):" VerticalAlignment="Center" ToolTip="Ruhespannung: Ziel ~0.04 V (Gruen). Ab 0.08 V Hebel mechanisch justieren!"/>
                 <TextBox x:Name="TxtDrucksensor" Grid.Row="2" Grid.Column="2" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
 
                 <Label Grid.Row="4" Grid.Column="0" Content="A-Achse Position (inc):" VerticalAlignment="Center"/>

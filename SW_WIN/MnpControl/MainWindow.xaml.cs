@@ -53,6 +53,17 @@ namespace MnpControl
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
 
+        private static readonly SolidColorBrush BrushDsOk = CreateFrozenBrush(Color.FromRgb(22, 163, 74));     // #16A34A Gruen (<= 0.06V)
+        private static readonly SolidColorBrush BrushDsWarn = CreateFrozenBrush(Color.FromRgb(217, 119, 6));   // #D97706 Orange (0.06V - 0.08V)
+        private static readonly SolidColorBrush BrushDsErr = CreateFrozenBrush(Color.FromRgb(220, 38, 38));    // #DC2626 Rot (> 0.08V)
+
+        private static SolidColorBrush CreateFrozenBrush(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
+
         private sealed class ScatterPoint
         {
             public int Cycle { get; init; }
@@ -327,6 +338,24 @@ namespace MnpControl
 
                     TxtNadelOben.Text = sSplit[0] == "1" ? "Unten" : "Oben";
                     TxtDrucksensor.Text = sSplit[1];
+                    if (float.TryParse(sSplit[1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float dsVolts))
+                    {
+                        if (dsVolts <= 0.06f)
+                        {
+                            TxtDrucksensor.Foreground = BrushDsOk;
+                            TxtDrucksensor.ToolTip = $"Hebelstellung OK ({dsVolts:F3} V \u2264 0.06 V \u2014 Ziel: ~0.04 V)";
+                        }
+                        else if (dsVolts <= 0.08f)
+                        {
+                            TxtDrucksensor.Foreground = BrushDsWarn;
+                            TxtDrucksensor.ToolTip = $"Hebel grenzwertig ({dsVolts:F3} V \u2014 optimal: ~0.04 V)";
+                        }
+                        else
+                        {
+                            TxtDrucksensor.Foreground = BrushDsErr;
+                            TxtDrucksensor.ToolTip = $"ACHTUNG: Hebel zu straff / Drucksensor zu hoch ({dsVolts:F3} V > 0.08 V)!\nMechanisch auf ~0.04 V justieren (Ref-Abbruch bei >0.12 V).";
+                        }
+                    }
                     TxtAaxisPos.Text = sSplit[2];
                     TxtZaxisPosIst.Text = sSplit[3];
                     TxtZaxisPosSoll.Text = sSplit[4];

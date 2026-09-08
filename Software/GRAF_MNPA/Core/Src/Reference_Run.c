@@ -8,6 +8,7 @@
 #include "Reference_Run.h"
 
 #include <main.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stm32f746xx.h>
 #include <stm32f7xx_hal.h>
@@ -35,10 +36,15 @@ int32_t z_encoder_start = 0;
 int32_t z_encoder_end = 0;
 int32_t z_ax_no_pos = 0; // Encoder-Position beim Erreichen des Nadel-oben-Pins
 
+a_axis_ref_result_t a_axis_last_ref_result = A_REF_OK;
+uint16_t a_axis_trip_adc_val = 0;
+
 void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	uint16_t druck_sen_value = ADC_Drucksensor(&hadc1);
 	uint32_t start_tick = 0;
 	*success = true;
+	a_axis_last_ref_result = A_REF_OK;
+	a_axis_trip_adc_val = 0;
 
 	display_jazz_clear(&display1);
 	display_jazz_write_string_5x7(&display1, 0, "A-Achse Referenz");
@@ -47,16 +53,18 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	ad5684_set_voltage(dac, 3.0f, a_mot); // Schritt 1: Motor im Uhrzeigersinn (3V) drehen
 	start_tick = HAL_GetTick();
 
-//	bool drucksensor_error = false;
 	// Überprüfe Drucksensor während der Bewegung
 	while (HAL_GetTick() < (start_tick + 2000)) {
 		druck_sen_value = ADC_Drucksensor(&hadc1);
 		if (druck_sen_value > 100) {
-			// Fehler: Drucksensor ausgelöst
+			// Fehler: Drucksensor ausgelöst -> Not-Stopp und sofortiger Abbruch
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
+			display_jazz_write_string_5x7(&display1, 2, "Hebel einstellen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 			*success = false;
-			break;
+			a_axis_last_ref_result = A_REF_ERR_DRUCKSENSOR;
+			a_axis_trip_adc_val = druck_sen_value;
+			return;
 		}
 	}
 	// Startposition speichern
@@ -73,11 +81,14 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	while (HAL_GetTick() < (start_tick + 2000)) {
 		druck_sen_value = ADC_Drucksensor(&hadc1);
 		if (druck_sen_value > 100) {
-			// Fehler: Drucksensor ausgelöst
+			// Fehler: Drucksensor ausgelöst -> Not-Stopp und sofortiger Abbruch
 			display_jazz_write_string_5x7(&display1, 1, "ERR. DRUCK-Sen");
+			display_jazz_write_string_5x7(&display1, 2, "Hebel einstellen");
 			ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 			*success = false;
-			break;
+			a_axis_last_ref_result = A_REF_ERR_DRUCKSENSOR;
+			a_axis_trip_adc_val = druck_sen_value;
+			return;
 		}
 	}
 	// Endposition speichern
@@ -86,9 +97,22 @@ void A_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {
 	// Motor stoppen
 	ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
 	HAL_Delay(100);
-	// Schritt 3: Mitte berechnen
+
+	// Schritt 3: Plausibilitaetspruefung - Hat sich der Motor ueberhaupt bewegt?
+	int32_t a_stroke = labs(a_encoder_end - a_encoder_start);
+	if (a_stroke < 30) {
+		display_jazz_write_string_5x7(&display1, 1, "ERR. A-MOTOR");
+		display_jazz_write_string_5x7(&display1, 2, "Kabel/Hub pruefen");
+		ad5684_set_voltage(dac, TARGET_VOLTAGE_NEUTRAL, a_mot);
+		*success = false;
+		a_axis_last_ref_result = A_REF_ERR_NO_MOVEMENT;
+		return;
+	}
+
+	// Schritt 4: Mitte berechnen
 	A_Axis_TargetPosition = (a_encoder_start + a_encoder_end) / 2;
 	display_jazz_write_string_5x7(&display1, 3, "Referenzlauf OK");
+	a_axis_last_ref_result = A_REF_OK;
 }
 
 void Z_Axis_ReferenceRun(ad5684_dac_t *dac, bool *success) {

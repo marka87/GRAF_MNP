@@ -8,9 +8,6 @@ namespace MnpControl
 {
     public static class MimotReportGenerator
     {
-        private static readonly string TableDivider =
-            "+" + new string('-', 52) + "+" + new string('-', 13) + "+" + new string('-', 15) + "+" + new string('-', 13) + "+" + new string('-', 8) + "+";
-
         public static (string txtPath, string htmlPath) GenerateAndSave(MimotTestResult result, string? targetDirectory = null)
         {
             if (string.IsNullOrWhiteSpace(targetDirectory))
@@ -31,15 +28,11 @@ namespace MnpControl
             string txtPath = Path.Combine(targetDirectory, $"{baseFileName}.txt");
             string htmlPath = Path.Combine(targetDirectory, $"{baseFileName}.html");
 
-            // Toleranz-Auswertungen (gemäß Mimot-Werksnorm & Schutzfunktion)
+            // Toleranz-Auswertungen (gemäß Mimot-Werksnorm)
             bool passChecklist = result.Config.Checklist.All(c => c.IsPassed);
             bool passBaseline = result.BaselineVoltage >= 0.0f && result.BaselineVoltage <= 0.350f;
-            
-            // Drucksensor Trigger: Beim Bestücken soll die Nadel das Bauteil sanft berühren (Trigger bei 0.080V .. 4.500V).
-            // Kein Anschlag-Fahren auf 4.3V-5.5V erforderlich/erlaubt, um Nadelmechanik und Bauteile zu schonen!
-            bool passTrigger = (result.Config.TestType != MimotTestType.BestueckenTestB) ||
-                               (result.TriggerVoltage >= 0.080f && result.TriggerVoltage <= 4.500f);
-
+            // Trigger-Spannung: Pruefstand tastet sanft bei Baseline + 1.5V (~1.5V) an, um Nadelmechanik zu schonen
+            bool passTrigger = result.TriggerVoltage >= 1.000f && result.TriggerVoltage <= 5.500f;
             bool passLostSteps = result.LostSteps <= 10;
             bool passScatter = (result.Config.TestType != MimotTestType.BestueckenTestB) || (result.ScatterRange <= 10);
             bool passCycles = result.CompletedCycles >= result.Config.Cycles;
@@ -48,35 +41,22 @@ namespace MnpControl
             bool overallPassed = passChecklist && passBaseline && passTrigger && passLostSteps && passScatter && passCycles && noFatalError;
             result.OverallSuccess = overallPassed;
 
-            // 1. TXT Protokoll generieren (mit exakten Hochkant-Linien und UTF8-BOM)
+            // 1. TXT Protokoll generieren (original Mimot Layout)
             string txtContent = GenerateTxtReport(result, baseFileName, passBaseline, passTrigger, passLostSteps, passScatter, overallPassed);
-            File.WriteAllText(txtPath, txtContent, new UTF8Encoding(true));
+            File.WriteAllText(txtPath, txtContent, Encoding.UTF8);
 
-            // 2. HTML Protokoll generieren (druckbar & mit vertikalem Tabellenraster)
+            // 2. HTML Protokoll generieren (druckbar & modern für PDF)
             string htmlContent = GenerateHtmlReport(result, baseFileName, passBaseline, passTrigger, passLostSteps, passScatter, overallPassed);
-            File.WriteAllText(htmlPath, htmlContent, new UTF8Encoding(true));
+            File.WriteAllText(htmlPath, htmlContent, Encoding.UTF8);
 
             return (txtPath, htmlPath);
         }
 
-        private static string PadOrTruncate(string text, int width, bool alignRight = false)
+        private static string FormatTxtCol(string text, int width, bool alignRight = false)
         {
             if (text == null) text = "";
-            if (text.Length > width)
-            {
-                return text.Substring(0, width);
-            }
+            if (text.Length > width) return text.Substring(0, width);
             return alignRight ? text.PadLeft(width) : text.PadRight(width);
-        }
-
-        private static string FormatTableRow(string col1, string col2, string col3, string col4, string col5)
-        {
-            string c1 = PadOrTruncate(col1, 50, false);
-            string c2 = PadOrTruncate(col2, 11, true);
-            string c3 = PadOrTruncate(col3, 13, true);
-            string c4 = PadOrTruncate(col4, 11, true);
-            string c5 = PadOrTruncate(col5, 6, true);
-            return $"| {c1} | {c2} | {c3} | {c4} | {c5} |";
         }
 
         private static string GenerateTxtReport(
@@ -91,88 +71,92 @@ namespace MnpControl
             var sb = new StringBuilder();
             var culture = CultureInfo.InvariantCulture;
 
-            sb.AppendLine("===========================================================================================================");
-            sb.AppendLine("                                GRAF MNP — TESTPROTOKOLL NADEL 1260.X");
-            sb.AppendLine("                                   Abnahmeprüfung nach Mimot-Werksnorm");
-            sb.AppendLine("===========================================================================================================");
-            sb.AppendLine($"Protokolldatei:  {fileName}.txt");
-            sb.AppendLine($"Datum / Uhrzeit: {res.EndTime:dd.MM.yyyy, HH:mm:ss}");
-            sb.AppendLine($"Personalnummer:  {res.Config.OperatorId}");
-            sb.AppendLine($"Seriennummer:    {res.Config.SerialNumber}");
-            sb.AppendLine($"Prüf-Ablauf:     {(res.Config.TestType == MimotTestType.BestueckenTestB ? "Dauertest Bestücken (Test B - Antastung & Streuung)" : "Dauertest Z-Achse (Test A - Hub ohne Kontakt)")}");
-            sb.AppendLine($"Bemerkungen:     {(string.IsNullOrWhiteSpace(res.Config.Remarks) ? "keine" : res.Config.Remarks)}");
+            sb.AppendLine(FormatTxtCol(fileName + ".txt", 88, alignRight: true));
+            sb.AppendLine(FormatTxtCol("Testprotokoll Nadel 1260.x", 88, alignRight: true));
+            sb.AppendLine();
+            sb.AppendLine($"{res.EndTime:dd.MM.yyyy, HH:mm:ss}");
+            sb.AppendLine($"Personalnummer: {res.Config.OperatorId}");
+            sb.AppendLine($"Seriennummer:   {res.Config.SerialNumber}");
+            sb.AppendLine("Reparaturnummer: n/a");
             sb.AppendLine();
 
-            sb.AppendLine(TableDivider);
-            sb.AppendLine(FormatTableRow("Prüfpunkt / Messgröße", "Minimum", "Istwert", "Maximum", "Status"));
-            sb.AppendLine(TableDivider);
+            string headerSep = "+--------------------------------------------------+------------+------------+------------+--------+";
+            string formatRow = "| {0,-48} | {1,10} | {2,10} | {3,10} | {4,6} |";
 
-            // Sektion 1: Mechanischer Aufbau
-            sb.AppendLine(FormatTableRow("1. MECHANISCHER AUFBAU (Sicht- & Funktionsprüfung)", "", "", "", ""));
-            sb.AppendLine(TableDivider);
+            sb.AppendLine(headerSep);
+            sb.AppendLine(string.Format(formatRow, "Label / Messgroesse", "Minimum", "Istwert", "Maximum", "Status"));
+            sb.AppendLine(headerSep);
+
+            sb.AppendLine(string.Format("| {0,-88} |", "--- 1. Mechanischer Aufbau (Sicht- und Funktionskontrolle) ---"));
+            sb.AppendLine(headerSep);
             foreach (var item in res.Config.Checklist)
             {
-                sb.AppendLine(FormatTableRow("  " + item.Description, "-", "OK", "-", item.IsPassed ? "PASS" : "FAIL"));
+                sb.AppendLine(string.Format(formatRow, item.Description, "-", "-", "-", item.IsPassed ? "Pass" : "Fail"));
             }
+            sb.AppendLine(headerSep);
+            sb.AppendLine($"Bemerkungen: {(string.IsNullOrWhiteSpace(res.Config.Remarks) ? "keine" : res.Config.Remarks)}");
+            sb.AppendLine();
 
-            // Sektion 2: Sensorkalibrierung & Signale
-            sb.AppendLine(TableDivider);
-            sb.AppendLine(FormatTableRow("2. SENSOREN KALIBRIEREN & SIGNALE", "", "", "", ""));
-            sb.AppendLine(TableDivider);
-            sb.AppendLine(FormatTableRow("  Spannung Drucksensor Ruhelage (Baseline)", "0.000 V", res.BaselineVoltage.ToString("F3", culture) + " V", "0.350 V", passBaseline ? "PASS" : "FAIL"));
+            sb.AppendLine(headerSep);
+            sb.AppendLine(string.Format("| {0,-88} |", "--- 2. Sensorkalibrierung & Signale ---"));
+            sb.AppendLine(headerSep);
+            sb.AppendLine(string.Format(formatRow,
+                "Spannung Drucksensor nicht angesprochen", "0.000 V", res.BaselineVoltage.ToString("F3", culture) + " V", "0.350 V", passBaseline ? "Pass" : "Fail"));
 
-            string triggerIst = (res.Config.TestType == MimotTestType.BestueckenTestB)
-                ? res.TriggerVoltage.ToString("F3", culture) + " V"
-                : "n/a (Test A)";
-            sb.AppendLine(FormatTableRow("  Drucksensor Schaltschwelle (Trigger)", "0.080 V", triggerIst, "4.500 V", passTrigger ? "PASS" : "FAIL"));
+            sb.AppendLine(string.Format(formatRow,
+                "Spannung Drucksensor angesprochen", "1.000 V", res.TriggerVoltage.ToString("F3", culture) + " V", "5.500 V", passTrigger ? "Pass" : "Fail"));
 
-            sb.AppendLine(FormatTableRow("  Abstand bis Drucksensor anspricht", "0.000 inc", res.ContactTravelInc.ToString("F1", culture) + " inc", "35.0 inc", "PASS"));
+            sb.AppendLine(string.Format(formatRow,
+                "Abstand bis Drucksensor anspricht", "0.000 inc", res.ContactTravelInc.ToString("F3", culture) + " inc", "35.000 inc", "Pass"));
 
             if (res.NoSensorPos > 0)
             {
-                sb.AppendLine(FormatTableRow("  SNO: Schaltschwelle oben (Lichtschranke)", "1500.0 inc", res.NoSensorPos.ToString("F1", culture) + " inc", "3400.0 inc", "PASS"));
+                sb.AppendLine(string.Format(formatRow,
+                    "SNO: Schaltschwelle oben (Lichtschranke)", "1500.000 inc", res.NoSensorPos.ToString("F3", culture) + " inc", "3400.000 inc", "Pass"));
             }
+            sb.AppendLine(headerSep);
+            sb.AppendLine();
 
-            // Sektion 3: Dauertest
-            sb.AppendLine(TableDivider);
-            string testName = res.Config.TestType == MimotTestType.BestueckenTestB ? "3. DAUERTEST BESTÜCKEN (Antastung)" : "3. DAUERTEST Z-ACHSE (Hub)";
-            sb.AppendLine(FormatTableRow(testName, "", "", "", ""));
-            sb.AppendLine(TableDivider);
-
-            sb.AppendLine(FormatTableRow("  Verlorene Schritte nach Dauertest", "0.000 inc", res.LostSteps.ToString("F1", culture) + " inc", "10.0 inc", passLostSteps ? "PASS" : "FAIL"));
+            string testName = res.Config.TestType == MimotTestType.BestueckenTestB ? "Dauertest Bestuecken (Test B)" : "Dauertest Z-Achse (Test A)";
+            sb.AppendLine(headerSep);
+            sb.AppendLine(string.Format("| {0,-88} |", $"--- 3. {testName} ---"));
+            sb.AppendLine(headerSep);
+            sb.AppendLine(string.Format(formatRow,
+                "Verlorene Schritte nach Dauertest", "0.000 inc", res.LostSteps.ToString("F3", culture) + " inc", "10.000 inc", passLostSteps ? "Pass" : "Fail"));
 
             if (res.Config.TestType == MimotTestType.BestueckenTestB)
             {
-                sb.AppendLine(FormatTableRow("  Antast-Streuung (Spanne)", "0.000 inc", res.ScatterRange.ToString("F1", culture) + " inc", "10.0 inc", passScatter ? "PASS" : "FAIL"));
-                sb.AppendLine(FormatTableRow("  Antast-Mittelwert", "-", res.MeanPosition.ToString("F1", culture) + " inc", "-", "PASS"));
+                sb.AppendLine(string.Format(formatRow,
+                    "Antast-Streuung (Spanne)", "0.000 inc", res.ScatterRange.ToString("F3", culture) + " inc", "10.000 inc", passScatter ? "Pass" : "Fail"));
+                sb.AppendLine(string.Format(formatRow,
+                    "Antast-Mittelwert", "-", res.MeanPosition.ToString("F1", culture) + " inc", "-", "Pass"));
             }
             else
             {
-                sb.AppendLine(FormatTableRow("  Hub (IST min..max)", "-", $"{res.IstMin}..{res.IstMax} inc", "-", "PASS"));
+                sb.AppendLine(string.Format(formatRow,
+                    "Hub (IST min..max)", "-", $"{res.IstMin}..{res.IstMax} inc", "-", "Pass"));
             }
 
             if (res.MaxVelocityMmS > 0)
             {
-                sb.AppendLine(FormatTableRow("  Max. Geschwindigkeit (IST)", "-", res.MaxVelocityMmS.ToString("F0", culture) + " mm/s", "-", "PASS"));
+                sb.AppendLine(string.Format(formatRow,
+                    "Max. Geschwindigkeit (IST)", "-", res.MaxVelocityMmS.ToString("F0", culture) + " mm/s", "-", "Pass"));
             }
             if (res.MaxAccelG > 0 || res.MaxDecelG > 0)
             {
-                sb.AppendLine(FormatTableRow("  Spitzen-Beschleunigung / Bremsung", "-", $"+{res.MaxAccelG.ToString("F1", culture)} / -{res.MaxDecelG.ToString("F1", culture)} g", "-", "PASS"));
+                sb.AppendLine(string.Format(formatRow,
+                    "Spitzen-Beschleunigung / Bremsen", "-", $"+{res.MaxAccelG.ToString("F1", culture)} / -{res.MaxDecelG.ToString("F1", culture)} g", "-", "Pass"));
             }
+            sb.AppendLine(headerSep);
 
-            sb.AppendLine(TableDivider);
             sb.AppendLine();
-            sb.AppendLine("Hinweis Drucksensor: Schaltschwelle bei dynamischer Werkstück-Antastung (0.080 - 4.500 V).");
-            sb.AppendLine("Zum Schutz von Bauteilen und Nadelmechanik stoppt der Ablauf sofort bei Berührung");
-            sb.AppendLine("und drückt nicht bis zum mechanischen Vollausschlag (4.3 - 5.5 V) auf Anschlag.");
-            sb.AppendLine();
-            sb.AppendLine($"Bestückzyklen:   {res.CompletedCycles} / {res.Config.Cycles}");
+            sb.AppendLine($"Bestueckzyklen:  {res.CompletedCycles} / {res.Config.Cycles}");
             sb.AppendLine($"Endzeit:         {res.EndTime:HH:mm:ss}");
             sb.AppendLine($"Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)}");
             sb.AppendLine();
-            sb.AppendLine("===========================================================================================================");
-            sb.AppendLine($"TESTERGEBNIS:    {(overallPassed ? "TEST BESTANDEN (PASS)" : "TEST NICHT BESTANDEN (FAIL)")}");
-            sb.AppendLine("===========================================================================================================");
+            sb.AppendLine("=========================================================================================");
+            sb.AppendLine($"  TESTERGEBNIS:  {(overallPassed ? "TEST BESTANDEN (PASS)" : "TEST NICHT BESTANDEN (FAIL)")}");
+            sb.AppendLine("=========================================================================================");
 
             return sb.ToString();
         }
@@ -202,118 +186,102 @@ namespace MnpControl
             sb.AppendLine("  <meta charset='utf-8'>");
             sb.AppendLine($"  <title>Prüfprotokoll {res.Config.SerialNumber}</title>");
             sb.AppendLine("  <style>");
-            sb.AppendLine("    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 25px; color: #1e293b; background: #fff; font-size: 13px; line-height: 1.4; }");
-            sb.AppendLine("    .header-box { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; }");
-            sb.AppendLine("    .title { font-size: 20px; font-weight: bold; color: #0f172a; margin: 0; }");
-            sb.AppendLine("    .subtitle { font-size: 13px; color: #64748b; margin-top: 3px; }");
-            sb.AppendLine("    .meta-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }");
-            sb.AppendLine("    .meta-table td { padding: 4px 8px; }");
-            sb.AppendLine("    .meta-label { font-weight: bold; width: 160px; color: #475569; }");
-            sb.AppendLine("    table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; border: 2px solid #334155; }");
-            sb.AppendLine("    table.data-table th, table.data-table td { padding: 6px 10px; border: 1px solid #94a3b8; }");
-            sb.AppendLine("    table.data-table th { background: #0f172a; color: #ffffff; font-weight: bold; text-align: left; }");
-            sb.AppendLine("    table.data-table .section-row td { background: #f1f5f9; font-weight: bold; color: #0f172a; padding: 7px 10px; border-top: 2px solid #64748b; border-bottom: 2px solid #64748b; }");
-            sb.AppendLine("    table.data-table tbody tr:not(.section-row):nth-child(even) { background: #f8fafc; }");
-            sb.AppendLine("    table.data-table tbody tr:not(.section-row):hover { background: #f1f5f9; }");
+            sb.AppendLine("    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; margin: 0; padding: 25px 15px; color: #0f172a; background: #e2e8f0; font-size: 13px; line-height: 1.4; }");
+            sb.AppendLine("    .report-card { max-width: 960px; margin: 0 auto; background: #ffffff; padding: 35px 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 6px; }");
+            sb.AppendLine("    .header-box { border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; }");
+            sb.AppendLine("    .title { font-size: 22px; font-weight: bold; color: #0f172a; margin: 0; }");
+            sb.AppendLine("    .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }");
+            sb.AppendLine("    .meta-table { width: 100%; margin-bottom: 22px; border-collapse: collapse; border: 1px solid #94a3b8; }");
+            sb.AppendLine("    .meta-table td { padding: 6px 10px; border: 1px solid #cbd5e1; }");
+            sb.AppendLine("    .meta-label { font-weight: bold; width: 140px; color: #334155; background: #f8fafc; }");
+            sb.AppendLine("    .section-title { font-size: 14px; font-weight: bold; background: #0f172a; color: #ffffff; padding: 7px 12px; margin-top: 22px; margin-bottom: 0px; border-radius: 4px 4px 0 0; }");
+            sb.AppendLine("    table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #94a3b8; font-size: 12px; }");
+            sb.AppendLine("    table.data-table th { background: #e2e8f0; color: #1e293b; border: 1px solid #94a3b8; padding: 8px 10px; font-weight: bold; text-align: left; }");
+            sb.AppendLine("    table.data-table td { border: 1px solid #cbd5e1; padding: 6px 10px; font-family: 'Consolas', monospace; color: #1e293b; }");
+            sb.AppendLine("    table.data-table tr:nth-child(even) td { background-color: #f8fafc; }");
+            sb.AppendLine("    table.data-table tr:hover td { background-color: #f1f5f9; }");
             sb.AppendLine("    .text-right { text-align: right; }");
             sb.AppendLine("    .text-center { text-align: center; }");
-            sb.AppendLine("    .badge-small { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }");
-            sb.AppendLine("    .badge-small.pass { background: #dcfce7; color: #166534; }");
-            sb.AppendLine("    .badge-small.fail { background: #fee2e2; color: #991b1b; }");
-            sb.AppendLine("    .badge { padding: 12px; border-radius: 6px; font-size: 18px; font-weight: bold; text-align: center; margin: 20px 0 15px 0; }");
+            sb.AppendLine("    .badge-small { display: inline-block; padding: 2px 10px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }");
+            sb.AppendLine("    .badge-small.pass { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }");
+            sb.AppendLine("    .badge-small.fail { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }");
+            sb.AppendLine("    .badge { padding: 14px; border-radius: 6px; font-size: 18px; font-weight: bold; text-align: center; margin: 25px 0 15px 0; letter-spacing: 1px; }");
             sb.AppendLine("    .pass-badge { background: #dcfce7; color: #15803d; border: 2px solid #86efac; }");
             sb.AppendLine("    .fail-badge { background: #fee2e2; color: #b91c1c; border: 2px solid #fca5a5; }");
-            sb.AppendLine("    .note-box { background: #f8fafc; border-left: 4px solid #3b82f6; border-right: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 10px 14px; margin-top: 12px; font-size: 12px; color: #475569; border-radius: 0 4px 4px 0; }");
-            sb.AppendLine("    .print-btn { background: #2563eb; color: #fff; border: none; padding: 8px 16px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 20px; }");
-            sb.AppendLine("    @media print { .print-btn { display: none; } body { margin: 10mm; } }");
+            sb.AppendLine("    .print-btn { background: #2563eb; color: #fff; border: none; padding: 9px 18px; font-size: 13px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-bottom: 20px; transition: background 0.15s; }");
+            sb.AppendLine("    .print-btn:hover { background: #1d4ed8; }");
+            sb.AppendLine("    @media print {");
+            sb.AppendLine("      body { background: #fff; padding: 0; }");
+            sb.AppendLine("      .report-card { max-width: 100%; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }");
+            sb.AppendLine("      .print-btn { display: none !important; }");
+            sb.AppendLine("    }");
             sb.AppendLine("  </style>");
             sb.AppendLine("</head>");
             sb.AppendLine("<body>");
-            sb.AppendLine("  <button class='print-btn' onclick='window.print()'>🖨️ Protokoll drucken / als PDF speichern</button>");
-            sb.AppendLine("  <div class='header-box'>");
-            sb.AppendLine("    <div>");
-            sb.AppendLine("      <div class='title'>GRAF MNP — Testprotokoll Nadel 1260.x</div>");
-            sb.AppendLine("      <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift</div>");
+            sb.AppendLine("  <div class='report-card'>");
+            sb.AppendLine("    <button class='print-btn' onclick='window.print()'>🖨️ Protokoll drucken / als PDF speichern</button>");
+            sb.AppendLine("    <div class='header-box'>");
+            sb.AppendLine("      <div>");
+            sb.AppendLine("        <div class='title'>GRAF MNP — Testprotokoll Nadel 1260.x</div>");
+            sb.AppendLine("        <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift</div>");
+            sb.AppendLine("      </div>");
+            sb.AppendLine($"      <div style='text-align: right; font-family: Consolas, monospace; font-size: 11px; color: #64748b;'>{fileName}.txt</div>");
             sb.AppendLine("    </div>");
-            sb.AppendLine($"    <div style='text-align: right; font-family: Consolas, monospace; font-size: 11px; color: #64748b;'>{fileName}.txt</div>");
-            sb.AppendLine("  </div>");
-
-            sb.AppendLine("  <table class='meta-table'>");
-            sb.AppendLine($"    <tr><td class='meta-label'>Datum / Uhrzeit:</td><td>{res.EndTime:dd.MM.yyyy, HH:mm:ss}</td><td class='meta-label'>Personalnummer:</td><td><b>{res.Config.OperatorId}</b></td></tr>");
-            sb.AppendLine($"    <tr><td class='meta-label'>Seriennummer:</td><td><b>{res.Config.SerialNumber}</b></td><td class='meta-label'>Reparaturnummer:</td><td>n/a</td></tr>");
-            sb.AppendLine($"    <tr><td class='meta-label'>Prüfart:</td><td>{(res.Config.TestType == MimotTestType.BestueckenTestB ? "Dauertest Bestücken (Test B)" : "Dauertest Z-Achse (Test A)")}</td><td class='meta-label'>Zyklen:</td><td>{res.CompletedCycles} / {res.Config.Cycles}</td></tr>");
-            sb.AppendLine($"    <tr><td class='meta-label'>Bemerkungen:</td><td colspan='3'>{(string.IsNullOrWhiteSpace(res.Config.Remarks) ? "keine" : res.Config.Remarks)}</td></tr>");
-            sb.AppendLine("  </table>");
-
-            sb.AppendLine("  <table class='data-table'>");
-            sb.AppendLine("    <thead>");
-            sb.AppendLine("      <tr>");
-            sb.AppendLine("        <th style='width: 44%;'>Prüfpunkt / Messgröße</th>");
-            sb.AppendLine("        <th style='width: 14%;' class='text-right'>Minimum</th>");
-            sb.AppendLine("        <th style='width: 16%;' class='text-right'>Istwert</th>");
-            sb.AppendLine("        <th style='width: 14%;' class='text-right'>Maximum</th>");
-            sb.AppendLine("        <th style='width: 12%;' class='text-center'>Status</th>");
-            sb.AppendLine("      </tr>");
-            sb.AppendLine("    </thead>");
-            sb.AppendLine("    <tbody>");
-
-            // Sektion 1: Mechanischer Aufbau
-            sb.AppendLine("      <tr class='section-row'><td colspan='5'>1. Mechanischer Aufbau (Sicht- und Funktionskontrolle)</td></tr>");
+            sb.AppendLine();
+            sb.AppendLine("    <table class='meta-table'>");
+            sb.AppendLine($"      <tr><td class='meta-label'>Datum / Uhrzeit:</td><td>{res.EndTime:dd.MM.yyyy, HH:mm:ss}</td><td class='meta-label'>Personalnummer:</td><td><b>{res.Config.OperatorId}</b></td></tr>");
+            sb.AppendLine($"      <tr><td class='meta-label'>Seriennummer:</td><td><b>{res.Config.SerialNumber}</b></td><td class='meta-label'>Reparaturnummer:</td><td>n/a</td></tr>");
+            sb.AppendLine($"      <tr><td class='meta-label'>Prüfart:</td><td>{(res.Config.TestType == MimotTestType.BestueckenTestB ? "Dauertest Bestücken (Test B)" : "Dauertest Z-Achse (Test A)")}</td><td class='meta-label'>Zyklen:</td><td>{res.CompletedCycles} / {res.Config.Cycles}</td></tr>");
+            sb.AppendLine($"      <tr><td class='meta-label'>Bemerkungen:</td><td colspan='3'>{(string.IsNullOrWhiteSpace(res.Config.Remarks) ? "keine" : res.Config.Remarks)}</td></tr>");
+            sb.AppendLine("    </table>");
+            sb.AppendLine();
+            sb.AppendLine("    <div class='section-title'>1. Mechanischer Aufbau (Sicht- und Funktionskontrolle)</div>");
+            sb.AppendLine("    <table class='data-table'>");
+            sb.AppendLine("      <tr><th style='width: 82%;'>Prüfpunkt</th><th style='width: 18%;' class='text-center'>Ergebnis</th></tr>");
             foreach (var item in res.Config.Checklist)
             {
-                sb.AppendLine($"      <tr><td>{item.Description}</td><td class='text-right'>-</td><td class='text-right'>OK</td><td class='text-right'>-</td><td class='text-center'>{badge(item.IsPassed)}</td></tr>");
+                sb.AppendLine($"      <tr><td>{item.Description}</td><td class='text-center'>{badge(item.IsPassed)}</td></tr>");
             }
-
-            // Sektion 2: Sensorkalibrierung & Signale
-            sb.AppendLine("      <tr class='section-row'><td colspan='5'>2. Sensorkalibrierung &amp; Signale</td></tr>");
-            sb.AppendLine($"      <tr><td>Spannung Drucksensor Ruhelage (Baseline)</td><td class='text-right'>0.000 V</td><td class='text-right'>{res.BaselineVoltage.ToString("F3", culture)} V</td><td class='text-right'>0.350 V</td><td class='text-center'>{badge(passBaseline)}</td></tr>");
-
-            string triggerIstHtml = (res.Config.TestType == MimotTestType.BestueckenTestB)
-                ? $"{res.TriggerVoltage.ToString("F3", culture)} V"
-                : "n/a (Test A)";
-            sb.AppendLine($"      <tr><td>Drucksensor Schaltschwelle (Trigger)</td><td class='text-right'>0.080 V</td><td class='text-right'>{triggerIstHtml}</td><td class='text-right'>4.500 V</td><td class='text-center'>{badge(passTrigger)}</td></tr>");
-            sb.AppendLine($"      <tr><td>Abstand bis Drucksensor anspricht</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.ContactTravelInc.ToString("F1", culture)} inc</td><td class='text-right'>35.0 inc</td><td class='text-center'>{badge(true)}</td></tr>");
+            sb.AppendLine("    </table>");
+            sb.AppendLine();
+            sb.AppendLine("    <div class='section-title'>2. Sensorkalibrierung & Signale</div>");
+            sb.AppendLine("    <table class='data-table'>");
+            sb.AppendLine("      <tr><th style='width: 46%;'>Messgröße</th><th style='width: 14%;' class='text-right'>Minimum</th><th style='width: 14%;' class='text-right'>Istwert</th><th style='width: 14%;' class='text-right'>Maximum</th><th style='width: 12%;' class='text-center'>Status</th></tr>");
+            sb.AppendLine($"      <tr><td>Spannung Drucksensor nicht angesprochen</td><td class='text-right'>0.000 V</td><td class='text-right'>{res.BaselineVoltage:F3} V</td><td class='text-right'>0.350 V</td><td class='text-center'>{badge(passBaseline)}</td></tr>");
+            sb.AppendLine($"      <tr><td>Spannung Drucksensor angesprochen</td><td class='text-right'>1.000 V</td><td class='text-right'>{res.TriggerVoltage:F3} V</td><td class='text-right'>5.500 V</td><td class='text-center'>{badge(passTrigger)}</td></tr>");
+            sb.AppendLine($"      <tr><td>Abstand bis Drucksensor anspricht</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.ContactTravelInc:F3} inc</td><td class='text-right'>35.000 inc</td><td class='text-center'>{badge(true)}</td></tr>");
             if (res.NoSensorPos > 0)
             {
-                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben (Lichtschranke)</td><td class='text-right'>1500.0 inc</td><td class='text-right'>{res.NoSensorPos.ToString("F1", culture)} inc</td><td class='text-right'>3400.0 inc</td><td class='text-center'>{badge(true)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben (Lichtschranke)</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{res.NoSensorPos:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(true)}</td></tr>");
             }
-
-            // Sektion 3: Dauertest
-            string section3Title = res.Config.TestType == MimotTestType.BestueckenTestB ? "3. Dauertest Bestücken (Antastung &amp; Streuung)" : "3. Dauertest Z-Achse (Hub ohne Kontakt)";
-            sb.AppendLine($"      <tr class='section-row'><td colspan='5'>{section3Title}</td></tr>");
-            sb.AppendLine($"      <tr><td>Verlorene Schritte nach Dauertest</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.LostSteps.ToString("F1", culture)} inc</td><td class='text-right'>10.0 inc</td><td class='text-center'>{badge(passLostSteps)}</td></tr>");
-
+            sb.AppendLine("    </table>");
+            sb.AppendLine();
+            sb.AppendLine($"    <div class='section-title'>3. {(res.Config.TestType == MimotTestType.BestueckenTestB ? "Dauertest Bestücken (Test B)" : "Dauertest Z-Achse (Test A)")}</div>");
+            sb.AppendLine("    <table class='data-table'>");
+            sb.AppendLine("      <tr><th style='width: 46%;'>Prüfparameter</th><th style='width: 14%;' class='text-right'>Minimum</th><th style='width: 14%;' class='text-right'>Istwert</th><th style='width: 14%;' class='text-right'>Maximum</th><th style='width: 12%;' class='text-center'>Status</th></tr>");
+            sb.AppendLine($"      <tr><td>Verlorene Schritte nach Dauertest</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.LostSteps:F3} inc</td><td class='text-right'>10.000 inc</td><td class='text-center'>{badge(passLostSteps)}</td></tr>");
             if (res.Config.TestType == MimotTestType.BestueckenTestB)
             {
-                sb.AppendLine($"      <tr><td>Antast-Streuung (Spanne)</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.ScatterRange.ToString("F1", culture)} inc</td><td class='text-right'>10.0 inc</td><td class='text-center'>{badge(passScatter)}</td></tr>");
-                sb.AppendLine($"      <tr><td>Antast-Mittelwert</td><td class='text-right'>-</td><td class='text-right'>{res.MeanPosition.ToString("F1", culture)} inc</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
+                sb.AppendLine($"      <tr><td>Antast-Streuung (Spanne)</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.ScatterRange:F3} inc</td><td class='text-right'>10.000 inc</td><td class='text-center'>{badge(passScatter)}</td></tr>");
+                sb.AppendLine($"      <tr><td>Antast-Mittelwert</td><td class='text-right'>-</td><td class='text-right'>{res.MeanPosition:F1} inc</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
             }
             else
             {
                 sb.AppendLine($"      <tr><td>Hub (IST min..max)</td><td class='text-right'>-</td><td class='text-right'>{res.IstMin} .. {res.IstMax} inc</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
             }
-
             if (res.MaxVelocityMmS > 0)
             {
-                sb.AppendLine($"      <tr><td>Max. Geschwindigkeit (IST)</td><td class='text-right'>-</td><td class='text-right'>{res.MaxVelocityMmS.ToString("F0", culture)} mm/s</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
+                sb.AppendLine($"      <tr><td>Max. Geschwindigkeit (IST)</td><td class='text-right'>-</td><td class='text-right'>{res.MaxVelocityMmS:F0} mm/s</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
             }
             if (res.MaxAccelG > 0 || res.MaxDecelG > 0)
             {
                 sb.AppendLine($"      <tr><td>Spitzen-Beschleunigung / Bremsung</td><td class='text-right'>-</td><td class='text-right'>+{res.MaxAccelG.ToString("F1", culture)} / -{res.MaxDecelG.ToString("F1", culture)} g</td><td class='text-right'>-</td><td class='text-center'>{badge(true)}</td></tr>");
             }
-
-            sb.AppendLine("    </tbody>");
-            sb.AppendLine("  </table>");
-
-            sb.AppendLine("  <div class='note-box'>");
-            sb.AppendLine("    <b>Hinweis zur Drucksensor-Auswertung:</b> ");
-            sb.AppendLine("    Die Schaltschwelle (Trigger) erfasst die Berührungsspannung bei der Werkstückantastung (0,080 V .. 4,500 V). ");
-            sb.AppendLine("    Im Gegensatz zur statischen Anschlag-Kalibrierung (bei der der Hebel manuell bis zum 5 V Anschlag ausgelenkt wird) stoppt der automatische Dauertest ");
-            sb.AppendLine("    beim sanften Antasten sofort bei der Schaltschwelle, um Bauteile und Nadelmechanik vor Beschädigung zu schützen.");
-            sb.AppendLine("  </div>");
-
+            sb.AppendLine("    </table>");
+            sb.AppendLine();
             sb.AppendLine(statusBadge);
-            sb.AppendLine($"  <div style='font-size: 11px; color: #64748b; margin-top: 15px;'>Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)} | Zyklen: {res.CompletedCycles}/{res.Config.Cycles} | Endzeit: {res.EndTime:HH:mm:ss}</div>");
+            sb.AppendLine($"    <div style='font-size: 11px; color: #64748b; margin-top: 15px;'>Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)} | Zyklen: {res.CompletedCycles}/{res.Config.Cycles} | Endzeit: {res.EndTime:HH:mm:ss}</div>");
+            sb.AppendLine("  </div>");
             sb.AppendLine("</body>");
             sb.AppendLine("</html>");
 

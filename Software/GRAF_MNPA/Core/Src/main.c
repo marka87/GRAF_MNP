@@ -302,11 +302,19 @@ void update_display() {
 	snprintf(display_buffer[0], sizeof(display_buffer[0]), "   GRAF MNP TEST");
 	snprintf(display_buffer[2], sizeof(display_buffer[2]), "Status: %-15s", st_name);
 	snprintf(display_buffer[4], sizeof(display_buffer[4]), "Z-Ist:  %ld", (long)z_axis_position);
+	if (current_state == FEHLER && error_message[0] != '\0') {
+		snprintf(display_buffer[5], sizeof(display_buffer[5]), "%.21s", error_message);
+	} else {
+		display_buffer[5][0] = '\0';
+	}
 	snprintf(display_buffer[7], sizeof(display_buffer[7]), "  REF     HOME   RESET");
 
 	display_jazz_write_string_5x7(&display1, 0, display_buffer[0]);
 	display_jazz_write_string_5x7(&display1, 2, display_buffer[2]);
 	display_jazz_write_string_5x7(&display1, 4, display_buffer[4]);
+	if (display_buffer[5][0] != '\0') {
+		display_jazz_write_string_5x7(&display1, 5, display_buffer[5]);
+	}
 	display_jazz_write_string_5x7(&display1, 7, display_buffer[7]);
 
 	/* Live-Telemetrie fuer Windows GUI (wird waehrend TEST_RUN ohnehin oben uebersprungen) */
@@ -663,8 +671,24 @@ int main(void)
 				uart_send_text("A-Achse Referenz OK\r\n", 1000);
 			} else {
 				uart_send_status();
-				uart_send_text("A-Achse Referenz Fehler\r\n", 1000);
-			    strcpy(error_message, "A-Achse Referenzfehler");
+				char err_buf[160];
+				if (a_axis_last_ref_result == A_REF_ERR_DRUCKSENSOR) {
+					float ds_volt = (float)a_axis_trip_adc_val * (5.0f / 4095.0f);
+					snprintf(err_buf, sizeof(err_buf),
+						"A-Achse Referenz FEHLER: Drucksensor hat ausgeloest! (IST: %.2fV / %u inc > 100 inc -> Hebel auf ~0,04V einstellen)\r\n",
+						ds_volt, a_axis_trip_adc_val);
+					strcpy(error_message, "A-Achse: Drucksensor (Hebel!)");
+				} else if (a_axis_last_ref_result == A_REF_ERR_NO_MOVEMENT) {
+					int32_t a_stroke = labs(a_encoder_end - a_encoder_start);
+					snprintf(err_buf, sizeof(err_buf),
+						"A-Achse Referenz FEHLER: Kein Hub erkannt (%ld inc < 30 inc)! Motor, Riemen oder Encoderkabel pruefen.\r\n",
+						(long)a_stroke);
+					strcpy(error_message, "A-Achse: Motor/Kabel (kein Hub)");
+				} else {
+					snprintf(err_buf, sizeof(err_buf), "A-Achse Referenz Fehler\r\n");
+					strcpy(error_message, "A-Achse Referenzfehler");
+				}
+				uart_send_text(err_buf, 1000);
 				red_light();
 				current_state = FEHLER;
 				continue;
