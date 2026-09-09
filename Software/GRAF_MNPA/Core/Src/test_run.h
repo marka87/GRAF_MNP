@@ -15,6 +15,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "1.1.1"
+#endif
+
 /* Test-Modi:
  * TESTRUN_MODE_A_CLASSIC: Klassischer Dauertest (GO_UP / GO_DOWN zwischen NO-Sensor und Start)
  * TESTRUN_MODE_B_PROBE_SCATTER: Bauteil-Antastung & Streuungs-Ermittlung */

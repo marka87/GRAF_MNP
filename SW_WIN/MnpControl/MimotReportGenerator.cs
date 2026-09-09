@@ -8,6 +8,8 @@ namespace MnpControl
 {
     public static class MimotReportGenerator
     {
+        public const string SoftwareVersion = "V1.1.1";
+
         public static (string txtPath, string htmlPath) GenerateAndSave(MimotTestResult result, string? targetDirectory = null)
         {
             if (string.IsNullOrWhiteSpace(targetDirectory))
@@ -129,7 +131,7 @@ namespace MnpControl
 
             sb.AppendLine(FormatTxtCol(fileName + ".txt", 88, alignRight: true));
             sb.AppendLine(FormatTxtCol("Testprotokoll Nadel 1260.x", 88, alignRight: true));
-            sb.AppendLine(FormatTxtCol("GRAF Elektronik GmbH — MnpControl V1.1 (AnMa)", 88, alignRight: true));
+            sb.AppendLine(FormatTxtCol($"GRAF Elektronik GmbH — MnpControl {SoftwareVersion} (AnMa)", 88, alignRight: true));
             sb.AppendLine();
             sb.AppendLine($"{res.EndTime:dd.MM.yyyy, HH:mm:ss}");
             sb.AppendLine($"Personalnummer: {res.Config.OperatorId}");
@@ -226,7 +228,7 @@ namespace MnpControl
             sb.AppendLine($"  TESTERGEBNIS:  {(overallPassed ? "TEST BESTANDEN (PASS)" : "TEST NICHT BESTANDEN (FAIL)")}");
             sb.AppendLine("=========================================================================================");
             sb.AppendLine();
-            sb.AppendLine("Pruefsoftware:   GRAF MnpControl V1.1  |  Entwickelt von AnMa");
+            sb.AppendLine($"Pruefsoftware:   GRAF MnpControl {SoftwareVersion}  |  Entwickelt von AnMa");
 
             return sb.ToString();
         }
@@ -303,7 +305,7 @@ namespace MnpControl
             sb.AppendLine("    <div class='header-box' style='align-items: center;'>");
             sb.AppendLine("      <div>");
             sb.AppendLine("        <div class='title'>GRAF MNP — Testprotokoll Nadel 1260.x</div>");
-            sb.AppendLine("        <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift | Software V1.1 (AnMa)</div>");
+            sb.AppendLine($"        <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift | Software {SoftwareVersion} (AnMa)</div>");
             sb.AppendLine("      </div>");
             sb.AppendLine($"      <div style='text-align: right;'>{logoHtml}<span style='font-family: Consolas, monospace; font-size: 11px; color: #64748b;'>{fileName}.txt</span></div>");
             sb.AppendLine("    </div>");
@@ -370,7 +372,7 @@ namespace MnpControl
             sb.AppendLine(statusBadge);
             sb.AppendLine($"    <div style='font-size: 11px; color: #64748b; margin-top: 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px;'>");
             sb.AppendLine($"      <div>Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)} | Zyklen: {res.CompletedCycles}/{res.Config.Cycles} | Endzeit: {res.EndTime:HH:mm:ss}</div>");
-            sb.AppendLine($"      <div><b>MnpControl V1.1</b> | Entwickelt von AnMa</div>");
+            sb.AppendLine($"      <div><b>MnpControl {SoftwareVersion}</b> | Entwickelt von AnMa</div>");
             sb.AppendLine($"    </div>");
             sb.AppendLine("  </div>");
             sb.AppendLine("</body>");

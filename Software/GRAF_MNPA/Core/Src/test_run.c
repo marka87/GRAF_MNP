@@ -79,6 +79,7 @@ typedef enum {
     /* Test B Phasen */
     PHASE_B_SETUP_SLOW_PROBE,
     PHASE_B_CALIB_DEFLECT,
+    PHASE_B_CALIB_SETTLE,
     PHASE_B_FAST_UP,
     PHASE_B_FAST_DOWN
 } TestRunInternalPhase_t;
@@ -106,6 +107,7 @@ static uint8_t                s_ds_accel_fault_debounce = 0;
 static int32_t                s_calib_touch_pos = 0;
 static uint16_t               s_calib_max_adc = 0;
 static uint32_t               s_calib_plateau_ticks = 0;
+static uint32_t               s_calib_settle_start_tick = 0;
 static int64_t                s_probe_pos_sum = 0;
 static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
@@ -160,6 +162,7 @@ const char *TestRun_GetPhaseName(void) {
         case PHASE_A_GO_DOWN:         return "A_GO_DOWN";
         case PHASE_B_SETUP_SLOW_PROBE:return "B_SETUP_PROBE";
         case PHASE_B_CALIB_DEFLECT:   return "B_CALIB_DEFLECT";
+        case PHASE_B_CALIB_SETTLE:    return "B_CALIB_SETTLE";
         case PHASE_B_FAST_UP:         return "B_FAST_UP";
         case PHASE_B_FAST_DOWN:       return "B_FAST_DOWN";
         default:                      return "UNKNOWN";
@@ -257,6 +260,7 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_calib_touch_pos = 0;
     s_calib_max_adc = 0;
     s_calib_plateau_ticks = 0;
+    s_calib_settle_start_tick = 0;
 
     /* Datenpuffer zurücksetzen */
     data_buffer_reset();
@@ -436,11 +440,46 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                          (double)((float)s_ds_baseline_adc * (5.0f / 4095.0f)));
                 uart_send_text(calib_msg, 20);
 
-                /* Kalibrier-Messung abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
+                /* Kalibrier-Messung abgeschlossen -> Sanft entlasten und ausschwingen */
+                s_phase = PHASE_B_CALIB_SETTLE;
+                s_calib_settle_start_tick = HAL_GetTick();
+                Z_PID_SetSpeedLevel(2); /* Sanfte Stufe 2 fuer Entlastung */
+                int32_t settle_target = s_calib_touch_pos + 10; /* Kontaktposition mit 10 inc Freihub */
+                if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
+                update_target_range(settle_target);
+                Z_Target_SetRequestedDirect((uint32_t)settle_target);
+            }
+        }
+
+        /* -----------------------------------------------------------------
+         * 1c. BERUHIGUNG & SICHERHEITS-CHECK NACH KALIBRIERUNG:
+         *     Fährt mit Stufe 2 sanft zurück auf Kontakt-/Freihubposition,
+         *     lässt Mechanik & Sensor ausschwingen (400 ms Dwell) und prüft,
+         *     ob der Sensor sauber unter die Schaltschwelle abfällt.
+         * ----------------------------------------------------------------- */
+        else if (s_phase == PHASE_B_CALIB_SETTLE) {
+            Z_PID_SetSpeedLevel(2);
+            int32_t settle_target = s_calib_touch_pos + 10;
+            if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
+            update_target_range(settle_target);
+            Z_Target_SetRequestedDirect((uint32_t)settle_target);
+
+            uint32_t settle_elapsed = HAL_GetTick() - s_calib_settle_start_tick;
+
+            /* Freigabe nach mind. 400 ms Beruhigung, sobald der Sensor sauber abgefallen ist */
+            if (settle_elapsed >= 400u && ds_value < s_ds_trigger_threshold) {
                 s_phase = PHASE_B_FAST_UP;
                 s_fast_cycles_start_tick = HAL_GetTick();
+                s_ds_trigger_debounce = 0;
+                s_ds_accel_fault_debounce = 0;
                 Z_PID_SetSpeedLevel(s_fast_speed_level);
                 Z_PID_ResetKinematics();
+            }
+            /* Timeout-Schutz: Falls nach 1500 ms der Sensor immer noch über der Schwelle liegt -> Nadel klemmt */
+            else if (settle_elapsed >= 1500u) {
+                snprintf(s_error_msg, sizeof(s_error_msg), "Nadel klemmt nach Kalibrierung");
+                TestRun_RestoreSpeedLevel();
+                return TESTRUN_ERROR;
             }
         }
 

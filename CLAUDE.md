@@ -1,4 +1,4 @@
-﻿# CLAUDE.md — Strikt geschützte Kernfunktionen & Entwicklungsregeln
+# CLAUDE.md — Strikt geschützte Kernfunktionen & Entwicklungsregeln
 
 > **ACHTUNG — VERBINDLICHE ENTWICKLUNGSREGEL:**
 > Bei JEDER künftigen Änderung muss vorab geprüft werden, ob die unten aufgeführten Kernfunktionen, Grenzwerte und Schutzlogiken unversehrt bleiben.
@@ -72,3 +72,24 @@
 4. **Build-Verifikation:**
    - Firmware Build (`make -C Software/GRAF_MNPA/Debug -j8 all`) muss 0 Fehler und 0 Warnungen liefern.
    - GUI Build (`dotnet build SW_WIN/MnpControl/MnpControl.csproj -c Release`) muss 0 Fehler liefern.
+
+---
+
+## 3. Versionierung & Release-Workflow (SemVer)
+
+Sobald eine Änderung erfolgreich abgeschlossen, getestet und bestätigt ist:
+
+1. **Versionsnummer nach SemVer erhöhen:**
+   - **Patch-Inkrement** (z. B. `1.1.0` -> `1.1.1`) für Bugfixes, Code-Bereinigungen und Ablauf-Optimierungen.
+   - **Minor-Inkrement** (z. B. `1.1.0` -> `1.2.0`) für funktionale Erweiterungen / neue Features.
+   - **Basis-Stand:** `1.1.0` (Referenz-Tag `v1.1.0-stabil-optimiert`).
+
+2. **Versions-Synchronisation über alle Projektteile:**
+   - **Firmware:** In `main.h` bzw. `test_run.h` als Versions-Konstante (z. B. `#define FIRMWARE_VERSION "1.1.1"`).
+   - **WPF-GUI:** In `MnpControl.csproj` (`<Version>`) und Fenstertitel / UI-Anzeige (`MainWindow.xaml`).
+   - **Mimot-Prüfbericht:** In `MimotReportGenerator.cs` (Kopfzeile, Prüfsoftware-Angabe in Text- und HTML-Bericht).
+
+3. **Automatisches Commit & Git-Tagging:**
+   - Für jeden bestätigten Stand wird ein sauberer Commit erstellt.
+   - Dazugehörigen Git-Tag anlegen (z. B. `git tag -a v1.1.1 -m "..."`).
+   - Nach Bestätigung synchron auf `origin/main` samt Tags pushen.
