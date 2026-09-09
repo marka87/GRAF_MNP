@@ -846,7 +846,7 @@ int main(void)
 		// Single-char and multi-char commands (e.g. "Z1500\n") both work
 		static char uart_line_buf[64];
 		static uint8_t uart_line_len = 0;
-		if (uart_cmd_tail != uart_cmd_head) {
+		while (uart_cmd_tail != uart_cmd_head) {
 			char c = (char)uart_cmd_buf[uart_cmd_tail];
 			uart_cmd_tail = (uart_cmd_tail + 1) % UART_CMD_BUF_SIZE;
 			if (c == '\n' || c == '\r') {
@@ -854,6 +854,7 @@ int main(void)
 					uart_line_buf[uart_line_len] = '\0';
 					Process_UART_Command(uart_line_buf);
 					uart_line_len = 0;
+					break; /* Vollständigen Befehl abarbeiten, dann nächsten Schleifenzyklus */
 				}
 			} else if (uart_line_len < (uint8_t)(sizeof(uart_line_buf) - 1)) {
 				uart_line_buf[uart_line_len++] = c;

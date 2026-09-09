@@ -27,10 +27,9 @@ namespace MnpControl
     private const string PreferredPortName = "COM9";
     private static SerialPort? _devConnection;
 
-        private static bool _continue = true;
-        private StreamWriter _currentLogFile; // Logfile für den aktuellen Ablauf
-        private StreamWriter _filteredLogFile; // Gefilterte Log-Datei
+        private StreamWriter? _currentLogFile; // Logfile für den aktuellen Ablauf
         private string _lastLiveLogLine = string.Empty;
+        private readonly object _serialBufferLock = new object();
 
         private StringBuilder _serialBuffer = new StringBuilder(); // Buffer for incoming serial data
         private bool _isLoggingSession = false;
@@ -110,25 +109,27 @@ namespace MnpControl
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-        _continue = true;
-        UpdateButtonStates(string.Empty); // all disabled until connected + state received
-        InitializePidPresets();
+            UpdateButtonStates(string.Empty); // all disabled until connected + state received
+            InitializePidPresets();
 
-        if (!TryOpenDeviceConnection())
-        {
-            MessageBox.Show("No accessible serial port found.\nPlease close other apps using the port and restart.",
-                "Serial connection failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            return;
-        }
+            if (!TryOpenDeviceConnection())
+            {
+                MessageBox.Show("No accessible serial port found.\nPlease close other apps using the port and restart.",
+                    "Serial connection failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
 
-        // Subscribe to DataReceived event for instant data processing
-        _devConnection.DataReceived += DevConnection_DataReceived;
-        SendCommand("PP?");
-        SendCommand("L?");
-        SendCommand("PV?");
-        SendCommand("V?");
+            if (_devConnection != null)
+            {
+                // Subscribe to DataReceived event for instant data processing
+                _devConnection.DataReceived += DevConnection_DataReceived;
+            }
+            SendCommand("PP?");
+            SendCommand("L?");
+            SendCommand("PV?");
+            SendCommand("V?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -163,6 +164,17 @@ namespace MnpControl
 
     private bool TryOpenSelectedPort(string portName)
     {
+        if (_devConnection != null)
+        {
+            try
+            {
+                if (_devConnection.IsOpen) _devConnection.Close();
+                _devConnection.Dispose();
+            }
+            catch { }
+            _devConnection = null;
+        }
+
         SerialPort connection = new SerialPort(portName, 115200, Parity.None, 8, StopBits.One)
         {
             ReadTimeout = 100,
@@ -175,12 +187,7 @@ namespace MnpControl
             _devConnection = connection;
             return true;
         }
-        catch (UnauthorizedAccessException)
-        {
-            connection.Dispose();
-            return false;
-        }
-        catch (IOException)
+        catch (Exception)
         {
             connection.Dispose();
             return false;
@@ -303,8 +310,12 @@ namespace MnpControl
 
         private void CloseLogFile()
         {
-            _currentLogFile?.Close();
-            _currentLogFile = null; // Logfile-Objekt zurücksetzen
+            if (_currentLogFile != null)
+            {
+                _currentLogFile.Flush();
+                _currentLogFile.Dispose();
+                _currentLogFile = null;
+            }
         }
 
         private void UpdateStatus(string msg)
@@ -635,11 +646,26 @@ namespace MnpControl
 
             _lastLiveLogLine = line;
 
-            if (_liveLogLines.Count >= LiveLogMaxLines)
-                _liveLogLines.Dequeue();
+            string formattedLine = $"{DateTime.Now:HH:mm:ss} {line}";
 
-            _liveLogLines.Enqueue($"{DateTime.Now:HH:mm:ss} {line}");
-            TxtLiveLog.Text = string.Join(Environment.NewLine, _liveLogLines);
+            if (_liveLogLines.Count >= LiveLogMaxLines)
+            {
+                _liveLogLines.Dequeue();
+                _liveLogLines.Enqueue(formattedLine);
+                TxtLiveLog.Text = string.Join(Environment.NewLine, _liveLogLines);
+            }
+            else
+            {
+                _liveLogLines.Enqueue(formattedLine);
+                if (TxtLiveLog.Text.Length > 0)
+                {
+                    TxtLiveLog.AppendText(Environment.NewLine + formattedLine);
+                }
+                else
+                {
+                    TxtLiveLog.Text = formattedLine;
+                }
+            }
             TxtLiveLog.ScrollToEnd();
         }
 
@@ -1222,29 +1248,51 @@ namespace MnpControl
         {
             try
             {
-                // Read all available data from the serial port
-                while (_devConnection != null && _devConnection.BytesToRead > 0)
+                var conn = _devConnection;
+                if (conn == null || !conn.IsOpen) return;
+
+                while (conn.BytesToRead > 0)
                 {
-                    string data = _devConnection.ReadExisting();
-                    _serialBuffer.Append(data);
+                    string data = conn.ReadExisting();
+                    if (string.IsNullOrEmpty(data)) break;
 
-                    // Process complete lines (terminated by newline)
-                    string bufferContent = _serialBuffer.ToString();
-                    int newlineIndex = bufferContent.IndexOf('\n');
+                    List<string> messagesToDispatch = new List<string>();
 
-                    while (newlineIndex >= 0)
+                    lock (_serialBufferLock)
                     {
-                        string message = bufferContent.Substring(0, newlineIndex).TrimEnd('\r');
-                        if (!string.IsNullOrEmpty(message))
-                        {
-                            // Update UI on the main thread asynchronously (non-blocking)
-                            Application.Current.Dispatcher.BeginInvoke(new Action(() => { UpdateStatus(message); }), System.Windows.Threading.DispatcherPriority.Normal);
-                        }
+                        _serialBuffer.Append(data);
 
-                        // Remove processed message from buffer
-                        _serialBuffer.Remove(0, newlineIndex + 1);
-                        bufferContent = _serialBuffer.ToString();
-                        newlineIndex = bufferContent.IndexOf('\n');
+                        while (true)
+                        {
+                            int newlineIndex = -1;
+                            for (int i = 0; i < _serialBuffer.Length; i++)
+                            {
+                                if (_serialBuffer[i] == '\n')
+                                {
+                                    newlineIndex = i;
+                                    break;
+                                }
+                            }
+
+                            if (newlineIndex < 0) break;
+
+                            string message = _serialBuffer.ToString(0, newlineIndex).TrimEnd('\r');
+                            _serialBuffer.Remove(0, newlineIndex + 1);
+
+                            if (!string.IsNullOrEmpty(message))
+                            {
+                                messagesToDispatch.Add(message);
+                            }
+                        }
+                    }
+
+                    foreach (string msg in messagesToDispatch)
+                    {
+                        var dispatcher = Application.Current?.Dispatcher;
+                        if (dispatcher != null && !dispatcher.HasShutdownStarted && !dispatcher.HasShutdownFinished)
+                        {
+                            dispatcher.BeginInvoke(new Action(() => { UpdateStatus(msg); }), System.Windows.Threading.DispatcherPriority.Normal);
+                        }
                     }
                 }
             }
@@ -1256,7 +1304,6 @@ namespace MnpControl
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _continue = false;
 
             if (_devConnection != null)
             {
