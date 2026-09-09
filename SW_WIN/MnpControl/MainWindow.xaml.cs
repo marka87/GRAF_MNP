@@ -464,6 +464,17 @@ namespace MnpControl
             {
                 string posStr = msg.Substring(11).Trim();
                 AppendTestBLog($"=== Referenz-Höhe erfasst: {posStr} inc ===");
+                AppendTestBLog("Erfasse Drucksensor-Kennlinie & Federweg...");
+                return;
+            }
+
+            if (msg.StartsWith("TEST_B_CALIB:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(13).Trim();
+                string? travel = ExtractSummaryParam(payload, "travel");
+                string? peakV = ExtractSummaryParam(payload, "peak_v");
+                string? baseV = ExtractSummaryParam(payload, "base_v");
+                AppendTestBLog($"=== Drucksensor: Federweg {travel ?? "0"} inc | U_peak: {peakV ?? "-"} V (Standby: {baseV ?? "-"} V) ===");
                 AppendTestBLog("Starte schnelle Zyklen (Nähmaschine)...");
                 return;
             }
@@ -813,6 +824,8 @@ namespace MnpControl
             string mean = values.TryGetValue("mean", out string? mn) ? mn : "?";
             string baselineV = values.TryGetValue("baseline_v", out string? bv) ? bv : "?";
             string trigV = values.TryGetValue("trig_v", out string? tv) ? tv : "?";
+            string? contactTravelStr = values.TryGetValue("contact_travel", out string? ct) ? ct : null;
+            string? peakV = values.TryGetValue("peak_v", out string? pv) ? pv : null;
             string? timeMsStr = values.TryGetValue("time_ms", out string? tm) ? tm : null;
             string? vMax = values.TryGetValue("v_max", out string? vm) ? vm : null;
             string? aMax = values.TryGetValue("a_max", out string? am) ? am : null;
@@ -844,6 +857,10 @@ namespace MnpControl
             _testSummaryLines.Enqueue($"STREUUNG / SPANNE:   {range} inc (±{rangeVal / 2.0f:F1} inc)");
             _testSummaryLines.Enqueue($"Mittelwert:          {mean} inc");
             _testSummaryLines.Enqueue($"Sensor-Standby:      {baselineV} V (Trigger: {trigV} V)");
+            if (!string.IsNullOrEmpty(contactTravelStr) && !string.IsNullOrEmpty(peakV))
+            {
+                _testSummaryLines.Enqueue($"Drucksensor-Bereich: Federweg {contactTravelStr} inc | Max. Spg: {peakV} V");
+            }
             if (!string.IsNullOrEmpty(vMax) && float.TryParse(vMax, NumberStyles.Float, CultureInfo.InvariantCulture, out float vMaxVal))
             {
                 float mPerSec = vMaxVal / 1000.0f;
@@ -1610,13 +1627,20 @@ namespace MnpControl
                 result.CompletedCycles = doneVal;
             if (int.TryParse(values.TryGetValue("range", out string? rng) ? rng : "0", out int rangeVal))
                 result.ScatterRange = rangeVal;
-            if (int.TryParse(values.TryGetValue("delta_max", out string? dmax) ? dmax : "0", out int dmaxVal))
+
+            if (int.TryParse(values.TryGetValue("contact_travel", out string? ct) ? ct : "", out int ctVal) && ctVal > 0)
+                result.ContactTravelInc = ctVal;
+            else if (int.TryParse(values.TryGetValue("delta_max", out string? dmax) ? dmax : "0", out int dmaxVal))
                 result.ContactTravelInc = Math.Max(1, Math.Abs(dmaxVal));
+
             if (float.TryParse(values.TryGetValue("mean", out string? mn) ? mn : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float meanVal))
                 result.MeanPosition = meanVal;
             if (float.TryParse(values.TryGetValue("baseline_v", out string? bv) ? bv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float bvVal))
                 result.BaselineVoltage = bvVal;
-            if (float.TryParse(values.TryGetValue("trig_v", out string? tv) ? tv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float tvVal))
+
+            if (float.TryParse(values.TryGetValue("peak_v", out string? pv) ? pv : "", NumberStyles.Float, CultureInfo.InvariantCulture, out float pvVal) && pvVal > 0.5f)
+                result.TriggerVoltage = pvVal;
+            else if (float.TryParse(values.TryGetValue("trig_v", out string? tv) ? tv : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float tvVal))
                 result.TriggerVoltage = tvVal;
 
             if (float.TryParse(values.TryGetValue("v_max", out string? vm) ? vm : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float vmVal))

@@ -78,6 +78,7 @@ typedef enum {
 
     /* Test B Phasen */
     PHASE_B_SETUP_SLOW_PROBE,
+    PHASE_B_CALIB_DEFLECT,
     PHASE_B_FAST_UP,
     PHASE_B_FAST_DOWN
 } TestRunInternalPhase_t;
@@ -102,6 +103,9 @@ static uint16_t               s_ds_baseline_adc = 0;
 static uint16_t               s_ds_trigger_threshold = 0;
 static uint8_t                s_ds_trigger_debounce = 0;
 static uint8_t                s_ds_accel_fault_debounce = 0;
+static int32_t                s_calib_touch_pos = 0;
+static uint16_t               s_calib_max_adc = 0;
+static uint32_t               s_calib_plateau_ticks = 0;
 static int64_t                s_probe_pos_sum = 0;
 static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
@@ -132,7 +136,7 @@ float TestRun_GetDruckmotorVoltage(void) {
 
 void TestRun_SetTriggerDeltaMv(uint32_t mv) {
     if (mv < 20u) mv = 20u;
-    if (mv > 4000u) mv = 4000u;
+    if (mv > 4700u) mv = 4700u;
     s_trigger_delta_mv = mv;
 }
 
@@ -155,6 +159,7 @@ const char *TestRun_GetPhaseName(void) {
         case PHASE_A_GO_UP:           return "A_GO_UP";
         case PHASE_A_GO_DOWN:         return "A_GO_DOWN";
         case PHASE_B_SETUP_SLOW_PROBE:return "B_SETUP_PROBE";
+        case PHASE_B_CALIB_DEFLECT:   return "B_CALIB_DEFLECT";
         case PHASE_B_FAST_UP:         return "B_FAST_UP";
         case PHASE_B_FAST_DOWN:       return "B_FAST_DOWN";
         default:                      return "UNKNOWN";
@@ -238,12 +243,20 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     /* Trigger = Baseline + Delta mV (z.B. +1500mV TTL = ca. 1228 ADC-Counts) */
     uint32_t delta_adc = (uint32_t)((float)s_trigger_delta_mv * (4095.0f / 5000.0f));
     if (delta_adc < 40u) delta_adc = 40u;
+    if ((uint32_t)s_ds_baseline_adc + delta_adc > 4050u) {
+        delta_adc = 4050u - (uint32_t)s_ds_baseline_adc;
+    }
     s_ds_trigger_threshold = s_ds_baseline_adc + (uint16_t)delta_adc;
     if (s_ds_trigger_threshold < 75u) {
         s_ds_trigger_threshold = 75u;
     }
     s_scatter_stats.baseline_adc = s_ds_baseline_adc;
     s_scatter_stats.trigger_adc  = s_ds_trigger_threshold;
+    s_scatter_stats.contact_travel_inc = 0;
+    s_scatter_stats.peak_ds_adc = 0;
+    s_calib_touch_pos = 0;
+    s_calib_max_adc = 0;
+    s_calib_plateau_ticks = 0;
 
     /* Datenpuffer zurücksetzen */
     data_buffer_reset();
@@ -353,11 +366,16 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     snprintf(ref_msg, sizeof(ref_msg), "TEST_B_REF:%ld\r\n", (long)touch_pos);
                     uart_send_text(ref_msg, 10);
 
-                    /* Setup abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
-                    s_phase = PHASE_B_FAST_UP;
-                    s_fast_cycles_start_tick = HAL_GetTick();
-                    Z_PID_SetSpeedLevel(s_fast_speed_level);
-                    Z_PID_ResetKinematics();
+                    /* Setup abgeschlossen -> Vor Teststart Drucksensor-Messbereich aufnehmen */
+                    s_phase = PHASE_B_CALIB_DEFLECT;
+                    s_calib_touch_pos = touch_pos;
+                    s_calib_max_adc = ds_value;
+                    s_calib_plateau_ticks = 0;
+                    Z_PID_SetSpeedLevel(2); /* Sanfte Stufe 2 für kontrollierte Federweg-Messung */
+                    int32_t calib_target = touch_pos - 32;
+                    if (calib_target < (int32_t)z_encoder_start) calib_target = (int32_t)z_encoder_start;
+                    update_target_range(calib_target);
+                    Z_Target_SetRequestedDirect((uint32_t)calib_target);
                 }
             } else {
                 s_ds_trigger_debounce = 0;
@@ -368,6 +386,61 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
                 TestRun_RestoreSpeedLevel();
                 return TESTRUN_ERROR;
+            }
+        }
+
+        /* -----------------------------------------------------------------
+         * 1b. MESSBEREICHS-AUFNAHME VOR TESTSTART:
+         *     Drückt von touch_pos aus sanft bis zu max. 30 Inkremente ein,
+         *     um realen Federweg (inc) und Spitzenspannung (V) zu messen.
+         * ----------------------------------------------------------------- */
+        else if (s_phase == PHASE_B_CALIB_DEFLECT) {
+            if (ds_value > s_calib_max_adc) {
+                s_calib_max_adc = ds_value;
+                s_calib_plateau_ticks = 0;
+            } else {
+                s_calib_plateau_ticks++;
+            }
+
+            int32_t travel = s_calib_touch_pos - z_pos;
+            bool stop_sweep = false;
+
+            /* Sicherheits-Abbruchbedingungen:
+             * 1) Maximaler Federweg erreicht: >= 30 inc (schützt Nadelmechanik vor Überlastung)
+             * 2) Sensor-Vollanschlag / Sättigung: >= 3890 ADC (ca. 4.75 V)
+             * 3) Plateau bei hoher Spannung: >= 3500 ADC (ca. 4.27 V) und 20 Ticks unverändert
+             * 4) Unterer Z-Endanschlag */
+            if (travel >= 30) {
+                stop_sweep = true;
+            } else if (ds_value >= 3890u) {
+                stop_sweep = true;
+            } else if (ds_value >= 3500u && s_calib_plateau_ticks >= 20u) {
+                stop_sweep = true;
+            } else if (z_pos <= (int32_t)(z_encoder_start + 15)) {
+                stop_sweep = true;
+            }
+
+            if (stop_sweep) {
+                int32_t final_pos = z_pos;
+                int32_t final_travel = s_calib_touch_pos - final_pos;
+                if (final_travel < 0) final_travel = 0;
+
+                s_scatter_stats.contact_travel_inc = (uint32_t)final_travel;
+                s_scatter_stats.peak_ds_adc = s_calib_max_adc;
+
+                char calib_msg[100];
+                snprintf(calib_msg, sizeof(calib_msg),
+                         "TEST_B_CALIB:travel=%lu,peak_v=%.3f,base_v=%.3f\r\n",
+                         (unsigned long)s_scatter_stats.contact_travel_inc,
+                         (double)((float)s_calib_max_adc * (5.0f / 4095.0f)),
+                         (double)((float)s_ds_baseline_adc * (5.0f / 4095.0f)));
+                uart_send_text(calib_msg, 20);
+
+                /* Kalibrier-Messung abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
+                s_phase = PHASE_B_FAST_UP;
+                s_fast_cycles_start_tick = HAL_GetTick();
+                Z_PID_SetSpeedLevel(s_fast_speed_level);
+                Z_PID_ResetKinematics();
             }
         }
 

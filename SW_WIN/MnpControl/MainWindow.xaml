@@ -5,7 +5,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="GRAF MNP Control V1.0"
+        Title="GRAF MNP Control V1.1"
         Icon="pack://application:,,,/Assets/graf_logo.png"
         Height="800"
         Width="1260"
@@ -417,7 +417,7 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="10,6">
-                    <TextBlock Text="MnpControl V1.0  |  Entwickelt von AnMa"
+                    <TextBlock Text="MnpControl V1.1  |  Entwickelt von AnMa"
                                Foreground="#475569"
                                FontSize="12"
                                FontWeight="SemiBold"/>

@@ -766,9 +766,9 @@ int main(void)
 				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
 					TestBScatterStats_t b_stats;
 					TestRun_GetScatterStats(&b_stats);
-					char stats_msg[450];
+					char stats_msg[512];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -780,7 +780,9 @@ int main(void)
 						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
 						(unsigned long)stats.test_time_ms,
 						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
-						(long)z_ax_no_pos);
+						(long)z_ax_no_pos,
+						(unsigned long)b_stats.contact_travel_inc,
+						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)));
 					uart_send_text(stats_msg, 100);
 				} else {
 					char stats_msg[450];
