@@ -40,6 +40,7 @@ namespace MnpControl
         private string _currentDeviceState = string.Empty;
         private uint? _zStepLowerLimit;
         private uint? _zStepUpperLimit;
+        private int? _lastNoSensorPos;
         private readonly HybridTuningConfig _hybridConfig = new HybridTuningConfig
         {
             PosKp = 0.12f,
@@ -448,6 +449,17 @@ namespace MnpControl
                 return;
             }
 
+            if (msg.StartsWith("SNO:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(4).Trim();
+                if (int.TryParse(payload, out int snoVal) && snoVal > 0)
+                {
+                    _lastNoSensorPos = snoVal;
+                    AppendLiveLog($"SNO-Position erfasst: {snoVal} inc");
+                }
+                return;
+            }
+
             if (msg.StartsWith("TEST_B_REF:", StringComparison.Ordinal))
             {
                 string posStr = msg.Substring(11).Trim();
@@ -651,6 +663,11 @@ namespace MnpControl
                 }
             }
 
+            if (values.TryGetValue("no_sensor_pos", out string? nsVal) && int.TryParse(nsVal, out int nPos) && nPos > 0)
+            {
+                _lastNoSensorPos = nPos;
+            }
+
             string status = values.TryGetValue("status", out string? s) ? s : "?";
             string cycles = values.TryGetValue("cycles", out string? c) ? c : "?";
             string done = values.TryGetValue("done", out string? d) ? d : "?";
@@ -778,6 +795,11 @@ namespace MnpControl
                 {
                     values[part.Substring(0, eqIndex)] = part.Substring(eqIndex + 1);
                 }
+            }
+
+            if (values.TryGetValue("no_sensor_pos", out string? nsValB) && int.TryParse(nsValB, out int nPosB) && nPosB > 0)
+            {
+                _lastNoSensorPos = nPosB;
             }
 
             string cycles = values.TryGetValue("cycles", out string? c) ? c : "?";
@@ -1544,8 +1566,23 @@ namespace MnpControl
                 result.SollMin = sollMinVal;
             if (int.TryParse(values.TryGetValue("z_soll_max", out string? smax) ? smax : "0", out int sollMaxVal))
                 result.SollMax = sollMaxVal;
-            if (int.TryParse(values.TryGetValue("no_sensor_pos", out string? ns) ? ns : "0", out int noPosVal))
+            if (int.TryParse(values.TryGetValue("no_sensor_pos", out string? ns) ? ns : "0", out int noPosVal) && noPosVal > 0)
+            {
                 result.NoSensorPos = noPosVal;
+                _lastNoSensorPos = noPosVal;
+            }
+            else if (_lastNoSensorPos.HasValue && _lastNoSensorPos.Value > 0)
+            {
+                result.NoSensorPos = _lastNoSensorPos.Value;
+            }
+            else if (_zStepUpperLimit.HasValue && _zStepUpperLimit.Value > 0)
+            {
+                result.NoSensorPos = (int)_zStepUpperLimit.Value;
+            }
+
+            result.SnoSchaltschwelleOben = result.NoSensorPos;
+            result.SnoHysterese = 5;
+            result.SnoSchaltschwelleUnten = result.SnoSchaltschwelleOben + result.SnoHysterese;
 
             if (float.TryParse(values.TryGetValue("v_max", out string? vm) ? vm : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float vmVal))
                 result.MaxVelocityMmS = vmVal;
@@ -1589,10 +1626,23 @@ namespace MnpControl
             if (float.TryParse(values.TryGetValue("a_brake", out string? ab) ? ab : "0", NumberStyles.Float, CultureInfo.InvariantCulture, out float abVal))
                 result.MaxDecelG = abVal;
 
-            if (_zStepUpperLimit.HasValue && _zStepUpperLimit.Value > 0)
+            if (int.TryParse(values.TryGetValue("no_sensor_pos", out string? nsB) ? nsB : "0", out int noPosValB) && noPosValB > 0)
+            {
+                result.NoSensorPos = noPosValB;
+                _lastNoSensorPos = noPosValB;
+            }
+            else if (_lastNoSensorPos.HasValue && _lastNoSensorPos.Value > 0)
+            {
+                result.NoSensorPos = _lastNoSensorPos.Value;
+            }
+            else if (_zStepUpperLimit.HasValue && _zStepUpperLimit.Value > 0)
             {
                 result.NoSensorPos = (int)_zStepUpperLimit.Value;
             }
+
+            result.SnoSchaltschwelleOben = result.NoSensorPos;
+            result.SnoHysterese = 5;
+            result.SnoSchaltschwelleUnten = result.SnoSchaltschwelleOben + result.SnoHysterese;
 
             FinalizeMimotReport(result);
         }

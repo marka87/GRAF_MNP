@@ -5,7 +5,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="GRAF MNP Control"
+        Title="GRAF MNP Control V1.0"
+        Icon="pack://application:,,,/Assets/graf_logo.png"
         Height="800"
         Width="1260"
         MinHeight="700"
@@ -219,6 +220,11 @@
         <ScrollViewer Grid.Row="0" Grid.RowSpan="3" Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Orientation="Vertical">
 
+                <!-- Company Logo Card -->
+                <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="14,8" Margin="0,0,0,10">
+                    <Image Source="pack://application:,,,/Assets/graf_logo.png" Height="48" Stretch="Uniform" HorizontalAlignment="Center" ToolTip="GRAF Elektronik GmbH"/>
+                </Border>
+
                 <!-- Ablaufsteuerung Card -->
                 <GroupBox Header="Ablaufsteuerung &amp; Testl&#xE4;ufe">
                     <StackPanel Margin="2">
@@ -375,37 +381,48 @@
         </ScrollViewer>
 
         <!-- ======================================================= -->
-        <!-- ROW 3: BOTTOM ACTIONS (RESET, STOP, CLEAR)             -->
+        <!-- ROW 3: BOTTOM ACTIONS (RESET, STOP, CLEAR) & FOOTER    -->
         <!-- ======================================================= -->
-        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
-            <Button x:Name="BtnReset"
-                    Content="&#xB5;C Reset"
-                    Width="110"
-                    Height="36"
-                    Background="#FEE2E2"
-                    BorderBrush="#FCA5A5"
-                    Foreground="#991B1B"
-                    Click="BtnReset_Click"/>
+        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button x:Name="BtnReset"
+                        Content="&#xB5;C Reset"
+                        Width="110"
+                        Height="36"
+                        Background="#FEE2E2"
+                        BorderBrush="#FCA5A5"
+                        Foreground="#991B1B"
+                        Click="BtnReset_Click"/>
 
-            <Button x:Name="BtnStop"
-                    Content="STOPP"
-                    Width="110"
-                    Height="36"
-                    Margin="10,0,0,0"
-                    Background="#FEF3C7"
-                    BorderBrush="#FCD34D"
-                    Foreground="#92400E"
-                    Click="BtnStop_Click"/>
+                <Button x:Name="BtnStop"
+                        Content="STOPP"
+                        Width="110"
+                        Height="36"
+                        Margin="10,0,0,0"
+                        Background="#FEF3C7"
+                        BorderBrush="#FCD34D"
+                        Foreground="#92400E"
+                        Click="BtnStop_Click"/>
 
-            <Button x:Name="BtnClearSummary"
-                    Content="Summary leeren"
-                    Width="160"
-                    Height="36"
-                    Margin="10,0,0,0"
-                    Background="#F1F5F9"
-                    BorderBrush="#CBD5E1"
-                    Foreground="#334155"
-                    Click="BtnClearSummary_Click"/>
-        </StackPanel>
+                <Button x:Name="BtnClearSummary"
+                        Content="Summary leeren"
+                        Width="160"
+                        Height="36"
+                        Margin="10,0,0,0"
+                        Background="#F1F5F9"
+                        BorderBrush="#CBD5E1"
+                        Foreground="#334155"
+                        Click="BtnClearSummary_Click"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="10,6">
+                    <TextBlock Text="MnpControl V1.0  |  Entwickelt von AnMa"
+                               Foreground="#475569"
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

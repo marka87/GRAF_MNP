@@ -45,6 +45,9 @@ namespace MnpControl
         public float BaselineVoltage { get; set; } = 0.05f;
         public float TriggerVoltage { get; set; } = 4.69f;
         public int NoSensorPos { get; set; } = 0;
+        public int SnoSchaltschwelleOben { get; set; } = 0;
+        public int SnoSchaltschwelleUnten { get; set; } = 0;
+        public int SnoHysterese { get; set; } = 5;
         public int ContactTravelInc { get; set; } = 5;
 
         // Zyklus- und Positionsdaten

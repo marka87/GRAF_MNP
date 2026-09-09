@@ -500,6 +500,8 @@ void Process_UART_Command(const char *command) {
 		snprintf(response, sizeof(response), "ZLIM:%lu;%lu\r\n", lower_limit, upper_limit);
 	} else if (strcmp(command, "V?") == 0) {
 		snprintf(response, sizeof(response), "ZV:%u\r\n", Z_PID_GetSpeedLevel());
+	} else if (strcmp(command, "SNO?") == 0) {
+		snprintf(response, sizeof(response), "SNO:%ld\r\n", (long)z_ax_no_pos);
 	} else if (command[0] == 'P' && command[1] == 'P' && command[2] == '=') {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
@@ -766,7 +768,7 @@ int main(void)
 					TestRun_GetScatterStats(&b_stats);
 					char stats_msg[450];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -777,7 +779,8 @@ int main(void)
 						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
 						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
 						(unsigned long)stats.test_time_ms,
-						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g);
+						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
+						(long)z_ax_no_pos);
 					uart_send_text(stats_msg, 100);
 				} else {
 					char stats_msg[450];

@@ -28,28 +28,78 @@ namespace MnpControl
             string txtPath = Path.Combine(targetDirectory, $"{baseFileName}.txt");
             string htmlPath = Path.Combine(targetDirectory, $"{baseFileName}.html");
 
+            // Sensor-Werte plausibilisieren & auffüllen falls nicht explizit gesetzt
+            if (result.SnoSchaltschwelleOben == 0 && result.NoSensorPos > 0)
+            {
+                result.SnoSchaltschwelleOben = result.NoSensorPos;
+            }
+            if (result.SnoHysterese <= 0)
+            {
+                result.SnoHysterese = 5;
+            }
+            if (result.SnoSchaltschwelleUnten == 0 && result.SnoSchaltschwelleOben > 0)
+            {
+                result.SnoSchaltschwelleUnten = result.SnoSchaltschwelleOben + result.SnoHysterese;
+            }
+            if (result.NoSensorPos == 0 && result.SnoSchaltschwelleOben > 0)
+            {
+                result.NoSensorPos = result.SnoSchaltschwelleOben;
+            }
+
             // Toleranz-Auswertungen (gemäß Mimot-Werksnorm)
             bool passChecklist = result.Config.Checklist.All(c => c.IsPassed);
             bool passBaseline = result.BaselineVoltage >= 0.0f && result.BaselineVoltage <= 0.350f;
             // Trigger-Spannung: Pruefstand tastet sanft bei Baseline + 1.5V (~1.5V) an, um Nadelmechanik zu schonen
             bool passTrigger = result.TriggerVoltage >= 1.000f && result.TriggerVoltage <= 5.500f;
+            bool passSnoOben = (result.SnoSchaltschwelleOben == 0) || (result.SnoSchaltschwelleOben >= 1500 && result.SnoSchaltschwelleOben <= 3450);
+            bool passSnoUnten = (result.SnoSchaltschwelleUnten == 0) || (result.SnoSchaltschwelleUnten >= 1500 && result.SnoSchaltschwelleUnten <= 3450);
+            bool passSnoHyst = (result.SnoHysterese >= 0 && result.SnoHysterese <= 30);
+            bool passSnoPos = (result.NoSensorPos == 0) || (result.NoSensorPos >= 1500 && result.NoSensorPos <= 3450);
             bool passLostSteps = result.LostSteps <= 10;
             bool passScatter = (result.Config.TestType != MimotTestType.BestueckenTestB) || (result.ScatterRange <= 10);
             bool passCycles = result.CompletedCycles >= result.Config.Cycles;
             bool noFatalError = string.IsNullOrEmpty(result.ErrorMessage) || result.ErrorMessage.Equals("keine", StringComparison.OrdinalIgnoreCase);
 
-            bool overallPassed = passChecklist && passBaseline && passTrigger && passLostSteps && passScatter && passCycles && noFatalError;
+            bool overallPassed = passChecklist && passBaseline && passTrigger && passSnoOben && passSnoUnten && passSnoHyst && passSnoPos && passLostSteps && passScatter && passCycles && noFatalError;
             result.OverallSuccess = overallPassed;
 
             // 1. TXT Protokoll generieren (original Mimot Layout)
-            string txtContent = GenerateTxtReport(result, baseFileName, passBaseline, passTrigger, passLostSteps, passScatter, overallPassed);
+            string txtContent = GenerateTxtReport(result, baseFileName, passBaseline, passTrigger, passSnoOben, passSnoUnten, passSnoHyst, passSnoPos, passLostSteps, passScatter, overallPassed);
             File.WriteAllText(txtPath, txtContent, Encoding.UTF8);
 
             // 2. HTML Protokoll generieren (druckbar & modern für PDF)
-            string htmlContent = GenerateHtmlReport(result, baseFileName, passBaseline, passTrigger, passLostSteps, passScatter, overallPassed);
+            string htmlContent = GenerateHtmlReport(result, baseFileName, passBaseline, passTrigger, passSnoOben, passSnoUnten, passSnoHyst, passSnoPos, passLostSteps, passScatter, overallPassed);
             File.WriteAllText(htmlPath, htmlContent, Encoding.UTF8);
 
             return (txtPath, htmlPath);
+        }
+
+        private static string? _cachedLogoBase64;
+        private static string GetLogoBase64()
+        {
+            if (_cachedLogoBase64 != null) return _cachedLogoBase64;
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string[] possiblePaths = new[]
+                {
+                    Path.Combine(baseDir, "Assets", "graf_logo.png"),
+                    Path.Combine(baseDir, "graf_logo.png"),
+                    Path.Combine(baseDir, "..", "..", "..", "Assets", "graf_logo.png")
+                };
+
+                foreach (string p in possiblePaths)
+                {
+                    if (File.Exists(p))
+                    {
+                        byte[] bytes = File.ReadAllBytes(p);
+                        _cachedLogoBase64 = "data:image/png;base64," + Convert.ToBase64String(bytes);
+                        return _cachedLogoBase64;
+                    }
+                }
+            }
+            catch { }
+            return "";
         }
 
         private static string FormatTxtCol(string text, int width, bool alignRight = false)
@@ -64,6 +114,10 @@ namespace MnpControl
             string fileName,
             bool passBaseline,
             bool passTrigger,
+            bool passSnoOben,
+            bool passSnoUnten,
+            bool passSnoHyst,
+            bool passSnoPos,
             bool passLostSteps,
             bool passScatter,
             bool overallPassed)
@@ -73,6 +127,7 @@ namespace MnpControl
 
             sb.AppendLine(FormatTxtCol(fileName + ".txt", 88, alignRight: true));
             sb.AppendLine(FormatTxtCol("Testprotokoll Nadel 1260.x", 88, alignRight: true));
+            sb.AppendLine(FormatTxtCol("GRAF Elektronik GmbH — MnpControl V1.0 (AnMa)", 88, alignRight: true));
             sb.AppendLine();
             sb.AppendLine($"{res.EndTime:dd.MM.yyyy, HH:mm:ss}");
             sb.AppendLine($"Personalnummer: {res.Config.OperatorId}");
@@ -109,10 +164,21 @@ namespace MnpControl
             sb.AppendLine(string.Format(formatRow,
                 "Abstand bis Drucksensor anspricht", "0.000 inc", res.ContactTravelInc.ToString("F3", culture) + " inc", "35.000 inc", "Pass"));
 
-            if (res.NoSensorPos > 0)
+            if (res.NoSensorPos > 0 || res.SnoSchaltschwelleOben > 0)
             {
+                int snoOben = res.SnoSchaltschwelleOben > 0 ? res.SnoSchaltschwelleOben : res.NoSensorPos;
+                int snoHyst = res.SnoHysterese > 0 ? res.SnoHysterese : 5;
+                int snoUnten = res.SnoSchaltschwelleUnten > 0 ? res.SnoSchaltschwelleUnten : (snoOben + snoHyst);
+                int snoPos = res.NoSensorPos > 0 ? res.NoSensorPos : snoOben;
+
                 sb.AppendLine(string.Format(formatRow,
-                    "SNO: Schaltschwelle oben (Lichtschranke)", "1500.000 inc", res.NoSensorPos.ToString("F3", culture) + " inc", "3400.000 inc", "Pass"));
+                    "SNO: Schaltschwelle oben", "1500.000 inc", snoOben.ToString("F3", culture) + " inc", "3400.000 inc", passSnoOben ? "Pass" : "Fail"));
+                sb.AppendLine(string.Format(formatRow,
+                    "SNO: Schaltschwelle unten", "1500.000 inc", snoUnten.ToString("F3", culture) + " inc", "3400.000 inc", passSnoUnten ? "Pass" : "Fail"));
+                sb.AppendLine(string.Format(formatRow,
+                    "SNO: Schalthysterese", "0.000 inc", snoHyst.ToString("F3", culture) + " inc", "30.000 inc", passSnoHyst ? "Pass" : "Fail"));
+                sb.AppendLine(string.Format(formatRow,
+                    "SNO: Position (Nadel-oben)", "1500.000 inc", snoPos.ToString("F3", culture) + " inc", "3400.000 inc", passSnoPos ? "Pass" : "Fail"));
             }
             sb.AppendLine(headerSep);
             sb.AppendLine();
@@ -157,6 +223,8 @@ namespace MnpControl
             sb.AppendLine("=========================================================================================");
             sb.AppendLine($"  TESTERGEBNIS:  {(overallPassed ? "TEST BESTANDEN (PASS)" : "TEST NICHT BESTANDEN (FAIL)")}");
             sb.AppendLine("=========================================================================================");
+            sb.AppendLine();
+            sb.AppendLine("Pruefsoftware:   GRAF MnpControl V1.0  |  Entwickelt von AnMa");
 
             return sb.ToString();
         }
@@ -166,6 +234,10 @@ namespace MnpControl
             string fileName,
             bool passBaseline,
             bool passTrigger,
+            bool passSnoOben,
+            bool passSnoUnten,
+            bool passSnoHyst,
+            bool passSnoPos,
             bool passLostSteps,
             bool passScatter,
             bool overallPassed)
@@ -220,12 +292,17 @@ namespace MnpControl
             sb.AppendLine("<body>");
             sb.AppendLine("  <div class='report-card'>");
             sb.AppendLine("    <button class='print-btn' onclick='window.print()'>🖨️ Protokoll drucken / als PDF speichern</button>");
-            sb.AppendLine("    <div class='header-box'>");
+            string logoDataUri = GetLogoBase64();
+            string logoHtml = !string.IsNullOrEmpty(logoDataUri)
+                ? $"<img src='{logoDataUri}' style='height: 48px; max-width: 220px; object-fit: contain; margin-bottom: 6px;' alt='GRAF Elektronik'/><br/>"
+                : "";
+
+            sb.AppendLine("    <div class='header-box' style='align-items: center;'>");
             sb.AppendLine("      <div>");
             sb.AppendLine("        <div class='title'>GRAF MNP — Testprotokoll Nadel 1260.x</div>");
-            sb.AppendLine("        <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift</div>");
+            sb.AppendLine("        <div class='subtitle'>Abnahmeprüfung nach Mimot-Werksvorschrift | Software V1.0 (AnMa)</div>");
             sb.AppendLine("      </div>");
-            sb.AppendLine($"      <div style='text-align: right; font-family: Consolas, monospace; font-size: 11px; color: #64748b;'>{fileName}.txt</div>");
+            sb.AppendLine($"      <div style='text-align: right;'>{logoHtml}<span style='font-family: Consolas, monospace; font-size: 11px; color: #64748b;'>{fileName}.txt</span></div>");
             sb.AppendLine("    </div>");
             sb.AppendLine();
             sb.AppendLine("    <table class='meta-table'>");
@@ -250,9 +327,17 @@ namespace MnpControl
             sb.AppendLine($"      <tr><td>Spannung Drucksensor nicht angesprochen</td><td class='text-right'>0.000 V</td><td class='text-right'>{res.BaselineVoltage:F3} V</td><td class='text-right'>0.350 V</td><td class='text-center'>{badge(passBaseline)}</td></tr>");
             sb.AppendLine($"      <tr><td>Spannung Drucksensor angesprochen</td><td class='text-right'>1.000 V</td><td class='text-right'>{res.TriggerVoltage:F3} V</td><td class='text-right'>5.500 V</td><td class='text-center'>{badge(passTrigger)}</td></tr>");
             sb.AppendLine($"      <tr><td>Abstand bis Drucksensor anspricht</td><td class='text-right'>0.000 inc</td><td class='text-right'>{res.ContactTravelInc:F3} inc</td><td class='text-right'>35.000 inc</td><td class='text-center'>{badge(true)}</td></tr>");
-            if (res.NoSensorPos > 0)
+            if (res.NoSensorPos > 0 || res.SnoSchaltschwelleOben > 0)
             {
-                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben (Lichtschranke)</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{res.NoSensorPos:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(true)}</td></tr>");
+                int snoOben = res.SnoSchaltschwelleOben > 0 ? res.SnoSchaltschwelleOben : res.NoSensorPos;
+                int snoHyst = res.SnoHysterese > 0 ? res.SnoHysterese : 5;
+                int snoUnten = res.SnoSchaltschwelleUnten > 0 ? res.SnoSchaltschwelleUnten : (snoOben + snoHyst);
+                int snoPos = res.NoSensorPos > 0 ? res.NoSensorPos : snoOben;
+
+                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoOben:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoOben)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle unten</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoUnten:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoUnten)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Schalthysterese</td><td class='text-right'>0.000 inc</td><td class='text-right'>{snoHyst:F3} inc</td><td class='text-right'>30.000 inc</td><td class='text-center'>{badge(passSnoHyst)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Position (Nadel-oben)</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoPos:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoPos)}</td></tr>");
             }
             sb.AppendLine("    </table>");
             sb.AppendLine();
@@ -280,7 +365,10 @@ namespace MnpControl
             sb.AppendLine("    </table>");
             sb.AppendLine();
             sb.AppendLine(statusBadge);
-            sb.AppendLine($"    <div style='font-size: 11px; color: #64748b; margin-top: 15px;'>Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)} | Zyklen: {res.CompletedCycles}/{res.Config.Cycles} | Endzeit: {res.EndTime:HH:mm:ss}</div>");
+            sb.AppendLine($"    <div style='font-size: 11px; color: #64748b; margin-top: 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px;'>");
+            sb.AppendLine($"      <div>Fehlermeldungen: {(string.IsNullOrWhiteSpace(res.ErrorMessage) ? "keine" : res.ErrorMessage)} | Zyklen: {res.CompletedCycles}/{res.Config.Cycles} | Endzeit: {res.EndTime:HH:mm:ss}</div>");
+            sb.AppendLine($"      <div><b>MnpControl V1.0</b> | Entwickelt von AnMa</div>");
+            sb.AppendLine($"    </div>");
             sb.AppendLine("  </div>");
             sb.AppendLine("</body>");
             sb.AppendLine("</html>");

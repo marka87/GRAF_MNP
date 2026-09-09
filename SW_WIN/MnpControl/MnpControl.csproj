@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,6 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="9.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\graf_logo.png" />
+    <None Update="Assets\graf_logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
