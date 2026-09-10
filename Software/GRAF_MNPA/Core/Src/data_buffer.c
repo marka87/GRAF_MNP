@@ -16,17 +16,20 @@ void uart_send_text(const char *text, uint32_t timeout);
 static TraceSample_t s_trace_buffer[TRACE_MAX_SAMPLES];
 static uint16_t s_trace_count = 0;
 static uint32_t s_trace_start_tick = 0;
+static uint32_t s_last_record_tick = 0xFFFFFFFF;
 static bool s_trace_active = false;
 
 void Trace_Reset(void) {
     s_trace_count = 0;
     s_trace_start_tick = 0;
+    s_last_record_tick = 0xFFFFFFFF;
     s_trace_active = false;
 }
 
 void Trace_Start(void) {
     s_trace_count = 0;
     s_trace_start_tick = HAL_GetTick();
+    s_last_record_tick = 0xFFFFFFFF;
     s_trace_active = true;
 }
 
@@ -52,6 +55,10 @@ void Trace_RecordSample(int32_t z_ist, int32_t z_soll, int16_t v_ist, int16_t v_
     }
 
     uint32_t now = HAL_GetTick();
+    if (now == s_last_record_tick) {
+        return;
+    }
+    s_last_record_tick = now;
     uint32_t dt = (s_trace_start_tick > 0) ? (now - s_trace_start_tick) : 0u;
 
     /* DAC Spannung in mV: 0..5000 mV */

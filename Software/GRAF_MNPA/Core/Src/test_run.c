@@ -332,6 +332,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         }
     }
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
+    int32_t landing_zone = s_scatter_stats.z_ref_pos + 150;
     int32_t braking_dist = (int32_t)(s_fast_speed_level * 80);
     if (braking_dist < 300) braking_dist = 300;
     int32_t braking_zone = s_scatter_stats.z_ref_pos + braking_dist;
@@ -434,11 +435,16 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             }
         }
         else if (s_phase == PHASE_B_FAST_DOWN) {
-            /* Oberhalb der Bremszone mit voller Reisegeschwindigkeit nach unten sprinten */
+            /* 2-Stufen-Bremsung mit Landebahn (Ansatz 2):
+             * 1. Freiflug oberhalb braking_zone: Volle Reisegeschwindigkeit
+             * 2. Bremszone (braking_zone bis landing_zone): Stufe 6 (22 Inc/ms) baut Hauptenergie ab
+             * 3. Landebahn (letzte 1.5 mm / 150 Inc): Kriechstufe 3 (4 Inc/ms) gleitet stabil zum Kontakt */
             if (z_pos > braking_zone) {
                 Z_PID_SetSpeedLevel(s_fast_speed_level);
+            } else if (z_pos > landing_zone) {
+                uint8_t mid_speed = (s_fast_speed_level > 6u) ? 6u : s_fast_speed_level;
+                Z_PID_SetSpeedLevel(mid_speed);
             } else {
-                /* In der Bremszone rechtzeitig vor dem Klotz abbremsen (geraeuschlos & materialschonend) */
                 Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
             }
 
@@ -447,9 +453,14 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             update_target_range(down_target);
             Z_Target_SetRequestedDirect((uint32_t)down_target);
 
-            /* Beschleunigungs-Überwachung auf freier Fahrt nach unten */
-            if (z_pos < top_zone && z_pos > contact_zone) {
-                /* Auf freier Flugstrecke nur echte Kollisionen erkennen (Sicherheitsabstand gegen Flugvibrationen) */
+            /* Freiflug-Absicherung für Stufe 15 & 16 (Ansatz 3):
+             * Flankenüberwachung erst im Nahbereich scharfschalten (z_pos <= collision_zone),
+             * damit der Hebel bei 8.5g Anfahrbeschleunigung frei abheben darf ohne Fehlalarm. */
+            int32_t collision_zone = s_scatter_stats.z_ref_pos + 600;
+            if (collision_zone > braking_zone) collision_zone = braking_zone;
+
+            if (z_pos <= collision_zone && z_pos > contact_zone) {
+                /* Im Nahbereich nur echte Kollisionen erkennen */
                 uint16_t collision_threshold = s_ds_trigger_threshold + 600u;
                 if (collision_threshold < 2000u) collision_threshold = 2000u; /* ca. 2.44 V */
                 if (ds_value >= collision_threshold) {
