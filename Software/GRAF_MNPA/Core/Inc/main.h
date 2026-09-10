@@ -41,7 +41,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+#define FIRMWARE_VERSION "1.1.2"
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
