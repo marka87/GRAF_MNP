@@ -46,6 +46,11 @@ static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
 #define MAX_SAFE_VELOCITY 175.0f
 #define SAFETY_POSITION_MARGIN 400
 
+/* Ruckbegrenzung (Schritt 1 Glättung): max. Änderung der Soll-Geschwindigkeit pro 1ms-Zyklus.
+ * Verhindert den bisherigen Sprung 0 -> Stufenmaximum bei Zielsprüngen/Richtungswechsel.
+ * ponytail: einfache lineare Rampe (kein Trapezprofil), bei Bedarf pro Phase parametrierbar machen. */
+#define VELOCITY_SLEW_RATE_INC_MS2 5.0f
+
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
 #define VOLTAGE_MAX     5.0f
@@ -247,6 +252,14 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	uint32_t max_velocity = speed_level_max_velocity[speed_level - 1u];
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
+
+	/* Ruckbegrenzung: Soll-Geschwindigkeit darf sich nur um max. VELOCITY_SLEW_RATE_INC_MS2
+	 * pro dt_ms ändern (statt Sprung auf Stufenmaximum bei Zielsprung/Richtungswechsel). */
+	float max_delta = VELOCITY_SLEW_RATE_INC_MS2 * (float)dt_ms;
+	float velocity_delta = desired_velocity - s_last_desired_velocity;
+	if (velocity_delta > max_delta) velocity_delta = max_delta;
+	if (velocity_delta < -max_delta) velocity_delta = -max_delta;
+	desired_velocity = s_last_desired_velocity + velocity_delta;
 	s_last_desired_velocity = desired_velocity;
 
 	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */

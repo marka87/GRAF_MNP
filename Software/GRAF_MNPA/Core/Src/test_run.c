@@ -132,7 +132,7 @@ float TestRun_GetDruckmotorVoltage(void) {
 
 void TestRun_SetTriggerDeltaMv(uint32_t mv) {
     if (mv < 20u) mv = 20u;
-    if (mv > 4000u) mv = 4000u;
+    if (mv > 4700u) mv = 4700u;
     s_trigger_delta_mv = mv;
 }
 
@@ -239,6 +239,9 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     /* Trigger = Baseline + Delta mV (z.B. +1500mV TTL = ca. 1228 ADC-Counts) */
     uint32_t delta_adc = (uint32_t)((float)s_trigger_delta_mv * (4095.0f / 5000.0f));
     if (delta_adc < 40u) delta_adc = 40u;
+    if ((uint32_t)s_ds_baseline_adc + delta_adc > 4050u) {
+        delta_adc = 4050u - (uint32_t)s_ds_baseline_adc;
+    }
     s_ds_trigger_threshold = s_ds_baseline_adc + (uint16_t)delta_adc;
     if (s_ds_trigger_threshold < 75u) {
         s_ds_trigger_threshold = 75u;
