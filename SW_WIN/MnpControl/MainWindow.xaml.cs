@@ -463,6 +463,7 @@ namespace MnpControl
             if (msg.StartsWith("TEST_B_REF:", StringComparison.Ordinal))
             {
                 string posStr = msg.Substring(11).Trim();
+                TxtOverlaySub.Text = $"Referenz-Höhe erfasst ({posStr} inc). Schnelle Zyklen laufen...";
                 AppendTestBLog($"=== Referenz-Höhe erfasst: {posStr} inc ===");
                 AppendTestBLog("Starte schnelle Zyklen (Nähmaschine)...");
                 return;
@@ -497,6 +498,7 @@ namespace MnpControl
 
             if (msg.StartsWith("TEST_B_SUMMARY:", StringComparison.Ordinal))
             {
+                OverlayTestInProgress.Visibility = Visibility.Collapsed;
                 TxtStatus.Text = "Test B abgeschlossen";
                 AppendTestBSummary(msg);
                 string? vMaxB = ExtractSummaryParam(msg, "v_max");
@@ -515,6 +517,7 @@ namespace MnpControl
 
             if (msg.StartsWith("TEST_SUMMARY:", StringComparison.Ordinal))
             {
+                OverlayTestInProgress.Visibility = Visibility.Collapsed;
                 TxtStatus.Text = "Test-Ergebnis";
                 AppendTestSummary(msg);
                 if (_isTestARunning)
@@ -858,6 +861,9 @@ namespace MnpControl
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             TxtTestSummary.ScrollToEnd();
 
+            OverlayTestInProgress.Visibility = Visibility.Collapsed;
+            TxtScatterStatsLive.Text = $"Zyklen: {done}/{cycles} | Spanne: {range} inc (±{rangeVal / 2.0f:F1}) | Mittel: {mean} inc";
+
             if (_isMimotTestActive && _activeMimotConfig != null)
             {
                 HandleMimotTestBCompletion(values);
@@ -1050,6 +1056,11 @@ namespace MnpControl
             bool isRunning    = state == "TEST_RUN";
             bool canRef       = isIdle || isTestStart || state == "COMPLETED" || state == "STOP" || state == "FEHLER";
             bool isConnected  = _devConnection != null && _devConnection.IsOpen;
+
+            if (!isRunning)
+            {
+                OverlayTestInProgress.Visibility = Visibility.Collapsed;
+            }
 
             BtnStartReferenceRun.IsEnabled = canRef;
             BtnStartTestA.IsEnabled        = isTestStart;
@@ -1280,7 +1291,8 @@ namespace MnpControl
 
         private void BtnReset_Click(object sender, RoutedEventArgs e)
         {
-        SendCommand("r");
+            OverlayTestInProgress.Visibility = Visibility.Collapsed;
+            SendCommand("r");
         }
 
         private void BtnUp_Click(object sender, RoutedEventArgs e)
@@ -1368,9 +1380,25 @@ namespace MnpControl
 
         private void BtnStop_Click(object sender, RoutedEventArgs e)
         {
+            OverlayTestInProgress.Visibility = Visibility.Collapsed;
             _isTestARunning = false;
             AppendLiveLog("[STOPP] Durch Benutzer gestoppt -> Fahre Grundstellung");
             SendCommand("q");
+        }
+
+        private void BtnClearAll_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Live Log leeren
+            _liveLogLines.Clear();
+            _lastLiveLogLine = string.Empty;
+            TxtLiveLog.Text = string.Empty;
+
+            // 2. Summary & Statistik leeren
+            TxtTestSummary.Clear();
+            _testSummaryLines.Clear();
+            _scatterPoints.Clear();
+            RedrawScatterCanvas();
+            TxtScatterStatsLive.Text = "Warte auf Messwerte...";
         }
 
         private void BtnClearSummary_Click(object sender, RoutedEventArgs e)
@@ -1392,23 +1420,81 @@ namespace MnpControl
         private void TxtStatus_TextChanged(object sender, TextChangedEventArgs e)
         {
             string text = TxtStatus.Text.ToUpperInvariant();
-            if (text.Contains("FEHLER") || text.Contains("NOT-STOPP") || text.Contains("ERROR") || text.Contains("LIMIT"))
+            if (text.Contains("FEHLER") || text.Contains("NOT-STOPP") || text.Contains("ERROR") || text.Contains("LIMIT") || text.Contains("ABGEBROCHEN") || text.Contains("STOPP"))
             {
-                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(254, 226, 226));
-                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(185, 28, 28));
-                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 113, 113));
+                TxtStatus.Background = new SolidColorBrush(Color.FromRgb(220, 38, 38)); // #DC2626 Red
+                TxtStatus.Foreground = Brushes.White;
+                TxtStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(185, 28, 28));
+                if (TxtStatus.Parent is Border parentBorder)
+                {
+                    parentBorder.BorderBrush = TxtStatus.Background;
+                }
             }
-            else if (text.Contains("TEST_RUN") || text.Contains("RUN") || text.Contains("TEST_START") || text.Contains("CONNECTED"))
+            else if (text.Contains("LÄUFT") || text.Contains("LAEUFT") || text.Contains("TEST_RUN") || text.Contains("FAHRE") || text.Contains("MESSUNG"))
             {
-                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(220, 252, 231));
-                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 128, 61));
-                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(134, 239, 172));
+                TxtStatus.Background = new SolidColorBrush(Color.FromRgb(37, 99, 235)); // #2563EB Blue
+                TxtStatus.Foreground = Brushes.White;
+                TxtStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(29, 78, 216));
+                if (TxtStatus.Parent is Border parentBorder)
+                {
+                    parentBorder.BorderBrush = TxtStatus.Background;
+                }
+            }
+            else if (text.Contains("ABGESCHLOSSEN") || text.Contains("BESTANDEN") || text.Contains("ERFOLGREICH") || text.Contains("✓") || text.Contains("STATUS=OK"))
+            {
+                TxtStatus.Background = new SolidColorBrush(Color.FromRgb(22, 163, 74)); // #16A34A Green
+                TxtStatus.Foreground = Brushes.White;
+                TxtStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(21, 128, 61));
+                if (TxtStatus.Parent is Border parentBorder)
+                {
+                    parentBorder.BorderBrush = TxtStatus.Background;
+                }
             }
             else
             {
-                TxtStatus.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(248, 250, 252));
-                TxtStatus.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(15, 23, 42));
-                TxtStatus.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(203, 213, 225));
+                TxtStatus.Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)); // #F1F5F9 Neutral
+                TxtStatus.Foreground = new SolidColorBrush(Color.FromRgb(30, 41, 59)); // #1E293B
+                TxtStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(203, 213, 225));
+                if (TxtStatus.Parent is Border parentBorder)
+                {
+                    parentBorder.BorderBrush = TxtStatus.BorderBrush;
+                }
+            }
+        }
+
+        private void TxtDrucksensor_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (TxtDsPill == null || BorderDsPill == null) return;
+            if (float.TryParse(TxtDrucksensor.Text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out float dsVolts))
+            {
+                if (dsVolts <= 0.08f)
+                {
+                    TxtDsPill.Text = "Ruhelage";
+                    BorderDsPill.Background = new SolidColorBrush(Color.FromRgb(220, 252, 231));
+                    TxtDsPill.Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52));
+                }
+                else
+                {
+                    TxtDsPill.Text = "Kontakt / Last";
+                    BorderDsPill.Background = new SolidColorBrush(Color.FromRgb(254, 243, 199));
+                    TxtDsPill.Foreground = new SolidColorBrush(Color.FromRgb(180, 83, 9));
+                }
+            }
+        }
+
+        private void TxtNadelOben_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (TxtNadelOben.Text.Equals("Oben", StringComparison.OrdinalIgnoreCase))
+            {
+                TxtNadelOben.Background = new SolidColorBrush(Color.FromRgb(220, 252, 231));
+                TxtNadelOben.Foreground = new SolidColorBrush(Color.FromRgb(21, 128, 61));
+                TxtNadelOben.BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172));
+            }
+            else
+            {
+                TxtNadelOben.Background = new SolidColorBrush(Color.FromRgb(254, 243, 199));
+                TxtNadelOben.Foreground = new SolidColorBrush(Color.FromRgb(180, 83, 9));
+                TxtNadelOben.BorderBrush = new SolidColorBrush(Color.FromRgb(252, 211, 77));
             }
         }
 
@@ -1441,6 +1527,8 @@ namespace MnpControl
             _testSummaryLines.Clear();
             _testSummaryLines.Enqueue($"=== TEST A GESTARTET ({cycles} Zyklen) ===");
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            OverlayTestInProgress.Visibility = Visibility.Visible;
+            TxtOverlaySub.Text = $"Dauertest Z-Achse läuft ({cycles} Zyklen)...";
             AppendLiveLog($"[START] Test A gestartet ({cycles} Zyklen, Stufe {SldSpeedLevel.Value:F0})");
             SendCommand($"TA={cycles}");
         }
@@ -1477,6 +1565,8 @@ namespace MnpControl
             _testSummaryLines.Enqueue($"Parameter: Druckmotor={dmot:F2}V, Trigger-Delta={deltaMv}mV");
             _testSummaryLines.Enqueue("Fahre 1. Referenz-Antastung an...");
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            OverlayTestInProgress.Visibility = Visibility.Visible;
+            TxtOverlaySub.Text = "Fahre 1. Referenz-Antastung an...";
             AppendLiveLog($"[START] Test B gestartet ({cycles} Zyklen, Stufe {SldSpeedLevel.Value:F0})");
             SendCommand($"TB={cycles}");
         }

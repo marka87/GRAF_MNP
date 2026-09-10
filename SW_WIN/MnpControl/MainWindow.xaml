@@ -5,7 +5,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="GRAF MNP Control V1.0"
+        Title="GRAF MNP Control V1.1.1"
         Icon="pack://application:,,,/Assets/graf_logo.png"
         Height="800"
         Width="1260"
@@ -48,6 +48,16 @@
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
 
+        <!-- MIMOT Primary CTA Button Style (Amber / Gold Highlight) -->
+        <Style x:Key="MimotCtaButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#D97706"/>
+            <Setter Property="BorderBrush" Value="#B45309"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+
         <!-- Data Display TextBox Style -->
         <Style x:Key="ValueTextBoxStyle" TargetType="TextBox">
             <Setter Property="Background" Value="#F8FAFC"/>
@@ -83,60 +93,136 @@
         <!-- ======================================================= -->
 
         <!-- Row 0: Status Banner -->
-        <GroupBox Grid.Row="0" Grid.Column="0" Header="SYSTEM STATUS" Margin="0,0,0,10">
+        <Border Grid.Row="0" Grid.Column="0" Margin="0,0,0,10" CornerRadius="6" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" ClipToBounds="True">
             <TextBox x:Name="TxtStatus"
-                     Height="34"
-                     FontSize="15"
+                     Height="55"
+                     FontSize="20"
                      FontWeight="Bold"
                      Text="Bereit"
                      IsReadOnly="True"
                      VerticalContentAlignment="Center"
-                     Padding="8,2"
-                     BorderThickness="1"
+                     HorizontalContentAlignment="Center"
+                     Padding="12,2"
+                     BorderThickness="0"
+                     Background="#F1F5F9"
+                     Foreground="#1E293B"
                      TextChanged="TxtStatus_TextChanged"/>
-        </GroupBox>
+        </Border>
 
-        <!-- Row 1: Sensor & Axis Data -->
-        <GroupBox Grid.Row="1" Grid.Column="0" Header="Mess- und Positionsdaten" Margin="0,0,0,10">
-            <Grid Margin="4,2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- Row 1: Messdaten Dashboard (Card Design) -->
+        <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <!-- Left Sub-Column -->
-                <Label Grid.Row="0" Grid.Column="0" Content="Nadel-Oben Sensor:" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtNadelOben" Grid.Row="0" Grid.Column="2" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
+            <!-- Kachel 1: Z-Achse -->
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,2">
+                        <TextBlock Text="Z-ACHSE" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                        <TextBlock Text="inkr." DockPanel.Dock="Right" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <!-- Ist-Wert groß -->
+                    <TextBox x:Name="TxtZaxisPosIst" Grid.Row="1" FontSize="22" FontWeight="Bold"
+                             FontFamily="Consolas, monospace" Foreground="#0F172A" Background="Transparent"
+                             BorderThickness="0" IsReadOnly="True" Padding="0,1" HorizontalContentAlignment="Right"/>
+                    <!-- Soll-Wert kleiner darunter -->
+                    <DockPanel Grid.Row="2" Margin="0,1,0,0">
+                        <TextBlock Text="Soll:" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtZaxisPosSoll" FontSize="12" FontWeight="SemiBold"
+                                 FontFamily="Consolas, monospace" Foreground="#475569" Background="Transparent"
+                                 BorderThickness="0" IsReadOnly="True" Padding="0" HorizontalContentAlignment="Right"/>
+                    </DockPanel>
+                    <!-- Z DAC Ausgabe -->
+                    <DockPanel Grid.Row="3" Margin="0,1,0,0">
+                        <TextBlock Text="DAC:" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtZDac" FontSize="10" FontFamily="Consolas, monospace"
+                                 Foreground="#94A3B8" Background="Transparent" BorderThickness="0"
+                                 IsReadOnly="True" Padding="0" HorizontalContentAlignment="Right"/>
+                    </DockPanel>
+                </Grid>
+            </Border>
 
-                <Label Grid.Row="2" Grid.Column="0" Content="Drucksensor (V):" VerticalAlignment="Center" ToolTip="Ruhespannung: Ziel ~0.04 V (Gruen). Ab 0.08 V Hebel mechanisch justieren!"/>
-                <TextBox x:Name="TxtDrucksensor" Grid.Row="2" Grid.Column="2" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
+            <!-- Kachel 2: Drucksensor -->
+            <Border Grid.Column="2" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,2">
+                        <TextBlock Text="DRUCKSENSOR" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                        <TextBlock Text="Volt" DockPanel.Dock="Right" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <!-- Großanzeige der Spannung -->
+                    <TextBox x:Name="TxtDrucksensor" Grid.Row="1" FontSize="22" FontWeight="Bold"
+                             FontFamily="Consolas, monospace" Foreground="#0F172A" Background="Transparent"
+                             BorderThickness="0" IsReadOnly="True" Padding="0,1" HorizontalContentAlignment="Right"
+                             ToolTip="Ruhespannung: Ziel ~0.04 V (Gruen). Ab 0.08 V Hebel mechanisch justieren!"
+                             TextChanged="TxtDrucksensor_TextChanged"/>
+                    <!-- Status-Pille (Ruhelage / Kontakt) -->
+                    <Border x:Name="BorderDsPill" Grid.Row="2" HorizontalAlignment="Right" Margin="0,5,0,0"
+                            Background="#DCFCE7" CornerRadius="10" Padding="8,2">
+                        <TextBlock x:Name="TxtDsPill" Text="Ruhelage" FontSize="10.5" FontWeight="SemiBold" Foreground="#166534"/>
+                    </Border>
+                </Grid>
+            </Border>
 
-                <Label Grid.Row="4" Grid.Column="0" Content="A-Achse Position (inc):" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtAaxisPos" Grid.Row="4" Grid.Column="2" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
+            <!-- Kachel 3: SNO-Sensor -->
+            <Border Grid.Column="4" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,2">
+                        <TextBlock Text="SNO-SENSOR" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                        <TextBlock Text="Lichtschranke" DockPanel.Dock="Right" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <!-- Badge-Anzeige für Nadel-Oben-Status -->
+                    <TextBox x:Name="TxtNadelOben" Grid.Row="1" Text="Oben" FontSize="15" FontWeight="Bold"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                             IsReadOnly="True" Height="32" Margin="0,4,0,2"
+                             Background="#DCFCE7" Foreground="#15803D" BorderBrush="#86EFAC" BorderThickness="1"
+                             TextChanged="TxtNadelOben_TextChanged"/>
+                    <TextBlock Grid.Row="2" Text="Nadel-Endlage oben" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                </Grid>
+            </Border>
 
-                <!-- Right Sub-Column -->
-                <Label Grid.Row="0" Grid.Column="4" Content="Z Ist-Position (inc):" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtZaxisPosIst" Grid.Row="0" Grid.Column="6" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
-
-                <Label Grid.Row="2" Grid.Column="4" Content="Z Soll-Position (inc):" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtZaxisPosSoll" Grid.Row="2" Grid.Column="6" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
-
-                <Label Grid.Row="4" Grid.Column="4" Content="Z DAC Ausgabe (V):" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtZDac" Grid.Row="4" Grid.Column="6" Style="{StaticResource ValueTextBoxStyle}" IsReadOnly="True"/>
-            </Grid>
-        </GroupBox>
+            <!-- Kachel 4: A-Achse -->
+            <Border Grid.Column="6" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,2">
+                        <TextBlock Text="A-ACHSE" FontSize="11" FontWeight="Bold" Foreground="#64748B"/>
+                        <TextBlock Text="inkr." DockPanel.Dock="Right" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <!-- Übersichtliche Inkrement-Anzeige -->
+                    <TextBox x:Name="TxtAaxisPos" Grid.Row="1" FontSize="22" FontWeight="Bold"
+                             FontFamily="Consolas, monospace" Foreground="#0F172A" Background="Transparent"
+                             BorderThickness="0" IsReadOnly="True" Padding="0,1" HorizontalContentAlignment="Right"/>
+                    <TextBlock Grid.Row="2" Text="Position Mimot-Achse" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Right" Margin="0,6,0,0"/>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Row 2: Logs (Live Log & Test Summary) -->
         <Grid Grid.Row="2" Grid.Column="0" Margin="0,0,0,6">
@@ -151,7 +237,7 @@
                 <GroupBox.Header>
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="Live Log (Status)" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                        <Button DockPanel.Dock="Right" Content="Log leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearLog_Click"/>
+                        <Button DockPanel.Dock="Right" Content="Log leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearLog_Click" ToolTip="Leert ausschließlich das Live-Log"/>
                         <CheckBox x:Name="ChkVerboseLog" DockPanel.Dock="Right" Content="Rohdaten" FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0" IsChecked="False" ToolTip="Ausführliche TX/RX Roh-Telegramme im Log anzeigen"/>
                     </DockPanel>
                 </GroupBox.Header>
@@ -172,7 +258,7 @@
                 <GroupBox.Header>
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="Test Summary &amp; Statistik" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                        <Button DockPanel.Dock="Right" Content="Statistik leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearSummary_Click"/>
+                        <Button DockPanel.Dock="Right" Content="Statistik leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearSummary_Click" ToolTip="Leert ausschließlich die Test-Summary und das Streuungsdiagramm"/>
                         <Button DockPanel.Dock="Right" Content="📁 Protokolle" Padding="8,1" FontSize="11" Height="22" Margin="0,0,8,0" Click="BtnOpenReportsFolder_Click" ToolTip="Öffnet den Ordner mit den gespeicherten Mimot-Prüfberichten"/>
                     </DockPanel>
                 </GroupBox.Header>
@@ -180,7 +266,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="1*"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="175"/>
+                        <RowDefinition Height="215"/>
                     </Grid.RowDefinitions>
 
                     <TextBox x:Name="TxtTestSummary"
@@ -210,6 +296,37 @@
                             <Canvas x:Name="CanvasScatter" ClipToBounds="True" SizeChanged="CanvasScatter_SizeChanged"/>
                         </Border>
                     </Grid>
+
+                    <!-- Loading / Test in progress overlay -->
+                    <Grid x:Name="OverlayTestInProgress"
+                          Grid.Row="0"
+                          Grid.RowSpan="3"
+                          Background="#F8FAFC"
+                          Visibility="Collapsed">
+                        <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Margin="10" Background="#FFFFFF" Padding="20">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <TextBlock Text="⏳ Test läuft... bitte warten"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           Foreground="#0284C7"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,12"/>
+                                <ProgressBar x:Name="PbTestProgress"
+                                             IsIndeterminate="True"
+                                             Width="280"
+                                             Height="8"
+                                             Foreground="#0284C7"
+                                             Background="#E2E8F0"
+                                             BorderThickness="0"
+                                             Margin="0,0,0,12"/>
+                                <TextBlock x:Name="TxtOverlaySub"
+                                           Text="Messzyklen werden ausgeführt (Echtzeit-Aufzeichnung im STM32-RAM)..."
+                                           FontSize="11.5"
+                                           Foreground="#64748B"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </GroupBox>
         </Grid>
@@ -221,8 +338,8 @@
             <StackPanel Orientation="Vertical">
 
                 <!-- Company Logo Card -->
-                <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="14,8" Margin="0,0,0,10">
-                    <Image Source="pack://application:,,,/Assets/graf_logo.png" Height="48" Stretch="Uniform" HorizontalAlignment="Center" ToolTip="GRAF Elektronik GmbH"/>
+                <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
+                    <Image Source="pack://application:,,,/Assets/graf_logo.png" Height="46" Stretch="Uniform" HorizontalAlignment="Center" ToolTip="GRAF Elektronik GmbH"/>
                 </Border>
 
                 <!-- Ablaufsteuerung Card -->
@@ -256,39 +373,36 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Druckmotor (V):" FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,2"/>
-                                <TextBox x:Name="TxtDMotVoltage" Height="28" Text="3.5" TextAlignment="Right"
+                                <TextBox x:Name="TxtDMotVoltage" Height="30" Text="3.5" TextAlignment="Right"
                                          VerticalContentAlignment="Center" Padding="4,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Schwelle &#x394; (mV):" FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,2"/>
-                                <TextBox x:Name="TxtTriggerDeltaMv" Height="28" Text="1500" TextAlignment="Right"
+                                <TextBox x:Name="TxtTriggerDeltaMv" Height="30" Text="1500" TextAlignment="Right"
                                          VerticalContentAlignment="Center" Padding="4,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
                             </StackPanel>
                         </Grid>
 
                         <!-- Test A & Test B Buttons -->
-                        <UniformGrid Columns="2" Margin="0,0,0,6">
+                        <UniformGrid Columns="2" Margin="0,0,0,8">
                             <Button x:Name="BtnStartTestA" Content="&#x25B6;  Test A (Dauer)" Height="34" Margin="0,0,4,0"
-                                    Background="#F8FAFC" FontWeight="SemiBold" Click="BtnStartTestA_Click"/>
+                                     Background="#F8FAFC" FontWeight="SemiBold" Click="BtnStartTestA_Click"/>
                             <Button x:Name="BtnStartTestB" Content="Test B (Antastung)" Height="34" Margin="4,0,0,0"
-                                    Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8" FontWeight="Bold" Click="BtnStartTestB_Click"/>
+                                     Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8" FontWeight="Bold" Click="BtnStartTestB_Click"/>
                         </UniformGrid>
 
-                        <!-- MIMOT TEST Button -->
+                        <!-- MIMOT TEST Primary CTA Button -->
                         <Button x:Name="BtnStartMimotTest"
+                                Style="{StaticResource MimotCtaButtonStyle}"
                                 Content="&#x2605;  MIMOT TEST (Abnahmeprotokoll)"
-                                Height="36"
+                                Height="42"
                                 Margin="0,0,0,8"
-                                Background="#FEF3C7"
-                                BorderBrush="#D97706"
-                                Foreground="#92400E"
-                                FontWeight="Bold"
                                 Click="BtnStartMimotTest_Click"
                                 ToolTip="Führt eine Mimot-Werksabnahme mit Seriennummer, Checkliste und automatischem Prüfprotokoll (TXT/PDF) durch"/>
 
                         <Button x:Name="BtnTestStart"
                                 Content="Start-Freigabe (OK)"
-                                Height="30"
+                                Height="32"
                                 Background="#F1F5F9"
                                 Click="BtnTestStart_click"/>
                     </StackPanel>
@@ -307,15 +421,15 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <Button x:Name="BtnUp" Grid.Column="0" Content="&#x25B2;  HOCH" Width="80" Height="34" Click="BtnUp_Click"/>
+                            <Button x:Name="BtnUp" Grid.Column="0" Content="&#x25B2;  HOCH" Width="84" Height="34" Click="BtnUp_Click"/>
 
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                <TextBox x:Name="TxtStepCount" Height="28" Text="100" TextAlignment="Center"
+                                <TextBox x:Name="TxtStepCount" Height="30" Text="100" TextAlignment="Center"
                                          VerticalContentAlignment="Center" FontFamily="Consolas, monospace" FontWeight="Bold"/>
                                 <TextBlock Text="Schrittweite" FontSize="10.5" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
 
-                            <Button x:Name="BtnDown" Grid.Column="4" Content="&#x25BC;  RUNTER" Width="80" Height="34" Click="BtnDown_Click"/>
+                            <Button x:Name="BtnDown" Grid.Column="4" Content="&#x25BC;  RUNTER" Width="84" Height="34" Click="BtnDown_Click"/>
                         </Grid>
 
                         <!-- Direct Position Input -->
@@ -328,7 +442,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtZPos" Grid.Column="0" Height="30" VerticalContentAlignment="Center"
                                      Text="0" TextAlignment="Right" Padding="6,2" FontFamily="Consolas, monospace" FontWeight="Bold"/>
-                            <Button x:Name="BtnSetZPos" Grid.Column="2" Content="Anfahren" Height="30" Width="76"
+                            <Button x:Name="BtnSetZPos" Grid.Column="2" Content="Anfahren" Height="30" Width="84"
                                      Click="BtnSetZPos_Click"/>
                         </Grid>
 
@@ -342,11 +456,11 @@
                                 <ColumnDefinition Width="4"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="Mimot (13)" Height="26" FontSize="11" Padding="2"
+                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="Mimot (13)" Height="28" FontSize="11" Padding="2"
                                     ToolTip="Stufe 13: Reales Mimot-Maschinentempo (ca. 3.3 Takte/s, 307ms/Takt)" Click="BtnSpeedPreset_Click" Tag="13"/>
-                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="Stress (15)" Height="26" FontSize="11" Padding="2" FontWeight="SemiBold"
+                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="Stress (15)" Height="28" FontSize="11" Padding="2" FontWeight="SemiBold"
                                     ToolTip="Stufe 15: Erhöhter Stresstest" Click="BtnSpeedPreset_Click" Tag="15"/>
-                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed (16)" Height="26" FontSize="11" Padding="2"
+                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed (16)" Height="28" FontSize="11" Padding="2"
                                     ToolTip="Stufe 16: Maximales Tempo (ca. 8.2 Takte/s, 122ms/Takt)" Click="BtnSpeedPreset_Click" Tag="16"/>
                         </Grid>
                         <TextBlock x:Name="TxtSpeedLevel" Text="Stufe: 13/16 (Mimot Maschine)" FontWeight="Bold" FontSize="12" Margin="0,4,0,2"/>
@@ -399,25 +513,28 @@
                         Width="110"
                         Height="36"
                         Margin="10,0,0,0"
-                        Background="#FEF3C7"
-                        BorderBrush="#FCD34D"
-                        Foreground="#92400E"
+                        Background="#FEF2F2"
+                        BorderBrush="#EF4444"
+                        Foreground="#B91C1C"
+                        FontWeight="Bold"
                         Click="BtnStop_Click"/>
 
                 <Button x:Name="BtnClearSummary"
-                        Content="Summary leeren"
-                        Width="160"
+                        Content="Log &amp; Summary leeren"
+                        Width="180"
                         Height="36"
                         Margin="10,0,0,0"
                         Background="#F1F5F9"
                         BorderBrush="#CBD5E1"
                         Foreground="#334155"
-                        Click="BtnClearSummary_Click"/>
+                        FontWeight="SemiBold"
+                        Click="BtnClearAll_Click"
+                        ToolTip="Leert das Live-Log sowie die Test-Summary und das Streuungsdiagramm gleichzeitig"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="10,6">
-                    <TextBlock Text="MnpControl V1.0  |  Entwickelt von AnMa"
+                    <TextBlock Text="MnpControl V1.1.1  |  Entwickelt von AnMa"
                                Foreground="#475569"
                                FontSize="12"
                                FontWeight="SemiBold"/>
