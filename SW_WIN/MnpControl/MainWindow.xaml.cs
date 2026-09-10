@@ -53,6 +53,8 @@ namespace MnpControl
         private const int LiveLogMaxLines = 200;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
+        private bool _isTraceReceiving = false;
+        private readonly List<string> _traceLines = new List<string>(2050);
 
         private static readonly SolidColorBrush BrushDsOk = CreateFrozenBrush(Color.FromRgb(22, 163, 74));     // #16A34A Gruen (<= 0.06V)
         private static readonly SolidColorBrush BrushDsWarn = CreateFrozenBrush(Color.FromRgb(217, 119, 6));   // #D97706 Orange (0.06V - 0.08V)
@@ -321,6 +323,47 @@ namespace MnpControl
                 return;
             }
 
+            if (msg.StartsWith("TRACE_START", StringComparison.Ordinal))
+            {
+                _isTraceReceiving = true;
+                _traceLines.Clear();
+                _traceLines.Add("ms;z_ist;z_soll;v_ist;v_soll;u_mot_mv;ds_mv;phase;flags");
+                TxtStatus.Text = "Empfange RAM-Trace...";
+                AppendLiveLog($"[TRACE] Empfange 1-ms RAM-Trace aus STM32 ({msg.Trim()})...");
+                return;
+            }
+
+            if (_isTraceReceiving)
+            {
+                if (msg.StartsWith("TRACE_END", StringComparison.Ordinal))
+                {
+                    _isTraceReceiving = false;
+                    SaveTraceToFile();
+                    return;
+                }
+                if (!msg.StartsWith("ms;z_ist", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(msg))
+                {
+                    _traceLines.Add(msg);
+                }
+                return;
+            }
+
+            if (msg.StartsWith("TRACE_EMPTY", StringComparison.Ordinal))
+            {
+                _isTraceReceiving = false;
+                AppendLiveLog("[TRACE] Kein Trace im RAM vorhanden (bitte zuerst Testlauf durchführen).");
+                MessageBox.Show("Kein Trace im RAM vorhanden.\nBitte zuerst einen Testlauf durchführen!", "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (msg.StartsWith("TRACE_BUSY", StringComparison.Ordinal))
+            {
+                _isTraceReceiving = false;
+                AppendLiveLog("[TRACE] " + msg);
+                MessageBox.Show(msg, "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Check if logging session has timed out
             if (_isLoggingSession && (DateTime.Now - _loggingStartTime).TotalSeconds > LoggingTimeoutSeconds)
             {
@@ -332,7 +375,7 @@ namespace MnpControl
             if (!msg.Contains(':') && msg.Contains(';'))
             {
                 string[] sSplit = msg.Split(";", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (sSplit.Length >= 5)
+                if (sSplit.Length == 5 || sSplit.Length == 6)
                 {
                     if (_isLoggingSession)
                         _currentLogFile?.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} - {msg}");
@@ -459,6 +502,7 @@ namespace MnpControl
                 }
                 return;
             }
+
 
             if (msg.StartsWith("TEST_B_REF:", StringComparison.Ordinal))
             {
@@ -1076,6 +1120,7 @@ namespace MnpControl
             BtnPidSave.IsEnabled           = true;
             BtnPidLoad.IsEnabled           = true;
             BtnHybridTuning.IsEnabled      = isConnected;
+            BtnExportTrace.IsEnabled       = isConnected && !isRunning;
         }
 
         private static string NormalizeDecimalText(string value)
@@ -1627,6 +1672,73 @@ namespace MnpControl
             catch (Exception ex)
             {
                 MessageBox.Show($"Ordner konnte nicht geöffnet werden: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnExportTrace_Click(object sender, RoutedEventArgs e)
+        {
+            if (_devConnection == null || !_devConnection.IsOpen)
+            {
+                MessageBox.Show("Keine Verbindung zur Hardware.", "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_currentDeviceState == "TEST_RUN")
+            {
+                MessageBox.Show("Test läuft noch! Bitte warten bis der Schlitten steht.", "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (_isTraceReceiving)
+            {
+                MessageBox.Show("RAM-Trace Übertragung läuft bereits...", "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            AppendLiveLog("[TRACE] Fordere RAM-Trace an (DUMP_TRACE)...");
+            SendCommand("DUMP_TRACE");
+        }
+
+        private void SaveTraceToFile()
+        {
+            try
+            {
+                int samples = Math.Max(0, _traceLines.Count - 1);
+                if (samples == 0)
+                {
+                    AppendLiveLog("[TRACE] Keine Messdaten im Trace empfangen (0 Samples).");
+                    TxtStatus.Text = "Trace leer (0 Samples)";
+                    MessageBox.Show("Keine Messdaten im Trace empfangen (0 Samples).\nBitte zuerst einen Testlauf durchführen!", "RAM-Trace", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string targetDir = System.IO.Path.Combine(baseDir, "Testprotokolle");
+                System.IO.Directory.CreateDirectory(targetDir);
+
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                int speedLvl = (int)Math.Round(SldSpeedLevel.Value);
+                string fileName = $"Trace_{timestamp}_Stufe{speedLvl}.csv";
+                string fullPath = System.IO.Path.Combine(targetDir, fileName);
+
+                System.IO.File.WriteAllLines(fullPath, _traceLines);
+
+                AppendLiveLog($"[TRACE] RAM-Trace erfolgreich gespeichert: {fileName} ({samples} Samples)");
+                TxtStatus.Text = $"Trace gespeichert ({samples} Samples)";
+
+                var res = MessageBox.Show($"RAM-Trace mit {samples} Messpunkten (1ms-Takt) erfolgreich gespeichert:\n\n{fileName}\n\nMöchten Sie die CSV-Datei jetzt öffnen?", "RAM-Trace exportiert", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (res == MessageBoxResult.Yes)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = fullPath,
+                        UseShellExecute = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLiveLog("[TRACE FEHLER] Fehler beim Speichern: " + ex.Message);
             }
         }
 

@@ -75,6 +75,7 @@ static float velocity_previous_error = 0.0f;
 
 static float smoothed_velocity = 0.0f;
 static float s_last_actual_velocity = 0.0f;
+static float s_last_desired_velocity = 0.0f;
 static float s_smoothed_accel = 0.0f;
 static float s_max_velocity_inc_ms = 0.0f;
 static float s_max_accel_inc_ms2 = 0.0f;
@@ -246,6 +247,7 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	uint32_t max_velocity = speed_level_max_velocity[speed_level - 1u];
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
+	s_last_desired_velocity = desired_velocity;
 
 	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */
 	float velocity_error = actual_velocity - desired_velocity;
@@ -333,6 +335,7 @@ void Z_PID_ResetKinematics(void) {
 	s_max_accel_inc_ms2 = 0.0f;
 	s_max_decel_inc_ms2 = 0.0f;
 	s_last_actual_velocity = 0.0f;
+	s_last_desired_velocity = 0.0f;
 	s_smoothed_accel = 0.0f;
 }
 
@@ -348,4 +351,12 @@ float Z_PID_GetMaxAccel_g(void) {
 
 float Z_PID_GetMaxDecel_g(void) {
 	return s_max_decel_inc_ms2 * 1.019716f;
+}
+
+float Z_PID_GetCurrentActualVelocity(void) {
+	return s_last_actual_velocity;
+}
+
+float Z_PID_GetCurrentDesiredVelocity(void) {
+	return s_last_desired_velocity;
 }

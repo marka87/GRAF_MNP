@@ -48,6 +48,10 @@ float Z_PID_GetMaxVelocity_mm_s(void);
 float Z_PID_GetMaxAccel_g(void);
 float Z_PID_GetMaxDecel_g(void);
 
+/* Aktuelle Geschwindigkeiten für Telemetrie/Trace (1ms) */
+float Z_PID_GetCurrentActualVelocity(void);
+float Z_PID_GetCurrentDesiredVelocity(void);
+
 #endif /* SRC_Z_PID_CONTROL_H_ */
 
 

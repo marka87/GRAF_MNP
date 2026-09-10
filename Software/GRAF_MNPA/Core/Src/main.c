@@ -535,7 +535,14 @@ void Process_UART_Command(const char *command) {
 		uint32_t hold_pos = clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
 		Z_Target_SetRequestedDirect(hold_pos);
 		current_state = TEST_START;
-		snprintf(response, sizeof(response), "Test gestoppt (Position gehalten: %lu).\r\n", (unsigned long)hold_pos);
+	} else if (strcmp(command, "DUMP_TRACE") == 0 || strcmp(command, "TRACE?") == 0) {
+		if (current_state == TEST_RUN) {
+			snprintf(response, sizeof(response), "TRACE_BUSY: Test laeuft noch!\r\n");
+			uart_send_text(response, 50);
+		} else {
+			Trace_DumpUART();
+		}
+		return;
 	} else if (strcmp(command, "p") == 0) { // Performance measurement
 		perform_encoder_perf_test = true;
 		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");

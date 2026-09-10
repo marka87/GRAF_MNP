@@ -260,6 +260,7 @@
                         <TextBlock Text="Test Summary &amp; Statistik" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         <Button DockPanel.Dock="Right" Content="Statistik leeren" Padding="8,1" FontSize="11" Height="22" Click="BtnClearSummary_Click" ToolTip="Leert ausschließlich die Test-Summary und das Streuungsdiagramm"/>
                         <Button DockPanel.Dock="Right" Content="📁 Protokolle" Padding="8,1" FontSize="11" Height="22" Margin="0,0,8,0" Click="BtnOpenReportsFolder_Click" ToolTip="Öffnet den Ordner mit den gespeicherten Mimot-Prüfberichten"/>
+                        <Button x:Name="BtnExportTrace" DockPanel.Dock="Right" Content="📈 RAM-Trace" Padding="8,1" FontSize="11" Height="22" Margin="0,0,8,0" Click="BtnExportTrace_Click" ToolTip="Liest die 1ms-Messkurven (Position, Geschwindigkeit, Spannung) aus dem STM32-RAM aus und speichert sie als CSV"/>
                     </DockPanel>
                 </GroupBox.Header>
                 <Grid>

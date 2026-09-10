@@ -58,7 +58,6 @@ static int32_t get_test_a_up_overshoot(uint8_t speed) {
 
 /* Test B Parameter */
 #define TEST_B_FAST_SPEED_LEVEL      8u    /* Schnelle Verfahrfahrt (wie Naehmaschine) */
-#define TEST_B_SETUP_PROBE_SPEED     2u    /* Sanfte Antastgeschwindigkeit (Stufe 2 = 2 Inc/ms ca. 18 mm/s) */
 #define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
 #define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle ueber Ruhe-Baseline */
 
@@ -72,22 +71,6 @@ static int32_t get_reversal_blanking_margin(uint8_t speed) {
     return (margin > 850) ? 850 : margin;
 }
 
-/* Physikalische Bremsstrecke für Test B in Abhängigkeit von der Reisegeschwindigkeit.
- * Passt exakt zur Regler-Decel-Slew-Rate von 3.5 Inc/ms pro 1ms (~3.5 g)
- * plus 150 Inkremente (~1.4 mm / 75 ms) ruhiger Gleitpuffer auf Stufe 2 (2 Inc/ms = 18 mm/s),
- * damit die Achse bereits vollständig auf Antastgeschwindigkeit beruhigt ist, bevor sie aufsetzt. */
-static int32_t get_test_b_braking_distance(uint8_t speed_level) {
-    static const int32_t v_levels[16] = {
-        1, 2, 4, 8, 14, 22, 32, 44, 55, 65, 76, 88, 100, 112, 124, 136
-    };
-    if (speed_level < 1u) speed_level = 1u;
-    if (speed_level > 16u) speed_level = 16u;
-    int32_t v = v_levels[speed_level - 1u];
-    int32_t dist = ((v * v - 4) * 10) / 70 + 150;
-    if (dist < 300) dist = 300;
-    return dist;
-}
-
 typedef enum {
     /* Test A Phasen */
     PHASE_A_GO_UP,
@@ -95,11 +78,7 @@ typedef enum {
 
     /* Test B Phasen */
     PHASE_B_SETUP_SLOW_PROBE,
-    PHASE_B_CALIB_DEFLECT,
-    PHASE_B_CALIB_SETTLE,
     PHASE_B_FAST_UP,
-    PHASE_B_FAST_DOWN,
-    PHASE_B_PARK_UP
     PHASE_B_FAST_DOWN
 } TestRunInternalPhase_t;
 
@@ -123,16 +102,11 @@ static uint16_t               s_ds_baseline_adc = 0;
 static uint16_t               s_ds_trigger_threshold = 0;
 static uint8_t                s_ds_trigger_debounce = 0;
 static uint8_t                s_ds_accel_fault_debounce = 0;
-static int32_t                s_calib_touch_pos = 0;
-static uint16_t               s_calib_max_adc = 0;
-static uint32_t               s_calib_plateau_ticks = 0;
-static uint32_t               s_calib_settle_start_tick = 0;
 static int64_t                s_probe_pos_sum = 0;
 static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
 static uint32_t               s_ds_filter_acc = 0;
 static uint32_t               s_fast_cycles_start_tick = 0;
-static uint32_t               s_park_start_tick = 0;
 static bool                   s_no_sen_tripped_in_cycle = false;
 
 /* 4-Sample Exponential Moving Average Filter fÃ¼r Drucksensor */
@@ -158,7 +132,7 @@ float TestRun_GetDruckmotorVoltage(void) {
 
 void TestRun_SetTriggerDeltaMv(uint32_t mv) {
     if (mv < 20u) mv = 20u;
-    if (mv > 4700u) mv = 4700u;
+    if (mv > 4000u) mv = 4000u;
     s_trigger_delta_mv = mv;
 }
 
@@ -167,6 +141,7 @@ uint32_t TestRun_GetTriggerDeltaMv(void) {
 }
 
 void TestRun_RestoreSpeedLevel(void) {
+    Trace_Stop();
     if (s_fast_speed_level >= 1u && s_fast_speed_level <= 16u) {
         Z_PID_SetSpeedLevel(s_fast_speed_level);
     }
@@ -181,11 +156,8 @@ const char *TestRun_GetPhaseName(void) {
         case PHASE_A_GO_UP:           return "A_GO_UP";
         case PHASE_A_GO_DOWN:         return "A_GO_DOWN";
         case PHASE_B_SETUP_SLOW_PROBE:return "B_SETUP_PROBE";
-        case PHASE_B_CALIB_DEFLECT:   return "B_CALIB_DEFLECT";
-        case PHASE_B_CALIB_SETTLE:    return "B_CALIB_SETTLE";
         case PHASE_B_FAST_UP:         return "B_FAST_UP";
         case PHASE_B_FAST_DOWN:       return "B_FAST_DOWN";
-        case PHASE_B_PARK_UP:         return "B_PARK_UP";
         default:                      return "UNKNOWN";
     }
 }
@@ -238,7 +210,6 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_probe_count      = 0;
     s_ds_filter_acc    = 0;
     s_fast_cycles_start_tick = 0;
-    s_park_start_tick  = 0;
 
     memset(&s_stats, 0, sizeof(s_stats));
     s_stats.total_cycles      = num_cycles;
@@ -268,24 +239,15 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     /* Trigger = Baseline + Delta mV (z.B. +1500mV TTL = ca. 1228 ADC-Counts) */
     uint32_t delta_adc = (uint32_t)((float)s_trigger_delta_mv * (4095.0f / 5000.0f));
     if (delta_adc < 40u) delta_adc = 40u;
-    if ((uint32_t)s_ds_baseline_adc + delta_adc > 4050u) {
-        delta_adc = 4050u - (uint32_t)s_ds_baseline_adc;
-    }
     s_ds_trigger_threshold = s_ds_baseline_adc + (uint16_t)delta_adc;
     if (s_ds_trigger_threshold < 75u) {
         s_ds_trigger_threshold = 75u;
     }
     s_scatter_stats.baseline_adc = s_ds_baseline_adc;
     s_scatter_stats.trigger_adc  = s_ds_trigger_threshold;
-    s_scatter_stats.contact_travel_inc = 0;
-    s_scatter_stats.peak_ds_adc = 0;
-    s_calib_touch_pos = 0;
-    s_calib_max_adc = 0;
-    s_calib_plateau_ticks = 0;
-    s_calib_settle_start_tick = 0;
 
-    /* Datenpuffer zurücksetzen */
-    data_buffer_reset();
+    /* High-Speed RAM-Trace zurücksetzen und starten */
+    Trace_Start();
 
     /* Kinematik-Erfassung (v_max, a_max, Bremsen) für den Testlauf zurücksetzen */
     Z_PID_ResetKinematics();
@@ -322,8 +284,6 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
 }
 
 TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
-    /* Vorzeitiger Abschluss falls Zykluszahl bereits erreicht (nicht während Abschluss-Parkphase) */
-    if (s_current_cycle >= s_num_total_cycles && s_phase != PHASE_B_PARK_UP) {
     /* Vorzeitiger Abschluss falls Zykluszahl bereits erreicht */
     if (s_current_cycle >= s_num_total_cycles) {
         TestRun_RestoreSpeedLevel();
@@ -334,13 +294,29 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     int32_t z_target = (int32_t)Z_Target_GetRequested();
     uint16_t ds_value = read_filtered_ds();
 
-    /* Globale Positions-, Zeit- und Logging-Aktualisierung für BEIDE Tests */
+    /* High-Speed 1-ms RAM-Trace aufzeichnen */
+    if (Trace_IsActive()) {
+        uint8_t flags = 0;
+        int32_t b_dist = (int32_t)(s_fast_speed_level * 80);
+        if (b_dist < 300) b_dist = 300;
+        if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER && s_scatter_stats.z_ref_pos > 0 && z_pos <= (s_scatter_stats.z_ref_pos + b_dist)) {
+            flags |= 0x01; // Bit 0: In Bremszone
+        }
+        if (ds_value >= s_ds_trigger_threshold) {
+            flags |= 0x02; // Bit 1: Kontakt erkannt
+        }
+        if (voltage >= 4.95f || voltage <= 0.05f) {
+            flags |= 0x04; // Bit 2: Sättigung
+        }
+        Trace_RecordSample(z_pos, z_target,
+                           (int16_t)Z_PID_GetCurrentActualVelocity(),
+                           (int16_t)Z_PID_GetCurrentDesiredVelocity(),
+                           voltage, ds_value, (uint8_t)s_phase, flags);
+    }
+
     /* Globale Positions-, Zeit- und Logging-Aktualisierung fÃ¼r BEIDE Tests */
     if (tick_100ms_elapsed) {
         s_elapsed_ms += 100u;
-        if (s_mode != TESTRUN_MODE_B_PROBE_SCATTER || s_phase != PHASE_B_PARK_UP) {
-            s_stats.test_time_ms = s_elapsed_ms;
-        }
         s_stats.test_time_ms = s_elapsed_ms;
         s_stats.last_ist_pos = z_pos;
         s_stats.last_soll_pos = z_target;
@@ -355,8 +331,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             top_zone = s_scatter_stats.z_ref_pos + 150;
         }
     }
-    int32_t contact_zone = s_scatter_stats.z_ref_pos + 80;
-    int32_t braking_dist = get_test_b_braking_distance(s_fast_speed_level);
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
     int32_t braking_dist = (int32_t)(s_fast_speed_level * 80);
     if (braking_dist < 300) braking_dist = 300;
@@ -369,8 +343,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER) {
 
         /* -----------------------------------------------------------------
-         * 1. SETUP: Sanfte Referenz-Antastung über die gesamte Verfahrstrecke
-         *    (Fährt mit sanfter Stufe 2 von oben nach unten, egal wie dick das Bauteil ist)
          * 1. SETUP: Sanfte Referenz-Antastung Ã¼ber die gesamte Verfahrstrecke
          *    (FÃ¤hrt mit sanfter Stufe 3 von oben nach unten, egal wie dick das Bauteil ist)
          * ----------------------------------------------------------------- */
@@ -380,7 +352,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             update_target_range(probe_target);
             Z_Target_SetRequestedDirect((uint32_t)probe_target);
 
-            /* Drucksensor / Lichtschranke hat ausgelöst: Bauteilhöhe gefunden! */
             /* Drucksensor / Lichtschranke hat ausgelÃ¶st: BauteilhÃ¶he gefunden! */
             if (ds_value >= s_ds_trigger_threshold) {
                 s_ds_trigger_debounce++;
@@ -391,16 +362,11 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     Z_Target_SetRequestedDirect((uint32_t)touch_pos); // Sofort stoppen
 
                     s_scatter_stats.z_ref_pos = touch_pos;
-                    /* Statistik noch NICHT mit Initial-Antastung vorbelegen (1+N+1 Architektur):
-                     * Setup dient rein als Referenzhöhe Z0 und zählt nicht zu den Dauertest-Zyklen. */
-                    s_scatter_stats.z_min_pos = INT32_MAX;
-                    s_scatter_stats.z_max_pos = INT32_MIN;
                     s_scatter_stats.z_min_pos = touch_pos;
                     s_scatter_stats.z_max_pos = touch_pos;
                     s_scatter_stats.scatter_range = 0;
                     s_scatter_stats.last_delta = 0;
                     s_scatter_stats.z_last_probe_pos = touch_pos;
-                    s_scatter_stats.mean_pos = 0.0f;
                     s_probe_pos_sum = 0;
                     s_probe_count = 0;
 
@@ -408,21 +374,12 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     snprintf(ref_msg, sizeof(ref_msg), "TEST_B_REF:%ld\r\n", (long)touch_pos);
                     uart_send_text(ref_msg, 10);
 
-                    /* Setup abgeschlossen -> Vor Teststart Drucksensor-Messbereich aufnehmen */
-                    s_phase = PHASE_B_CALIB_DEFLECT;
-                    s_calib_touch_pos = touch_pos;
-                    s_calib_max_adc = ds_value;
-                    s_calib_plateau_ticks = 0;
-                    Z_PID_SetSpeedLevel(2); /* Sanfte Stufe 2 für kontrollierte Federweg-Messung */
-                    int32_t calib_target = touch_pos - 32;
-                    if (calib_target < (int32_t)z_encoder_start) calib_target = (int32_t)z_encoder_start;
-                    update_target_range(calib_target);
-                    Z_Target_SetRequestedDirect((uint32_t)calib_target);
                     /* Setup abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
                     s_phase = PHASE_B_FAST_UP;
                     s_fast_cycles_start_tick = HAL_GetTick();
                     Z_PID_SetSpeedLevel(s_fast_speed_level);
                     Z_PID_ResetKinematics();
+                    Trace_Start();
                 }
             } else {
                 s_ds_trigger_debounce = 0;
@@ -431,96 +388,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             /* Unteren Anschlag erreicht, aber kein Messobjekt gefunden */
             if (z_pos <= (int32_t)(z_encoder_start + 15)) {
                 snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
-                TestRun_RestoreSpeedLevel();
-                return TESTRUN_ERROR;
-            }
-        }
-
-        /* -----------------------------------------------------------------
-         * 1b. MESSBEREICHS-AUFNAHME VOR TESTSTART:
-         *     Drückt von touch_pos aus sanft bis zu max. 30 Inkremente ein,
-         *     um realen Federweg (inc) und Spitzenspannung (V) zu messen.
-         * ----------------------------------------------------------------- */
-        else if (s_phase == PHASE_B_CALIB_DEFLECT) {
-            if (ds_value > s_calib_max_adc) {
-                s_calib_max_adc = ds_value;
-                s_calib_plateau_ticks = 0;
-            } else {
-                s_calib_plateau_ticks++;
-            }
-
-            int32_t travel = s_calib_touch_pos - z_pos;
-            bool stop_sweep = false;
-
-            /* Sicherheits-Abbruchbedingungen:
-             * 1) Maximaler Federweg erreicht: >= 30 inc (schützt Nadelmechanik vor Überlastung)
-             * 2) Sensor-Vollanschlag / Sättigung: >= 3890 ADC (ca. 4.75 V)
-             * 3) Plateau bei hoher Spannung: >= 3500 ADC (ca. 4.27 V) und 20 Ticks unverändert
-             * 4) Unterer Z-Endanschlag */
-            if (travel >= 30) {
-                stop_sweep = true;
-            } else if (ds_value >= 3890u) {
-                stop_sweep = true;
-            } else if (ds_value >= 3500u && s_calib_plateau_ticks >= 20u) {
-                stop_sweep = true;
-            } else if (z_pos <= (int32_t)(z_encoder_start + 15)) {
-                stop_sweep = true;
-            }
-
-            if (stop_sweep) {
-                int32_t final_pos = z_pos;
-                int32_t final_travel = s_calib_touch_pos - final_pos;
-                if (final_travel < 0) final_travel = 0;
-
-                s_scatter_stats.contact_travel_inc = (uint32_t)final_travel;
-                s_scatter_stats.peak_ds_adc = s_calib_max_adc;
-
-                char calib_msg[100];
-                snprintf(calib_msg, sizeof(calib_msg),
-                         "TEST_B_CALIB:travel=%lu,peak_v=%.3f,base_v=%.3f\r\n",
-                         (unsigned long)s_scatter_stats.contact_travel_inc,
-                         (double)((float)s_calib_max_adc * (5.0f / 4095.0f)),
-                         (double)((float)s_ds_baseline_adc * (5.0f / 4095.0f)));
-                uart_send_text(calib_msg, 20);
-
-                /* Kalibrier-Messung abgeschlossen -> Sanft entlasten und ausschwingen */
-                s_phase = PHASE_B_CALIB_SETTLE;
-                s_calib_settle_start_tick = HAL_GetTick();
-                Z_PID_SetSpeedLevel(2); /* Sanfte Stufe 2 fuer Entlastung */
-                int32_t settle_target = s_calib_touch_pos + 10; /* Kontaktposition mit 10 inc Freihub */
-                if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
-                update_target_range(settle_target);
-                Z_Target_SetRequestedDirect((uint32_t)settle_target);
-            }
-        }
-
-        /* -----------------------------------------------------------------
-         * 1c. BERUHIGUNG & SICHERHEITS-CHECK NACH KALIBRIERUNG:
-         *     Fährt mit Stufe 2 sanft zurück auf Kontakt-/Freihubposition,
-         *     lässt Mechanik & Sensor ausschwingen (400 ms Dwell) und prüft,
-         *     ob der Sensor sauber unter die Schaltschwelle abfällt.
-         * ----------------------------------------------------------------- */
-        else if (s_phase == PHASE_B_CALIB_SETTLE) {
-            Z_PID_SetSpeedLevel(2);
-            int32_t settle_target = s_calib_touch_pos + 10;
-            if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
-            update_target_range(settle_target);
-            Z_Target_SetRequestedDirect((uint32_t)settle_target);
-
-            uint32_t settle_elapsed = HAL_GetTick() - s_calib_settle_start_tick;
-
-            /* Freigabe nach mind. 400 ms Beruhigung, sobald der Sensor sauber abgefallen ist */
-            if (settle_elapsed >= 400u && ds_value < s_ds_trigger_threshold) {
-                s_phase = PHASE_B_FAST_UP;
-                s_fast_cycles_start_tick = HAL_GetTick();
-                s_ds_trigger_debounce = 0;
-                s_ds_accel_fault_debounce = 0;
-                Z_PID_SetSpeedLevel(s_fast_speed_level);
-                Z_PID_ResetKinematics();
-            }
-            /* Timeout-Schutz: Falls nach 1500 ms der Sensor immer noch über der Schwelle liegt -> Nadel klemmt */
-            else if (settle_elapsed >= 1500u) {
-                snprintf(s_error_msg, sizeof(s_error_msg), "Nadel klemmt nach Kalibrierung");
                 TestRun_RestoreSpeedLevel();
                 return TESTRUN_ERROR;
             }
@@ -575,7 +442,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
             }
 
-            int32_t down_target = s_scatter_stats.z_ref_pos - 12;
             int32_t down_target = s_scatter_stats.z_ref_pos - 25;
             if (down_target < (int32_t)z_encoder_start) down_target = (int32_t)z_encoder_start;
             update_target_range(down_target);
@@ -603,41 +469,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 s_ds_accel_fault_debounce = 0;
                 if (ds_value >= s_ds_trigger_threshold) {
                     int32_t touch_pos = z_pos;
-
-                    /* 1. SOFORTIGE RICHTUNGSUMKEHR: Noch im selben Takt Ziel nach oben umstellen! */
-                    if ((s_current_cycle + 1u) >= s_num_total_cycles) {
-                        /* Letzter Zyklus erreicht: Wechsel in sanfte Abschluss-Parkphase oben (1+N+1) */
-                        s_phase = PHASE_B_PARK_UP;
-                        int32_t park_target = (int32_t)z_ax_no_pos + 50;
-                        update_target_range(park_target);
-                        Z_Target_SetRequestedDirect((uint32_t)park_target);
-                        Z_PID_SetSpeedLevel(5); /* Moderates Hochfahren (Stufe 5 = 14 Inc/ms ~ 126 mm/s) */
-                        Z_PID_ClearIntegrals();
-                        s_ds_accel_fault_debounce = 0;
-                        s_park_start_tick = HAL_GetTick();
-                    } else {
-                        /* Zwischenzyklus: Sofort mit Vollgas für nächsten Nähmaschinen-Zyklus hoch */
-                        s_phase = PHASE_B_FAST_UP;
-                        int32_t retract_target = (int32_t)(z_ax_no_pos + GO_UP_OVERSHOOT);
-                        update_target_range(retract_target);
-                        Z_Target_SetRequestedDirect((uint32_t)retract_target);
-                        Z_PID_SetSpeedLevel(s_fast_speed_level);
-                        Z_PID_ClearIntegrals();
-                        s_ds_accel_fault_debounce = 0;
-                    }
-
-                    /* 2. Kinematik & Streuungs-Statistik erfassen (nur echte Zyklen 1..N) */
                     int32_t delta = touch_pos - s_scatter_stats.z_ref_pos;
                     s_scatter_stats.last_delta = delta;
-                    if (s_probe_count == 0) {
-                        s_scatter_stats.z_min_pos = touch_pos;
-                        s_scatter_stats.z_max_pos = touch_pos;
-                        s_scatter_stats.scatter_range = 0;
-                    } else {
-                        if (touch_pos < s_scatter_stats.z_min_pos) s_scatter_stats.z_min_pos = touch_pos;
-                        if (touch_pos > s_scatter_stats.z_max_pos) s_scatter_stats.z_max_pos = touch_pos;
-                        s_scatter_stats.scatter_range = s_scatter_stats.z_max_pos - s_scatter_stats.z_min_pos;
-                    }
                     if (touch_pos < s_scatter_stats.z_min_pos) s_scatter_stats.z_min_pos = touch_pos;
                     if (touch_pos > s_scatter_stats.z_max_pos) s_scatter_stats.z_max_pos = touch_pos;
                     s_scatter_stats.scatter_range = s_scatter_stats.z_max_pos - s_scatter_stats.z_min_pos;
@@ -650,21 +483,9 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_current_cycle++;
                     s_stats.completed_cycles = s_current_cycle;
 
-                    /* Telegramm für Windows GUI senden (inkl. kumulierter Zeit in ms) */
-                    uint32_t elapsed_now = (s_fast_cycles_start_tick > 0) ? (HAL_GetTick() - s_fast_cycles_start_tick) : 0u;
-                    char cycle_msg[120];
-                    snprintf(cycle_msg, sizeof(cycle_msg),
-                             "TEST_B_CYCLE:%lu;%ld;%ld;%ld;%ld;%ld;%.1f;%lu\r\n",
-                             (unsigned long)s_current_cycle, (long)touch_pos, (long)s_scatter_stats.last_delta,
-                             (long)s_scatter_stats.z_min_pos, (long)s_scatter_stats.z_max_pos,
-                             (long)s_scatter_stats.scatter_range, (double)s_scatter_stats.mean_pos,
-                             (unsigned long)elapsed_now);
-                    uart_send_text(cycle_msg, 50);
-
+                    /* Keine UART-Ausgabe während schneller Fahrt -> CPU & Takt entlasten */
                     if (s_current_cycle >= s_num_total_cycles) {
-                        /* Zyklenzeit für die N Dauertest-Zyklen fixieren */
-                        s_stats.test_time_ms = elapsed_now;
-                        /* Sanfte Abschlussfahrt nach oben läuft in PHASE_B_PARK_UP */
+                        s_stats.test_time_ms = (s_fast_cycles_start_tick > 0) ? (HAL_GetTick() - s_fast_cycles_start_tick) : 0u;
                         TestRun_RestoreSpeedLevel();
                         return TESTRUN_COMPLETE;
                     }
@@ -679,44 +500,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     return TESTRUN_ERROR;
                 }
             } else {
-                /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine Fehlerauslösung */
                 /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine FehlerauslÃ¶sung */
                 s_ds_accel_fault_debounce = 0;
-            }
-        }
-
-        /* -----------------------------------------------------------------
-         * 3. ABSCHLUSSFAHRT / PARKPOSITION (zählt NICHT zu N):
-         *    Sanfte Endanfahrt in die obere Parkposition (ohne Anschlagen).
-         * ----------------------------------------------------------------- */
-        else if (s_phase == PHASE_B_PARK_UP) {
-            int32_t park_target = (int32_t)z_ax_no_pos + 50;
-            int32_t park_decel_zone = (int32_t)z_ax_no_pos - 250;
-
-            /* Vor Erreichen von z_ax_no_pos sanft auf Kriechgeschwindigkeit abbremsen */
-            if (z_pos >= park_decel_zone) {
-                Z_PID_SetSpeedLevel(2); /* Sanfte Stufe 2 (2 Inc/ms = 18 mm/s) */
-            } else {
-                Z_PID_SetSpeedLevel(5); /* Moderates Hochfahren (Stufe 5 = 14 Inc/ms ~ 126 mm/s) */
-            }
-
-            update_target_range(park_target);
-            Z_Target_SetRequestedDirect((uint32_t)park_target);
-
-            /* Oben angekommen: butterweich im Stillstand an Parkposition */
-            bool park_reached = (z_pos >= (park_target - 10));
-            if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET && z_pos >= (int32_t)z_ax_no_pos) {
-                park_reached = true;
-            }
-
-            uint32_t park_time = (s_park_start_tick > 0) ? (HAL_GetTick() - s_park_start_tick) : 0u;
-
-            if (park_reached || park_time >= 4000u) {
-                if (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET) {
-                    s_stats.valid_sensor_events++;
-                }
-                TestRun_RestoreSpeedLevel();
-                return TESTRUN_COMPLETE;
             }
         }
 
@@ -823,8 +608,6 @@ void TestRun_GetScatterStats(TestBScatterStats_t *out) {
         s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();
         s_scatter_stats.max_decel_g = Z_PID_GetMaxDecel_g();
         *out = s_scatter_stats;
-        if (out->z_min_pos == INT32_MAX) out->z_min_pos = out->z_ref_pos;
-        if (out->z_max_pos == INT32_MIN) out->z_max_pos = out->z_ref_pos;
     }
 }
 
