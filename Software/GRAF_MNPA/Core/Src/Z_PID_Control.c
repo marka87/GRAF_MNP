@@ -253,13 +253,30 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
 
-	/* Ruckbegrenzung: Soll-Geschwindigkeit darf sich nur um max. VELOCITY_SLEW_RATE_INC_MS2
-	 * pro dt_ms ändern (statt Sprung auf Stufenmaximum bei Zielsprung/Richtungswechsel). */
+	/* Ruckbegrenzung (asymmetrisch): Nur das BESCHLEUNIGEN (Betrag steigt, gleiche Richtung)
+	 * wird auf max. VELOCITY_SLEW_RATE_INC_MS2 pro dt_ms begrenzt. Das BREMSEN (Betrag sinkt
+	 * oder Richtungswechsel, z.B. bei Stufen-Reduktion durch die Bremszonen-Logik vor Kontakt)
+	 * bleibt IMMER sofort verfügbar - Bremsautoritaet darf nie gedrosselt werden, sonst fährt
+	 * die Achse mit zu hoher Restgeschwindigkeit auf das Messobjekt auf (Klopfen/Übertravel). */
 	float max_delta = VELOCITY_SLEW_RATE_INC_MS2 * (float)dt_ms;
-	float velocity_delta = desired_velocity - s_last_desired_velocity;
-	if (velocity_delta > max_delta) velocity_delta = max_delta;
-	if (velocity_delta < -max_delta) velocity_delta = -max_delta;
-	desired_velocity = s_last_desired_velocity + velocity_delta;
+	float prev_velocity = s_last_desired_velocity;
+	bool same_direction = (prev_velocity >= 0.0f) == (desired_velocity >= 0.0f);
+	bool is_braking = same_direction && (fabsf(desired_velocity) <= fabsf(prev_velocity));
+
+	if (is_braking) {
+		/* Bremsen bzw. Stillstand: sofort erlaubt, keine Rampe. */
+	} else if (!same_direction && prev_velocity != 0.0f) {
+		/* Richtungswechsel: Abbremsen bis 0 sofort, danach Rampe ab 0 in neue Richtung. */
+		float beyond_zero = fabsf(desired_velocity);
+		if (beyond_zero > max_delta) beyond_zero = max_delta;
+		desired_velocity = (desired_velocity >= 0.0f) ? beyond_zero : -beyond_zero;
+	} else {
+		/* Beschleunigen (Betrag steigt, gleiche Richtung oder Start aus dem Stillstand). */
+		float velocity_delta = desired_velocity - prev_velocity;
+		if (velocity_delta > max_delta) velocity_delta = max_delta;
+		if (velocity_delta < -max_delta) velocity_delta = -max_delta;
+		desired_velocity = prev_velocity + velocity_delta;
+	}
 	s_last_desired_velocity = desired_velocity;
 
 	/* --- Innerer Regler: Ist- vs. Soll-Geschwindigkeit -> Spannung --- */
