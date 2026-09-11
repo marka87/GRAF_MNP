@@ -68,6 +68,8 @@ typedef struct {
     float    mean_pos;           /* Arithmetischer Mittelwert */
     uint16_t baseline_adc;       /* Offset-Spannung in Standby (ADC) */
     uint16_t trigger_adc;        /* Auslöse-Schwellwert (ADC) */
+    uint32_t contact_travel_inc; /* Gemessener Federweg von Erstkontakt bis Anschlag in inc */
+    uint16_t peak_ds_adc;        /* Reale Spitzenspannung bei voller Auslenkung (ADC) */
     float    max_velocity_mms;   /* Max. Ist-Geschwindigkeit in mm/s          */
     float    max_accel_g;        /* Max. Beschleunigung in g                  */
     float    max_decel_g;        /* Max. Verzögerung / Bremsung in g          */

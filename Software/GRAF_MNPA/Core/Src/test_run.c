@@ -61,6 +61,26 @@ static int32_t get_test_a_up_overshoot(uint8_t speed) {
 #define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
 #define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle ueber Ruhe-Baseline */
 
+/* 1+N+1 Prinzip: Ersttastung (Kalibrierung) und Abschluss-Bremsfahrt.
+ * Neu entworfen nach Root-Cause-Analyse einer frueheren, fehlerhaften Variante:
+ * - Sanfte Stufe 2 fuer Andruecken UND Zurueckfahren (statt hartem Ruck).
+ * - Echtes Baseline-Warten (nicht nur "unter Schaltschwelle") vor Testfreigabe.
+ * - Vollstaendiger PID-Reset (Integratoren!) vor Start der schnellen Zyklen,
+ *   da sonst eine vorgespannte Regelung die ersten Zyklen unrund machte. */
+#define TEST_B_INITIAL_PROBE_SPEED   2u    /* Sanfte Stufe fuer Ersttastung-Andruecken & Ruecklauf */
+#define TEST_B_INITIAL_SETTLE_MIN_MS 300u  /* Mindest-Beruhigungszeit nach Ruecklauf */
+#define TEST_B_INITIAL_SETTLE_TIMEOUT_MS 2000u /* Sicherheits-Timeout falls Sensor nicht zur Baseline zurueckkehrt */
+#define TEST_B_BASELINE_TOLERANCE_ADC 50u  /* Toleranzband um die echte Ruhe-Baseline (statt nur "< Schaltschwelle") */
+
+/* Abschluss-Bremsfahrt (+1 Takt) nach dem letzten Zyklus: verhindert das
+ * Ueberschiessen der Achse beim finalen Hochfahren zu Z0, indem die
+ * Zielposition (NO-Sensor + Freihub) bereits ueber die normale, geschwindigkeitsabhaengige
+ * Bremszonen-Logik kontrolliert angefahren wird (statt eines abrupten Direktsprungs
+ * mit voller Testgeschwindigkeit nach Testabschluss). */
+#define TEST_B_FINAL_BRAKE_SPEED     3u    /* Sanfte Zielgeschwindigkeit kurz vor Z0 */
+#define TEST_B_FINAL_TARGET_MARGIN   50    /* Freihub oberhalb des NO-Sensors (wie bisher: z_ax_no_pos + 50) */
+#define TEST_B_FINAL_BRAKE_TIMEOUT_MS 3000u /* Sicherheits-Timeout fuer die Abschluss-Bremsfahrt */
+
 /* Dynamische Ausblend-Zone für den oberen Totpunkt:
  * Bei Stufe 16 (bis zu 985 mm/s und +8.5 g Beschleunigung) federt die Nadel
  * durch die Massenträgheit über eine Strecke von ca. 6-8 mm (600-800 Inc) in den Sensor.
@@ -76,10 +96,13 @@ typedef enum {
     PHASE_A_GO_UP,
     PHASE_A_GO_DOWN,
 
-    /* Test B Phasen */
+    /* Test B Phasen: 1 (Ersttastung) + N (Dauertest) + 1 (Abschluss-Bremsfahrt) */
     PHASE_B_SETUP_SLOW_PROBE,
+    PHASE_B_INITIAL_DEFLECT,
+    PHASE_B_INITIAL_RETRACT,
     PHASE_B_FAST_UP,
-    PHASE_B_FAST_DOWN
+    PHASE_B_FAST_DOWN,
+    PHASE_B_FINAL_BRAKE
 } TestRunInternalPhase_t;
 
 static TestRunMode_t          s_mode = TESTRUN_MODE_A_CLASSIC;
@@ -102,6 +125,11 @@ static uint16_t               s_ds_baseline_adc = 0;
 static uint16_t               s_ds_trigger_threshold = 0;
 static uint8_t                s_ds_trigger_debounce = 0;
 static uint8_t                s_ds_accel_fault_debounce = 0;
+static int32_t                s_calib_touch_pos = 0;
+static uint16_t               s_calib_max_adc = 0;
+static uint32_t               s_calib_plateau_ticks = 0;
+static uint32_t               s_calib_settle_start_tick = 0;
+static uint32_t               s_final_brake_start_tick = 0;
 static int64_t                s_probe_pos_sum = 0;
 static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
@@ -165,8 +193,11 @@ const char *TestRun_GetPhaseName(void) {
         case PHASE_A_GO_UP:           return "A_GO_UP";
         case PHASE_A_GO_DOWN:         return "A_GO_DOWN";
         case PHASE_B_SETUP_SLOW_PROBE:return "B_SETUP_PROBE";
+        case PHASE_B_INITIAL_DEFLECT: return "B_INIT_DEFLECT";
+        case PHASE_B_INITIAL_RETRACT: return "B_INIT_RETRACT";
         case PHASE_B_FAST_UP:         return "B_FAST_UP";
         case PHASE_B_FAST_DOWN:       return "B_FAST_DOWN";
+        case PHASE_B_FINAL_BRAKE:     return "B_FINAL_BRAKE";
         default:                      return "UNKNOWN";
     }
 }
@@ -219,6 +250,11 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_probe_count      = 0;
     s_ds_filter_acc    = 0;
     s_fast_cycles_start_tick = 0;
+    s_calib_touch_pos = 0;
+    s_calib_max_adc = 0;
+    s_calib_plateau_ticks = 0;
+    s_calib_settle_start_tick = 0;
+    s_final_brake_start_tick = 0;
 
     memset(&s_stats, 0, sizeof(s_stats));
     s_stats.total_cycles      = num_cycles;
@@ -387,12 +423,16 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     snprintf(ref_msg, sizeof(ref_msg), "TEST_B_REF:%ld\r\n", (long)touch_pos);
                     uart_send_text(ref_msg, 10);
 
-                    /* Setup abgeschlossen -> Starte High-Speed Zyklen 1..N nach oben */
-                    s_phase = PHASE_B_FAST_UP;
-                    s_fast_cycles_start_tick = HAL_GetTick();
-                    Z_PID_SetSpeedLevel(s_fast_speed_level);
-                    Z_PID_ResetKinematics();
-                    Trace_Start();
+                    /* Setup abgeschlossen -> Vor Teststart Drucksensor-Messbereich aufnehmen */
+                    s_phase = PHASE_B_INITIAL_DEFLECT;
+                    s_calib_touch_pos = touch_pos;
+                    s_calib_max_adc = ds_value;
+                    s_calib_plateau_ticks = 0;
+                    Z_PID_SetSpeedLevel(TEST_B_INITIAL_PROBE_SPEED);
+                    int32_t calib_target = touch_pos - 32;
+                    if (calib_target < (int32_t)z_encoder_start) calib_target = (int32_t)z_encoder_start;
+                    update_target_range(calib_target);
+                    Z_Target_SetRequestedDirect((uint32_t)calib_target);
                 }
             } else {
                 s_ds_trigger_debounce = 0;
@@ -401,6 +441,106 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             /* Unteren Anschlag erreicht, aber kein Messobjekt gefunden */
             if (z_pos <= (int32_t)(z_encoder_start + 15)) {
                 snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
+                TestRun_RestoreSpeedLevel();
+                return TESTRUN_ERROR;
+            }
+        }
+
+        /* -----------------------------------------------------------------
+         * 1b. ERSTTASTUNG/KALIBRIERUNG (NEU): Drückt von touch_pos aus sanft
+         *     (Stufe 2) bis zu max. 30 Inkremente ein, um realen Federweg
+         *     (inc) und Spitzenspannung (V, Ziel ca. 4,6-4,8V) fuer das
+         *     Mimot-Pruefprotokoll zu erfassen. Bis zum echten mechanischen
+         *     Anschlag bleiben ca. 300 Inc Puffer - 30 Inc ist unkritisch.
+         * ----------------------------------------------------------------- */
+        else if (s_phase == PHASE_B_INITIAL_DEFLECT) {
+            if (ds_value > s_calib_max_adc) {
+                s_calib_max_adc = ds_value;
+                s_calib_plateau_ticks = 0;
+            } else {
+                s_calib_plateau_ticks++;
+            }
+
+            int32_t travel = s_calib_touch_pos - z_pos;
+            bool stop_sweep = false;
+
+            /* Sicherheits-Abbruchbedingungen:
+             * 1) Maximaler Federweg erreicht: >= 30 inc (schützt Nadelmechanik vor Überlastung)
+             * 2) Sensor-Vollanschlag / Sättigung: >= 3890 ADC (ca. 4.75 V)
+             * 3) Plateau bei hoher Spannung: >= 3500 ADC (ca. 4.27 V) und 20 Ticks unverändert
+             * 4) Unterer Z-Endanschlag */
+            if (travel >= 30) {
+                stop_sweep = true;
+            } else if (ds_value >= 3890u) {
+                stop_sweep = true;
+            } else if (ds_value >= 3500u && s_calib_plateau_ticks >= 20u) {
+                stop_sweep = true;
+            } else if (z_pos <= (int32_t)(z_encoder_start + 15)) {
+                stop_sweep = true;
+            }
+
+            if (stop_sweep) {
+                int32_t final_pos = z_pos;
+                int32_t final_travel = s_calib_touch_pos - final_pos;
+                if (final_travel < 0) final_travel = 0;
+
+                s_scatter_stats.contact_travel_inc = (uint32_t)final_travel;
+                s_scatter_stats.peak_ds_adc = s_calib_max_adc;
+
+                char calib_msg[100];
+                snprintf(calib_msg, sizeof(calib_msg),
+                         "TEST_B_CALIB:travel=%lu,peak_v=%.3f,base_v=%.3f\r\n",
+                         (unsigned long)s_scatter_stats.contact_travel_inc,
+                         (double)((float)s_calib_max_adc * (5.0f / 4095.0f)),
+                         (double)((float)s_ds_baseline_adc * (5.0f / 4095.0f)));
+                uart_send_text(calib_msg, 20);
+
+                /* Kalibrier-Messung abgeschlossen -> Sanft entlasten und ausschwingen */
+                s_phase = PHASE_B_INITIAL_RETRACT;
+                s_calib_settle_start_tick = HAL_GetTick();
+                Z_PID_SetSpeedLevel(TEST_B_INITIAL_PROBE_SPEED);
+                int32_t settle_target = s_calib_touch_pos + 10; /* Kontaktposition mit 10 inc Freihub */
+                if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
+                update_target_range(settle_target);
+                Z_Target_SetRequestedDirect((uint32_t)settle_target);
+            }
+        }
+
+        /* -----------------------------------------------------------------
+         * 1c. BERUHIGUNG & SICHERHEITS-CHECK NACH KALIBRIERUNG (NEU):
+         *     Fährt mit Stufe 2 sanft zurück auf Kontakt-/Freihubposition und
+         *     wartet, bis der Sensor WIRKLICH zur Ruhe-Baseline zurueckgekehrt
+         *     ist (Toleranzband, nicht nur "unter Schaltschwelle" wie zuvor -
+         *     das reichte nicht immer aus, siehe Root-Cause-Analyse). Direkt
+         *     vor Testfreigabe wird der PID-Regler vollstaendig zurueckgesetzt
+         *     (Integratoren!), damit Test N garantiert aus neutralem Zustand
+         *     startet (vorher: Integrator-Vorspannung liess hohe Stufen unrund
+         *     laufen).
+         * ----------------------------------------------------------------- */
+        else if (s_phase == PHASE_B_INITIAL_RETRACT) {
+            Z_PID_SetSpeedLevel(TEST_B_INITIAL_PROBE_SPEED);
+            int32_t settle_target = s_calib_touch_pos + 10;
+            if (settle_target > (int32_t)z_ax_no_pos) settle_target = (int32_t)z_ax_no_pos;
+            update_target_range(settle_target);
+            Z_Target_SetRequestedDirect((uint32_t)settle_target);
+
+            uint32_t settle_elapsed = HAL_GetTick() - s_calib_settle_start_tick;
+            bool near_baseline = (ds_value <= (uint32_t)s_ds_baseline_adc + TEST_B_BASELINE_TOLERANCE_ADC);
+
+            /* Freigabe erst nach mind. 300 ms UND wenn der Sensor wirklich auf die Baseline zurueckgekehrt ist */
+            if (settle_elapsed >= TEST_B_INITIAL_SETTLE_MIN_MS && near_baseline) {
+                s_phase = PHASE_B_FAST_UP;
+                s_fast_cycles_start_tick = HAL_GetTick();
+                s_ds_trigger_debounce = 0;
+                s_ds_accel_fault_debounce = 0;
+                Z_PID_SetSpeedLevel(s_fast_speed_level);
+                Z_PID_Reset();          /* Integratoren/Rampenstatus vollstaendig neutralisieren */
+                Z_PID_ResetKinematics();
+                Trace_Start();
+            }
+            /* Timeout-Schutz: Falls Sensor auch nach Timeout nicht zur Baseline zurueckkehrt -> Nadel klemmt */
+            else if (settle_elapsed >= TEST_B_INITIAL_SETTLE_TIMEOUT_MS) {
+                snprintf(s_error_msg, sizeof(s_error_msg), "Nadel klemmt nach Kalibrierung");
                 TestRun_RestoreSpeedLevel();
                 return TESTRUN_ERROR;
             }
@@ -514,8 +654,10 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     /* Keine UART-Ausgabe während schneller Fahrt -> CPU & Takt entlasten */
                     if (s_current_cycle >= s_num_total_cycles) {
                         s_stats.test_time_ms = (s_fast_cycles_start_tick > 0) ? (HAL_GetTick() - s_fast_cycles_start_tick) : 0u;
-                        TestRun_RestoreSpeedLevel();
-                        return TESTRUN_COMPLETE;
+                        s_phase = PHASE_B_FINAL_BRAKE;
+                        s_final_brake_start_tick = HAL_GetTick();
+                        s_ds_accel_fault_debounce = 0;
+                        return TESTRUN_CONTINUE;
                     }
 
                     /* Nächster Zyklus: Sofort wieder nach oben */
@@ -528,8 +670,52 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     return TESTRUN_ERROR;
                 }
             } else {
-                /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine FehlerauslÃ¶sung */
+                /* In der oberen Umkehrzone (z_pos >= top_zone): Hebel federt aus, keine Fehlerauslösung */
                 s_ds_accel_fault_debounce = 0;
+            }
+        }
+        else if (s_phase == PHASE_B_FINAL_BRAKE) {
+            /* 1d. SANFTE ABSCHLUSS-BREMSFAHRT:
+             *     Letzter Zyklus bremst vor dem oberen Parkpunkt sanft auf Stufe 2 herunter,
+             *     um mechanische Schläge und Nadelprellen beim Testende zu verhindern. */
+            int32_t final_target = (int32_t)(z_ax_no_pos + TEST_B_FINAL_TARGET_MARGIN);
+            int32_t final_brake_start = final_target - braking_dist;
+
+            if (z_pos < final_brake_start) {
+                Z_PID_SetSpeedLevel(s_fast_speed_level);
+            } else {
+                Z_PID_SetSpeedLevel(TEST_B_FINAL_BRAKE_SPEED);
+            }
+            update_target_range(final_target);
+            Z_Target_SetRequestedDirect((uint32_t)final_target);
+
+            if (z_pos > takeoff_zone && z_pos < top_zone) {
+                if (ds_value >= s_ds_trigger_threshold) {
+                    s_ds_accel_fault_debounce++;
+                    if (s_ds_accel_fault_debounce >= 20u) {
+                        s_stats.ds_errors++;
+                        snprintf(s_error_msg, sizeof(s_error_msg), "Beschl. FINAL: %u @ %ld", ds_value, (long)z_pos);
+                        TestRun_RestoreSpeedLevel();
+                        return TESTRUN_ERROR;
+                    }
+                } else {
+                    s_ds_accel_fault_debounce = 0;
+                }
+            } else {
+                s_ds_accel_fault_debounce = 0;
+            }
+
+            bool no_sen_tripped = (HAL_GPIO_ReadPin(NO_SEN_GPIO_Port, NO_SEN_Pin) == GPIO_PIN_RESET);
+            if (no_sen_tripped || z_pos >= final_target) {
+                s_stats.valid_sensor_events++;
+                TestRun_RestoreSpeedLevel();
+                return TESTRUN_COMPLETE;
+            }
+
+            if (HAL_GetTick() - s_final_brake_start_tick >= TEST_B_FINAL_BRAKE_TIMEOUT_MS) {
+                snprintf(s_error_msg, sizeof(s_error_msg), "Abschluss-Bremsfahrt Timeout @ %ld", (long)z_pos);
+                TestRun_RestoreSpeedLevel();
+                return TESTRUN_ERROR;
             }
         }
 
