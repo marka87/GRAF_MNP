@@ -109,6 +109,15 @@ static uint32_t               s_ds_filter_acc = 0;
 static uint32_t               s_fast_cycles_start_tick = 0;
 static bool                   s_no_sen_tripped_in_cycle = false;
 
+/* RAM-Puffer fuer Zyklus-Deltas (Streuungs-Diagramm): waehrend der schnellen
+ * Zyklen wird pro Kontakt nur der Delta-Wert (2 Byte) gespeichert - KEIN
+ * UART-Call im Zeit-kritischen Regelkreis (das kostete zuvor reale ms pro
+ * Zyklus und stoerte die 1ms-PID-Taktung bei hohen Geschwindigkeitsstufen).
+ * Der komplette Verlauf wird erst nach Testende in einem Rutsch als
+ * TEST_B_CYCLE-Telegramme (gleiches Format wie bisher) ausgegeben. */
+#define TEST_B_MAX_TRACKED_CYCLES 2000u
+static int16_t                s_cycle_deltas[TEST_B_MAX_TRACKED_CYCLES];
+
 /* 4-Sample Exponential Moving Average Filter fÃ¼r Drucksensor */
 static uint16_t read_filtered_ds(void) {
     uint16_t raw = ADC_Drucksensor(&hadc1);
@@ -494,6 +503,11 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                     s_probe_count++;
                     s_scatter_stats.mean_pos = (float)s_probe_pos_sum / (float)s_probe_count;
 
+                    /* Delta im RAM merken (kein UART hier -> Zeit-kritischer Regelkreis bleibt unberuehrt) */
+                    if (s_current_cycle < TEST_B_MAX_TRACKED_CYCLES) {
+                        s_cycle_deltas[s_current_cycle] = (int16_t)delta;
+                    }
+
                     s_current_cycle++;
                     s_stats.completed_cycles = s_current_cycle;
 
@@ -622,6 +636,24 @@ void TestRun_GetScatterStats(TestBScatterStats_t *out) {
         s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();
         s_scatter_stats.max_decel_g = Z_PID_GetMaxDecel_g();
         *out = s_scatter_stats;
+    }
+}
+
+/* Gibt die im RAM gesammelten Zyklus-Deltas nach Testende als TEST_B_CYCLE-Telegramme
+ * aus (gleiches Format wie eine Live-Uebertragung waere, nur gesammelt zum sicheren
+ * Zeitpunkt nach Testabschluss - kein Einfluss auf die Regelschleife waehrend des Tests). */
+void TestRun_DumpCyclesUART(void) {
+    uint32_t count = (s_current_cycle < TEST_B_MAX_TRACKED_CYCLES) ? s_current_cycle : TEST_B_MAX_TRACKED_CYCLES;
+    for (uint32_t i = 0; i < count; i++) {
+        int32_t touch_pos = s_scatter_stats.z_ref_pos + s_cycle_deltas[i];
+        char cycle_msg[120];
+        snprintf(cycle_msg, sizeof(cycle_msg),
+                 "TEST_B_CYCLE:%lu;%ld;%d;%ld;%ld;%ld;%.1f;%lu\r\n",
+                 (unsigned long)(i + 1), (long)touch_pos, (int)s_cycle_deltas[i],
+                 (long)s_scatter_stats.z_min_pos, (long)s_scatter_stats.z_max_pos,
+                 (long)s_scatter_stats.scatter_range, (double)s_scatter_stats.mean_pos,
+                 0UL);
+        uart_send_text(cycle_msg, 20);
     }
 }
 

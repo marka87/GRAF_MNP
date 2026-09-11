@@ -100,6 +100,7 @@ void             TestRun_GetStats(TestRunStats_t *out);
 
 /* Streuungs-Statistik von Test B abrufen */
 void             TestRun_GetScatterStats(TestBScatterStats_t *out);
+void             TestRun_DumpCyclesUART(void);
 
 /* Aktuellen Test-Modus abrufen */
 TestRunMode_t    TestRun_GetMode(void);

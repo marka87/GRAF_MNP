@@ -789,6 +789,7 @@ int main(void)
 						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
 						(long)z_ax_no_pos);
 					uart_send_text(stats_msg, 100);
+					TestRun_DumpCyclesUART();
 				} else {
 					char stats_msg[450];
 					uint32_t time_min = stats.test_time_ms / 60000u;
