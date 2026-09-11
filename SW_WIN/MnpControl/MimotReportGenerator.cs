@@ -8,7 +8,7 @@ namespace MnpControl
 {
     public static class MimotReportGenerator
     {
-        public const string SoftwareVersion = "V1.1.2";
+        public const string SoftwareVersion = "V1.2.0";
 
         public static (string txtPath, string htmlPath) GenerateAndSave(MimotTestResult result, string? targetDirectory = null)
         {
