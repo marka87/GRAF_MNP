@@ -40,6 +40,7 @@
 #include "d_mot_control.h"
 #include "data_buffer.h"
 #include "test_run.h"
+#include "config_flash.h"
 
 /* USER CODE END Includes */
 
@@ -366,7 +367,7 @@ void Process_UART_Command(const char *command) {
 	uint32_t upper_limit = (raw_max > 150) ? (uint32_t)(raw_max - 150) : (uint32_t)raw_max;
 	if (upper_limit < lower_limit) upper_limit = lower_limit + 100u;
 
-	char response[128] = { 0 }; 				// Rückmeldungspuffer
+	char response[256] = { 0 }; 				// Rückmeldungspuffer
 	uint32_t step_size = 100;
 
 	if (command[0] == '+' || command[0] == '-') {
@@ -469,6 +470,9 @@ void Process_UART_Command(const char *command) {
 		if (dmot > 20.0f) dmot = dmot / 1000.0f; /* falls in mV übergeben */
 		TestRun_SetDruckmotorVoltage(dmot);
 		if (delta > 0) TestRun_SetTriggerDeltaMv((uint32_t)delta);
+		CarriageConfig_t *active_cfg = ConfigFlash_GetActive();
+		active_cfg->d_mot_voltage = dmot;
+		if (delta > 0) active_cfg->ds_trigger_delta_mv = (uint16_t)delta;
 		snprintf(response, sizeof(response), "CFG_TB_OK:dmot=%.2f,delta=%lu\r\n", dmot, (unsigned long)TestRun_GetTriggerDeltaMv());
 	} else if (strcmp(command, "CFG_TB?") == 0) {
 		snprintf(response, sizeof(response), "CFG_TB:%.2f;%lu\r\n", TestRun_GetDruckmotorVoltage(), (unsigned long)TestRun_GetTriggerDeltaMv());
@@ -506,6 +510,8 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
 			Z_PID_SetPositionParameters(kp, ki, kd);
+			CarriageConfig_t *cfg = ConfigFlash_GetActive();
+			cfg->pos_kp = kp; cfg->pos_ki = ki; cfg->pos_kd = kd;
 			snprintf(response, sizeof(response), "PIDZP_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZP_ERR:Format PP=kp,ki,kd\r\n");
@@ -514,6 +520,8 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
 			Z_PID_SetVelocityParameters(kp, ki, kd);
+			CarriageConfig_t *cfg = ConfigFlash_GetActive();
+			cfg->vel_kp = kp; cfg->vel_ki = ki; cfg->vel_kd = kd;
 			snprintf(response, sizeof(response), "PIDZV_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZV_ERR:Format PV=kp,ki,kd\r\n");
@@ -526,6 +534,80 @@ void Process_UART_Command(const char *command) {
 		} else {
 			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..16\r\n");
 		}
+	} else if (strcmp(command, "CMD:GET_CONFIG") == 0 || strcmp(command, "CFG?") == 0) {
+		CarriageConfig_t *cfg = ConfigFlash_GetActive();
+		snprintf(response, sizeof(response),
+			"CFG:ID=%s;PKP=%.4f;PKI=%.6f;PKD=%.4f;VKP=%.4f;VKI=%.6f;VKD=%.4f;LZ=%u;LS=%u;BF=%u;SNO=%ld;TMV=%u;DMOT=%.2f;CNT=%lu\r\n",
+			cfg->carriage_id, cfg->pos_kp, cfg->pos_ki, cfg->pos_kd,
+			cfg->vel_kp, cfg->vel_ki, cfg->vel_kd,
+			(unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level,
+			(unsigned)cfg->braking_dist_factor, (long)cfg->z_ax_no_pos,
+			(unsigned)cfg->ds_trigger_delta_mv, cfg->d_mot_voltage,
+			(unsigned long)cfg->write_count);
+	} else if (strncmp(command, "CMD:SET_CONFIG:", 15) == 0 || strncmp(command, "CFG_SET:", 8) == 0) {
+		const char *p = (command[1] == 'M') ? (command + 15) : (command + 8);
+		CarriageConfig_t *cfg = ConfigFlash_GetActive();
+		char buf[128];
+		strncpy(buf, p, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = '\0';
+		char *tok = strtok(buf, ";,");
+		while (tok != NULL) {
+			char *eq = strchr(tok, '=');
+			if (eq != NULL) {
+				*eq = '\0';
+				char *key = tok;
+				char *val = eq + 1;
+				while (*key == ' ') key++;
+				while (*val == ' ') val++;
+				for (char *c = key; *c; c++) {
+					if (*c >= 'a' && *c <= 'z') *c -= ('a' - 'A');
+				}
+				if (strcmp(key, "ID") == 0) {
+					strncpy(cfg->carriage_id, val, sizeof(cfg->carriage_id) - 1);
+					cfg->carriage_id[sizeof(cfg->carriage_id) - 1] = '\0';
+				} else if (strcmp(key, "PKP") == 0) {
+					parse_positive_decimal(val, &cfg->pos_kp);
+				} else if (strcmp(key, "PKI") == 0) {
+					parse_positive_decimal(val, &cfg->pos_ki);
+				} else if (strcmp(key, "PKD") == 0) {
+					parse_positive_decimal(val, &cfg->pos_kd);
+				} else if (strcmp(key, "VKP") == 0) {
+					parse_positive_decimal(val, &cfg->vel_kp);
+				} else if (strcmp(key, "VKI") == 0) {
+					parse_positive_decimal(val, &cfg->vel_ki);
+				} else if (strcmp(key, "VKD") == 0) {
+					parse_positive_decimal(val, &cfg->vel_kd);
+				} else if (strcmp(key, "LZ") == 0) {
+					cfg->landing_zone_margin = (uint16_t)strtoul(val, NULL, 10);
+				} else if (strcmp(key, "LS") == 0) {
+					cfg->landing_speed_level = (uint8_t)strtoul(val, NULL, 10);
+				} else if (strcmp(key, "BF") == 0) {
+					cfg->braking_dist_factor = (uint8_t)strtoul(val, NULL, 10);
+				} else if (strcmp(key, "SNO") == 0) {
+					cfg->z_ax_no_pos = (int32_t)strtol(val, NULL, 10);
+				} else if (strcmp(key, "TMV") == 0) {
+					cfg->ds_trigger_delta_mv = (uint16_t)strtoul(val, NULL, 10);
+				} else if (strcmp(key, "DMOT") == 0) {
+					parse_positive_decimal(val, &cfg->d_mot_voltage);
+				}
+			}
+			tok = strtok(NULL, ";,");
+		}
+		ConfigFlash_ApplyActive();
+		snprintf(response, sizeof(response), "CFG_SET:OK (ID=%s,LZ=%u,LS=%u)\r\n",
+			cfg->carriage_id, (unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level);
+	} else if (strcmp(command, "CMD:SAVE_CONFIG") == 0 || strcmp(command, "CFG_SAVE") == 0) {
+		CarriageConfig_t *cfg = ConfigFlash_GetActive();
+		if (ConfigFlash_Save(cfg)) {
+			snprintf(response, sizeof(response), "CFG_SAVED:cnt=%lu,id=%s\r\n",
+				(unsigned long)cfg->write_count, cfg->carriage_id);
+		} else {
+			snprintf(response, sizeof(response), "CFG_SAVE_ERR\r\n");
+		}
+	} else if (strcmp(command, "CMD:LOAD_DEFAULT") == 0 || strcmp(command, "CFG_DEFAULT") == 0) {
+		ConfigFlash_LoadDefaults(ConfigFlash_GetActive());
+		ConfigFlash_ApplyActive();
+		snprintf(response, sizeof(response), "CFG_DEFAULT:OK\r\n");
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
 		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
@@ -633,6 +715,8 @@ int main(void)
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
 	encoder_perf_measure_init(); // Initialize cycle counter for performance measurement
+	ConfigFlash_Init();
+	ConfigFlash_ApplyActive();
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
 	Z_Axis_TargetPosition = clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
 	Z_Target_SetRequestedDirect(Z_Axis_TargetPosition);

@@ -17,6 +17,7 @@
 #include "data_buffer.h"
 #include "Reference_Run.h"
 #include "Z_PID_Control.h"
+#include "config_flash.h"
 #include "main.h"
 #include <stdint.h>
 #include <string.h>
@@ -373,15 +374,19 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
         log_data_point(z_pos, z_target);
     }
 
+    const CarriageConfig_t *cfg = ConfigFlash_GetActive();
+    uint16_t landing_margin = (cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u;
+    uint8_t  brake_factor   = (cfg->braking_dist_factor > 0) ? cfg->braking_dist_factor : 80u;
+
     int32_t top_zone     = (int32_t)z_ax_no_pos - get_reversal_blanking_margin(s_fast_speed_level);
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER && s_scatter_stats.z_ref_pos > 0) {
-        if (top_zone < (s_scatter_stats.z_ref_pos + 150)) {
-            top_zone = s_scatter_stats.z_ref_pos + 150;
+        if (top_zone < (s_scatter_stats.z_ref_pos + (int32_t)landing_margin)) {
+            top_zone = s_scatter_stats.z_ref_pos + (int32_t)landing_margin;
         }
     }
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
-    int32_t landing_zone = s_scatter_stats.z_ref_pos + 150;
-    int32_t braking_dist = (int32_t)(s_fast_speed_level * 80);
+    int32_t landing_zone = s_scatter_stats.z_ref_pos + (int32_t)landing_margin;
+    int32_t braking_dist = (int32_t)(s_fast_speed_level * brake_factor);
     if (braking_dist < 300) braking_dist = 300;
     int32_t braking_zone = s_scatter_stats.z_ref_pos + braking_dist;
     int32_t takeoff_zone = s_scatter_stats.z_ref_pos + 1300;
@@ -597,7 +602,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 uint8_t mid_speed = (s_fast_speed_level > 6u) ? 6u : s_fast_speed_level;
                 Z_PID_SetSpeedLevel(mid_speed);
             } else {
-                Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
+                uint8_t landing_speed = (cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED;
+                Z_PID_SetSpeedLevel(landing_speed);
             }
 
             int32_t down_target = s_scatter_stats.z_ref_pos - 25;

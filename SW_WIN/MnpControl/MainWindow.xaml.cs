@@ -135,6 +135,7 @@ namespace MnpControl
         SendCommand("L?");
         SendCommand("PV?");
         SendCommand("V?");
+        SendCommand("CFG?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -504,6 +505,101 @@ namespace MnpControl
                     _lastNoSensorPos = snoVal;
                     AppendLiveLog($"SNO-Position erfasst: {snoVal} inc");
                 }
+                return;
+            }
+
+            if (msg.StartsWith("CFG:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(4).Trim();
+                string[] pairs = payload.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                string id = "DEFAULT";
+                string lz = "150";
+                int ls = 3;
+                string cnt = "0";
+
+                foreach (string pair in pairs)
+                {
+                    int eqIdx = pair.IndexOf('=');
+                    if (eqIdx <= 0) continue;
+                    string key = pair.Substring(0, eqIdx).Trim().ToUpperInvariant();
+                    string val = pair.Substring(eqIdx + 1).Trim();
+
+                    switch (key)
+                    {
+                        case "ID":
+                            id = val;
+                            break;
+                        case "LZ":
+                            lz = val;
+                            break;
+                        case "LS":
+                            int.TryParse(val, out ls);
+                            break;
+                        case "CNT":
+                            cnt = val;
+                            break;
+                        case "PKP":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkp)) _hybridConfig.PosKp = pkp;
+                            break;
+                        case "PKI":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pki)) _hybridConfig.PosKi = pki;
+                            break;
+                        case "PKD":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkd)) _hybridConfig.PosKd = pkd;
+                            break;
+                        case "VKP":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkp)) _hybridConfig.VelKp = vkp;
+                            break;
+                        case "VKI":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vki)) _hybridConfig.VelKi = vki;
+                            break;
+                        case "VKD":
+                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkd)) _hybridConfig.VelKd = vkd;
+                            break;
+                    }
+                }
+
+                TxtCfgCarriageId.Text = id;
+                TxtCfgLandingMargin.Text = lz;
+                if (ls >= 1 && ls <= CmbCfgLandingSpeed.Items.Count)
+                {
+                    CmbCfgLandingSpeed.SelectedIndex = ls - 1;
+                }
+                TxtCfgFlashStatus.Text = $"Zyklus #{cnt} (im Flash)";
+                TxtStatus.Text = $"Profil geladen: {id} (#{cnt})";
+                AppendLiveLog($"Flash-Profil: ID={id}, LZ={lz} inc, Stufe {ls}, Flash-Zyklen={cnt}");
+                return;
+            }
+
+            if (msg.StartsWith("CFG_SAVED:", StringComparison.Ordinal))
+            {
+                string payload = msg.Substring(10).Trim();
+                TxtCfgFlashStatus.Text = "Erfolgreich gespeichert!";
+                TxtStatus.Text = "Flash gespeichert: " + payload;
+                AppendLiveLog("Flash gespeichert: " + payload);
+                return;
+            }
+
+            if (msg.StartsWith("CFG_SAVE_ERR", StringComparison.Ordinal))
+            {
+                TxtCfgFlashStatus.Text = "Fehler beim Speichern!";
+                TxtStatus.Text = "Flash-Speichern fehlgeschlagen!";
+                AppendLiveLog("Flash-Speicherfehler!");
+                return;
+            }
+
+            if (msg.StartsWith("CFG_SET:", StringComparison.Ordinal))
+            {
+                TxtStatus.Text = "Profil im RAM aktiviert";
+                AppendLiveLog("RX " + msg);
+                return;
+            }
+
+            if (msg.StartsWith("CFG_DEFAULT:", StringComparison.Ordinal))
+            {
+                TxtStatus.Text = "Werkseinstellungen geladen";
+                AppendLiveLog("RX Werkseinstellungen aktiv");
+                SendCommand("CFG?");
                 return;
             }
 
@@ -1158,6 +1254,11 @@ namespace MnpControl
             BtnPidLoad.IsEnabled           = true;
             BtnHybridTuning.IsEnabled      = isConnected;
             BtnExportTrace.IsEnabled       = isConnected && !isRunning;
+            BtnCfgRead.IsEnabled           = isConnected;
+            BtnCfgApply.IsEnabled          = isConnected;
+            BtnCfgSave.IsEnabled           = isConnected && !isRunning;
+            BtnProfileA.IsEnabled          = isConnected;
+            BtnProfileB.IsEnabled          = isConnected;
         }
 
         private static string NormalizeDecimalText(string value)
@@ -2204,6 +2305,62 @@ namespace MnpControl
             TxtPidKdNew.Text = preset.Kd;
             TxtStatus.Text = $"Preset geladen: {preset.Name}";
             AppendLiveLog("Preset " + preset.Name);
+        }
+
+        private void BtnProfileA_Click(object sender, RoutedEventArgs e)
+        {
+            TxtCfgCarriageId.Text = "SCHLITTEN-A";
+            TxtCfgLandingMargin.Text = "60";
+            if (CmbCfgLandingSpeed.Items.Count >= 4)
+            {
+                CmbCfgLandingSpeed.SelectedIndex = 3; // Stufe 4 (8 Inc/ms)
+            }
+            TxtCfgFlashStatus.Text = "Preset gewaehlt (ungespeichert)";
+            AppendLiveLog("Preset Schlitten A gewaehlt (LZ=60 inc, Stufe 4)");
+        }
+
+        private void BtnProfileB_Click(object sender, RoutedEventArgs e)
+        {
+            TxtCfgCarriageId.Text = "SCHLITTEN-B";
+            TxtCfgLandingMargin.Text = "150";
+            if (CmbCfgLandingSpeed.Items.Count >= 3)
+            {
+                CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (4 Inc/ms)
+            }
+            TxtCfgFlashStatus.Text = "Preset gewaehlt (ungespeichert)";
+            AppendLiveLog("Preset Schlitten B / Standard gewaehlt (LZ=150 inc, Stufe 3)");
+        }
+
+        private void BtnCfgRead_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommand("CMD:GET_CONFIG");
+            TxtStatus.Text = "Lese Flash-Konfiguration...";
+        }
+
+        private void BtnCfgApply_Click(object sender, RoutedEventArgs e)
+        {
+            string id = TxtCfgCarriageId.Text.Trim();
+            if (string.IsNullOrEmpty(id)) id = "CUSTOM";
+            if (!int.TryParse(TxtCfgLandingMargin.Text.Trim(), out int lz) || lz < 10 || lz > 1000)
+            {
+                MessageBox.Show("Landebahn-Puffer muss zwischen 10 und 1000 Inkrementen liegen.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            int ls = CmbCfgLandingSpeed.SelectedIndex + 1;
+            if (ls < 1 || ls > 16) ls = 3;
+
+            string cmd = $"CMD:SET_CONFIG:ID={id};LZ={lz};LS={ls}";
+            SendCommand(cmd);
+            TxtStatus.Text = $"Profil angewendet: {id} (LZ={lz}, LS={ls})";
+            TxtCfgFlashStatus.Text = "Im RAM angewendet (ungespeichert)";
+        }
+
+        private void BtnCfgSave_Click(object sender, RoutedEventArgs e)
+        {
+            BtnCfgApply_Click(sender, e);
+            SendCommand("CMD:SAVE_CONFIG");
+            TxtStatus.Text = "Speichere in Flash Sektor 7...";
+            TxtCfgFlashStatus.Text = "Speichere in Flash...";
         }
     }
 }
