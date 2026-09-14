@@ -790,8 +790,11 @@ int main(void)
 						(long)z_ax_no_pos,
 						(unsigned long)b_stats.contact_travel_inc,
 						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)));
-					uart_send_text(stats_msg, 100);
+
+					/* Zuerst alle Einzelzyklen senden, damit die Summary-Auswertung
+					 * im Terminal/GUI chronologisch ganz unten (am Ende) steht */
 					TestRun_DumpCyclesUART();
+					uart_send_text(stats_msg, 100);
 				} else {
 					char stats_msg[450];
 					uint32_t time_min = stats.test_time_ms / 60000u;

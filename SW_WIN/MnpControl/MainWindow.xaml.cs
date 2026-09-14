@@ -53,6 +53,7 @@ namespace MnpControl
         private const int LiveLogMaxLines = 200;
         private readonly Queue<string> _liveLogLines = new Queue<string>(LiveLogMaxLines);
         private readonly Queue<string> _testSummaryLines = new Queue<string>(8);
+        private string? _cachedTestBSummaryBlock = null;
         private bool _isTraceReceiving = false;
         private readonly List<string> _traceLines = new List<string>(2050);
 
@@ -837,12 +838,25 @@ namespace MnpControl
         private void AppendTestBLog(string line)
         {
             if (string.IsNullOrWhiteSpace(line)) return;
-            while (_testSummaryLines.Count >= 20)
+            while (_testSummaryLines.Count >= 1000)
             {
                 _testSummaryLines.Dequeue();
             }
             _testSummaryLines.Enqueue(line);
-            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            RenderTestSummaryText();
+        }
+
+        private void RenderTestSummaryText()
+        {
+            if (string.IsNullOrEmpty(_cachedTestBSummaryBlock))
+            {
+                TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
+            }
+            else
+            {
+                TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines)
+                                      + Environment.NewLine + _cachedTestBSummaryBlock;
+            }
             TxtTestSummary.ScrollToEnd();
         }
 
@@ -888,46 +902,45 @@ namespace MnpControl
             float.TryParse(range, NumberStyles.Float, CultureInfo.InvariantCulture, out float rangeVal);
             int.TryParse(done, out int doneVal);
 
-            while (_testSummaryLines.Count >= 25) _testSummaryLines.Dequeue();
-
+            List<string> summaryLines = new List<string>(16);
             string sep = new string('=', 46);
-            _testSummaryLines.Enqueue(sep);
-            _testSummaryLines.Enqueue($"=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
-            _testSummaryLines.Enqueue($"Zyklen:              {done} / {cycles}");
+            summaryLines.Add(sep);
+            summaryLines.Add("=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
+            summaryLines.Add($"Zyklen:              {done} / {cycles}");
             if (!string.IsNullOrEmpty(timeMsStr) && float.TryParse(timeMsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float timeMs) && timeMs > 0)
             {
                 float timeSec = timeMs / 1000.0f;
                 float freq = (doneVal > 0 && timeSec > 0.05f) ? (doneVal / timeSec) : 0.0f;
                 float msPerCycle = (freq > 0.0f) ? (1000.0f / freq) : 0.0f;
-                _testSummaryLines.Enqueue($"Gesamtdauer:         {timeSec:F2} s ({timeMs:F0} ms)");
+                summaryLines.Add($"Gesamtdauer:         {timeSec:F2} s ({timeMs:F0} ms)");
                 if (freq > 0.0f)
                 {
-                    _testSummaryLines.Enqueue($"Geschwindigkeit:     {freq:F1} Takte/s (ca. {msPerCycle:F0} ms/Takt)");
+                    summaryLines.Add($"Geschwindigkeit:     {freq:F1} Takte/s (ca. {msPerCycle:F0} ms/Takt)");
                 }
             }
-            _testSummaryLines.Enqueue($"Start-Referenz (Z0): {zRef} inc");
-            _testSummaryLines.Enqueue($"Niedrigster Wert:    {zMin} inc (Delta: {deltaMin} inc)");
-            _testSummaryLines.Enqueue($"Höchster Wert:       {zMax} inc (Delta: +{deltaMax} inc)");
-            _testSummaryLines.Enqueue($"STREUUNG / SPANNE:   {range} inc (±{rangeVal / 2.0f:F1} inc)");
-            _testSummaryLines.Enqueue($"Mittelwert:          {mean} inc");
-            _testSummaryLines.Enqueue($"Sensor-Standby:      {baselineV} V (Trigger: {trigV} V)");
+            summaryLines.Add($"Start-Referenz (Z0): {zRef} inc");
+            summaryLines.Add($"Niedrigster Wert:    {zMin} inc (Delta: {deltaMin} inc)");
+            summaryLines.Add($"Höchster Wert:       {zMax} inc (Delta: +{deltaMax} inc)");
+            summaryLines.Add($"STREUUNG / SPANNE:   {range} inc (±{rangeVal / 2.0f:F1} inc)");
+            summaryLines.Add($"Mittelwert:          {mean} inc");
+            summaryLines.Add($"Sensor-Standby:      {baselineV} V (Trigger: {trigV} V)");
             if (!string.IsNullOrEmpty(contactTravelStr) && !string.IsNullOrEmpty(peakV))
             {
-                _testSummaryLines.Enqueue($"Drucksensor-Bereich: Federweg {contactTravelStr} inc | U_peak: {peakV} V");
+                summaryLines.Add($"Drucksensor-Bereich: Federweg {contactTravelStr} inc | U_peak: {peakV} V");
             }
             if (!string.IsNullOrEmpty(vMax) && float.TryParse(vMax, NumberStyles.Float, CultureInfo.InvariantCulture, out float vMaxVal))
             {
                 float mPerSec = vMaxVal / 1000.0f;
-                _testSummaryLines.Enqueue($"Max. Geschw. (IST):  {vMaxVal:F0} mm/s (ca. {mPerSec:F2} m/s)");
+                summaryLines.Add($"Max. Geschw. (IST):  {vMaxVal:F0} mm/s (ca. {mPerSec:F2} m/s)");
             }
             if (!string.IsNullOrEmpty(aMax) && !string.IsNullOrEmpty(aBrake))
             {
-                _testSummaryLines.Enqueue($"Spitzen-Beschl.:     +{aMax} g | Bremsen: -{aBrake} g");
+                summaryLines.Add($"Spitzen-Beschl.:     +{aMax} g | Bremsen: -{aBrake} g");
             }
-            _testSummaryLines.Enqueue(sep);
+            summaryLines.Add(sep);
 
-            TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
-            TxtTestSummary.ScrollToEnd();
+            _cachedTestBSummaryBlock = string.Join(Environment.NewLine, summaryLines);
+            RenderTestSummaryText();
 
             OverlayTestInProgress.Visibility = Visibility.Collapsed;
             TxtScatterStatsLive.Text = $"Zyklen: {done}/{cycles} | Spanne: {range} inc (±{rangeVal / 2.0f:F1}) | Mittel: {mean} inc";
@@ -1465,6 +1478,7 @@ namespace MnpControl
             // 2. Summary & Statistik leeren
             TxtTestSummary.Clear();
             _testSummaryLines.Clear();
+            _cachedTestBSummaryBlock = null;
             _scatterPoints.Clear();
             RedrawScatterCanvas();
             TxtScatterStatsLive.Text = "Warte auf Messwerte...";
@@ -1474,6 +1488,7 @@ namespace MnpControl
         {
             TxtTestSummary.Clear();
             _testSummaryLines.Clear();
+            _cachedTestBSummaryBlock = null;
             _scatterPoints.Clear();
             RedrawScatterCanvas();
             TxtScatterStatsLive.Text = "Warte auf Messwerte...";
@@ -1594,6 +1609,7 @@ namespace MnpControl
             _isTestARunning = true;
             _expectedCycles = (int)cycles;
             _testSummaryLines.Clear();
+            _cachedTestBSummaryBlock = null;
             _testSummaryLines.Enqueue($"=== TEST A GESTARTET ({cycles} Zyklen) ===");
             TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
             OverlayTestInProgress.Visibility = Visibility.Visible;
@@ -1633,6 +1649,7 @@ namespace MnpControl
             _lastCalibBaseV = null;
 
             _testSummaryLines.Clear();
+            _cachedTestBSummaryBlock = null;
             _testSummaryLines.Enqueue($"=== TEST B GESTARTET: ANTASTUNG & STREUUNG ({cycles} Zyklen) ===");
             _testSummaryLines.Enqueue($"Parameter: Druckmotor={dmot:F2}V, Trigger-Delta={deltaMv}mV");
             _testSummaryLines.Enqueue("Fahre 1. Referenz-Antastung an...");
@@ -1905,12 +1922,21 @@ namespace MnpControl
                 AppendLiveLog($"[MIMOT] Prüfprotokoll generiert: {statusText}");
                 AppendLiveLog($"[MIMOT] Datei: {System.IO.Path.GetFileName(txtPath)}");
 
-                _testSummaryLines.Enqueue(new string('=', 46));
-                _testSummaryLines.Enqueue($"★ MIMOT TEST: {statusText}");
-                _testSummaryLines.Enqueue($"Protokoll: {System.IO.Path.GetFileName(txtPath)}");
-                _testSummaryLines.Enqueue(new string('=', 46));
-                TxtTestSummary.Text = string.Join(Environment.NewLine, _testSummaryLines);
-                TxtTestSummary.ScrollToEnd();
+                string mimotBanner = string.Join(Environment.NewLine,
+                    new string('=', 46),
+                    $"★ MIMOT TEST: {statusText}",
+                    $"Protokoll: {System.IO.Path.GetFileName(txtPath)}",
+                    new string('=', 46));
+
+                if (!string.IsNullOrEmpty(_cachedTestBSummaryBlock))
+                {
+                    _cachedTestBSummaryBlock += Environment.NewLine + mimotBanner;
+                }
+                else
+                {
+                    _testSummaryLines.Enqueue(mimotBanner);
+                }
+                RenderTestSummaryText();
 
                 var mbRes = MessageBox.Show(
                     $"Der MIMOT-Abnahmeprüflauf ist abgeschlossen!\n\n" +
