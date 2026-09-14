@@ -447,23 +447,6 @@
                                      Click="BtnSetZPos_Click"/>
                         </Grid>
 
-                        <!-- Speed Level Slider & Presets -->
-                        <TextBlock Text="Geschwindigkeit &amp; Prüf-Modus:" FontSize="11.5" Foreground="#475569" Margin="0,0,0,4"/>
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="BtnSpeedOriginal" Grid.Column="0" Content="Mimot (13)" Height="28" FontSize="11" Padding="2"
-                                    ToolTip="Stufe 13: Reales Mimot-Maschinentempo (ca. 3.3 Takte/s, 307ms/Takt)" Click="BtnSpeedPreset_Click" Tag="13"/>
-                            <Button x:Name="BtnSpeedStress" Grid.Column="2" Content="Stress (15)" Height="28" FontSize="11" Padding="2" FontWeight="SemiBold"
-                                    ToolTip="Stufe 15: Erhöhter Stresstest" Click="BtnSpeedPreset_Click" Tag="15"/>
-                            <Button x:Name="BtnSpeedMax" Grid.Column="4" Content="Max-Speed (16)" Height="28" FontSize="11" Padding="2"
-                                    ToolTip="Stufe 16: Maximales Tempo (ca. 8.2 Takte/s, 122ms/Takt)" Click="BtnSpeedPreset_Click" Tag="16"/>
-                        </Grid>
                         <TextBlock x:Name="TxtSpeedLevel" Text="Stufe: 13/16 (Mimot Maschine)" FontWeight="Bold" FontSize="12" Margin="0,4,0,2"/>
                         <Slider x:Name="SldSpeedLevel" Minimum="1" Maximum="16" Value="13" TickFrequency="1"
                                 IsSnapToTickEnabled="True" Height="26" VerticalAlignment="Center"
@@ -496,18 +479,10 @@
                 <!-- Schlitten-Profil Card (Flash Sektor 7) -->
                 <GroupBox Header="Nadelschlitten-Profil (Flash Sektor 7)">
                     <StackPanel Margin="2">
-                        <!-- Profil-Schnellauswahl -->
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="BtnProfileA" Grid.Column="0" Content="Schlitten A (Reibung)" Height="28" FontSize="11"
-                                    ToolTip="Schlitten A: Landebahn 60 inc, Stufe 4 (verhindert Steckenbleiben bei z=547)" Click="BtnProfileA_Click"/>
-                            <Button x:Name="BtnProfileB" Grid.Column="2" Content="Schlitten B / Std" Height="28" FontSize="11"
-                                    ToolTip="Schlitten B / Standard: Landebahn 150 inc, Stufe 3 (sanfter Standard)" Click="BtnProfileB_Click"/>
-                        </Grid>
+                        <!-- Profil-Schnellauswahl: DEFAULT mit Auto-Erkennung -->
+                        <Button x:Name="BtnProfileDefault" Content="DEFAULT (Auto-Erkennung)" Height="28" FontSize="11.5" FontWeight="Bold"
+                                Background="#F0FDF4" BorderBrush="#16A34A" Foreground="#15803D" Margin="0,0,0,6"
+                                ToolTip="Standard-Profil laden: Aktiviert die automatische Schlittenerkennung (LZ: 150 inc, Stufe 3)" Click="BtnProfileDefault_Click"/>
 
                         <!-- Parameter-Grid -->
                         <Grid Margin="0,2,0,4">

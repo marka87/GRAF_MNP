@@ -597,8 +597,15 @@ namespace MnpControl
 
             if (msg.StartsWith("CFG_DEFAULT:", StringComparison.Ordinal))
             {
-                TxtStatus.Text = "Werkseinstellungen geladen";
-                AppendLiveLog("RX Werkseinstellungen aktiv");
+                TxtCfgCarriageId.Text = "DEFAULT";
+                TxtCfgLandingMargin.Text = "150";
+                if (CmbCfgLandingSpeed.Items.Count >= 3)
+                {
+                    CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (Standard)
+                }
+                TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
+                TxtStatus.Text = "DEFAULT-Profil aktiv (Auto-Erkennung)";
+                AppendLiveLog("DEFAULT-Profil im STM32 aktiviert (Auto-Erkennung aktiv)");
                 SendCommand("CFG?");
                 return;
             }
@@ -1300,8 +1307,7 @@ namespace MnpControl
             BtnCfgRead.IsEnabled           = isConnected;
             BtnCfgApply.IsEnabled          = isConnected;
             BtnCfgSave.IsEnabled           = isConnected && !isRunning;
-            BtnProfileA.IsEnabled          = isConnected;
-            BtnProfileB.IsEnabled          = isConnected;
+            BtnProfileDefault.IsEnabled    = isConnected;
         }
 
         private static string NormalizeDecimalText(string value)
@@ -1547,15 +1553,6 @@ namespace MnpControl
             int level = (int)Math.Round(e.NewValue);
             TxtSpeedLevel.Text = $"Stufe: {level}/16 ({GetSpeedDescription(level)})";
             SendCommand($"V={level}");
-        }
-
-        private void BtnSpeedPreset_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.Tag is string tagStr && int.TryParse(tagStr, out int lvl))
-            {
-                SldSpeedLevel.Value = lvl;
-                AppendLiveLog($"[TEMPO] Stufe {lvl} gewählt ({btn.Content})");
-            }
         }
 
         private static string GetSpeedDescription(int level) => level switch
@@ -2350,28 +2347,18 @@ namespace MnpControl
             AppendLiveLog("Preset " + preset.Name);
         }
 
-        private void BtnProfileA_Click(object sender, RoutedEventArgs e)
+        private void BtnProfileDefault_Click(object sender, RoutedEventArgs e)
         {
-            TxtCfgCarriageId.Text = "SCHLITTEN-A";
-            TxtCfgLandingMargin.Text = "60";
-            if (CmbCfgLandingSpeed.Items.Count >= 4)
-            {
-                CmbCfgLandingSpeed.SelectedIndex = 3; // Stufe 4 (8 Inc/ms)
-            }
-            TxtCfgFlashStatus.Text = "Preset gewaehlt (ungespeichert)";
-            AppendLiveLog("Preset Schlitten A gewaehlt (LZ=60 inc, Stufe 4)");
-        }
-
-        private void BtnProfileB_Click(object sender, RoutedEventArgs e)
-        {
-            TxtCfgCarriageId.Text = "SCHLITTEN-B";
+            TxtCfgCarriageId.Text = "DEFAULT";
             TxtCfgLandingMargin.Text = "150";
             if (CmbCfgLandingSpeed.Items.Count >= 3)
             {
-                CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (4 Inc/ms)
+                CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (Standard)
             }
-            TxtCfgFlashStatus.Text = "Preset gewaehlt (ungespeichert)";
-            AppendLiveLog("Preset Schlitten B / Standard gewaehlt (LZ=150 inc, Stufe 3)");
+            SendCommand("CMD:LOAD_DEFAULT");
+            TxtStatus.Text = "Lade DEFAULT-Profil...";
+            TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
+            AppendLiveLog("[PROFIL] DEFAULT-Profil geladen (Auto-Erkennung fuer Test B aktiv)");
         }
 
         private void BtnCfgRead_Click(object sender, RoutedEventArgs e)
