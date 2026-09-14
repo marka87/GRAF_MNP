@@ -690,8 +690,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  /* Relocate Vector Table to Sector 1 (0x08008000) for Custom Bootloader compatibility */
-  SCB->VTOR = 0x08008000U;
+
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/

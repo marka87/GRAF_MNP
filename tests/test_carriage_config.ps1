@@ -165,8 +165,8 @@ Assert-Equal $bootOriginMatch.Groups[2].Value.ToUpper() "32K" "Bootloader Sektor
 
 $appOriginMatch = [regex]::Match($appLd, 'FLASH\s*\(rx\)\s*:\s*ORIGIN\s*=\s*(0x[0-9a-fA-F]+),\s*LENGTH\s*=\s*(\d+K)')
 Assert-Equal $appOriginMatch.Success $true "Applikation Linker-Skript Flash-Definition gefunden"
-Assert-Equal ([uint32]$appOriginMatch.Groups[1].Value) 0x08008000 "Applikation Origin muss 0x08008000 (Sektor 1) sein"
-Assert-Equal $appOriginMatch.Groups[2].Value.ToUpper() "736K" "Applikation Flash-Laenge muss 736 KB betragen"
+Assert-Equal ([uint32]$appOriginMatch.Groups[1].Value) 0x08000000 "Applikation Origin muss 0x08000000 (Direkt-Boot) sein"
+Assert-Equal $appOriginMatch.Groups[2].Value.ToUpper() "768K" "Applikation Flash-Laenge muss 768 KB betragen (Sektor 7 geschuetzt)"
 
 # 10. Phase 3: Factory Image Integritaet
 $factoryBinPath = Join-Path $PSScriptRoot "..\Software\GRAF_FACTORY_ALL.bin"

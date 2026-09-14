@@ -45,7 +45,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 320K
-  FLASH    (rx)    : ORIGIN = 0x08008000,   LENGTH = 736K /* Sektoren 1-6 (736 KB). Sektor 0 (32 KB @ 0x08000000) ist Bootloader, Sektor 7 (256 KB @ 0x080C0000) ist EEPROM */
+  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 768K /* Sektoren 0-6 (768 KB). Sektor 7 (256 KB @ 0x080C0000) ist reserviert fuer EEPROM */
 }
 
 /* Sections */
