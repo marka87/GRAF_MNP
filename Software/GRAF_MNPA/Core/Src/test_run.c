@@ -138,6 +138,15 @@ static uint32_t               s_ds_filter_acc = 0;
 static uint32_t               s_fast_cycles_start_tick = 0;
 static bool                   s_no_sen_tripped_in_cycle = false;
 
+/* Landebahn-Diagnose & Auto-Adaption (Variante A) */
+static bool                   s_landing_diag_active = false;
+static uint32_t               s_landing_start_tick = 0;
+static uint32_t               s_landing_stall_ticks = 0;
+static int32_t                s_landing_max_lag = 0;
+static int32_t                s_landing_last_z = 0;
+static uint16_t               s_auto_override_lz = 0;
+static uint8_t                s_auto_override_ls = 0;
+
 /* RAM-Puffer fuer Zyklus-Deltas (Streuungs-Diagramm): waehrend der schnellen
  * Zyklen wird pro Kontakt nur der Delta-Wert (2 Byte) gespeichert - KEIN
  * UART-Call im Zeit-kritischen Regelkreis (das kostete zuvor reale ms pro
@@ -256,6 +265,13 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_calib_plateau_ticks = 0;
     s_calib_settle_start_tick = 0;
     s_final_brake_start_tick = 0;
+    s_landing_diag_active = false;
+    s_landing_start_tick  = 0;
+    s_landing_stall_ticks = 0;
+    s_landing_max_lag     = 0;
+    s_landing_last_z      = 0;
+    s_auto_override_lz    = 0;
+    s_auto_override_ls    = 0;
 
     memset(&s_stats, 0, sizeof(s_stats));
     s_stats.total_cycles      = num_cycles;
@@ -375,7 +391,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
 
     const CarriageConfig_t *cfg = ConfigFlash_GetActive();
-    uint16_t landing_margin = (cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u;
+    uint16_t landing_margin = (s_auto_override_lz > 0) ? s_auto_override_lz : ((cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u);
     uint8_t  brake_factor   = (cfg->braking_dist_factor > 0) ? cfg->braking_dist_factor : 80u;
 
     int32_t top_zone     = (int32_t)z_ax_no_pos - get_reversal_blanking_margin(s_fast_speed_level);
@@ -602,7 +618,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 uint8_t mid_speed = (s_fast_speed_level > 6u) ? 6u : s_fast_speed_level;
                 Z_PID_SetSpeedLevel(mid_speed);
             } else {
-                uint8_t landing_speed = (cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED;
+                uint8_t landing_speed = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
                 Z_PID_SetSpeedLevel(landing_speed);
             }
 
@@ -610,6 +626,27 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             if (down_target < (int32_t)z_encoder_start) down_target = (int32_t)z_encoder_start;
             update_target_range(down_target);
             Z_Target_SetRequestedDirect((uint32_t)down_target);
+
+            /* Landebahn-Diagnose: Erfasst Stillstand (Haftreibung) und Schleppfehler auf der Landebahn */
+            if (z_pos <= landing_zone && z_pos > contact_zone) {
+                if (!s_landing_diag_active) {
+                    s_landing_diag_active = true;
+                    s_landing_start_tick  = HAL_GetTick();
+                    s_landing_stall_ticks = 0;
+                    s_landing_max_lag     = 0;
+                    s_landing_last_z      = z_pos;
+                } else {
+                    if (z_pos == s_landing_last_z) {
+                        s_landing_stall_ticks++;
+                    } else {
+                        s_landing_last_z = z_pos;
+                    }
+                    int32_t lag = (down_target > z_pos) ? (down_target - z_pos) : (z_pos - down_target);
+                    if (lag > s_landing_max_lag) {
+                        s_landing_max_lag = lag;
+                    }
+                }
+            }
 
             /* Freiflug-Absicherung für Stufe 15 & 16 (Ansatz 3):
              * Flankenüberwachung erst im Nahbereich scharfschalten (z_pos <= collision_zone),
@@ -624,6 +661,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 if (ds_value >= collision_threshold) {
                     s_ds_accel_fault_debounce++;
                     if (s_ds_accel_fault_debounce >= 20u) {
+                        s_landing_diag_active = false;
                         s_stats.ds_errors++;
                         snprintf(s_error_msg, sizeof(s_error_msg), "Beschl. DOWN: %u @ %ld", ds_value, (long)z_pos);
                         TestRun_RestoreSpeedLevel();
@@ -638,6 +676,37 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 s_ds_accel_fault_debounce = 0;
                 if (ds_value >= s_ds_trigger_threshold) {
                     int32_t touch_pos = z_pos;
+
+                    /* Landebahn-Diagnose & Selbsteinmessung in Zyklus 1 abschliessen */
+                    if (s_landing_diag_active) {
+                        s_landing_diag_active = false;
+                        uint32_t landing_time = (s_landing_start_tick > 0) ? (HAL_GetTick() - s_landing_start_tick) : 0u;
+
+                        if (s_current_cycle == 0) {
+                            s_scatter_stats.landing_time_ms   = (uint16_t)landing_time;
+                            s_scatter_stats.stiction_stall_ms = (uint16_t)s_landing_stall_ticks;
+                            s_scatter_stats.max_landing_lag   = (uint16_t)s_landing_max_lag;
+
+                            /* Kriterium Haftreibung (Schlitten A):
+                             * Stillstand > 10 ms ODER Landedauer > 80 ms (Normalfahrt dauert ca. 35-50 ms) */
+                            if (s_landing_stall_ticks > 10u || landing_time > 80u) {
+                                s_scatter_stats.carriage_type = 2u; /* Schlitten A (Haftreibung) */
+
+                                /* Wenn DEFAULT-Profil aktiv: Automatisch auf Stufe 4 / LZ 60 adaptieren */
+                                if (strcmp(cfg->carriage_id, "DEFAULT") == 0) {
+                                    s_auto_override_lz = 60u;
+                                    s_auto_override_ls = 4u;
+                                    s_scatter_stats.auto_adapted = true;
+                                }
+                            } else {
+                                if (strcmp(cfg->carriage_id, "SCHLITTEN-A") == 0 || cfg->landing_zone_margin <= 80u) {
+                                    s_scatter_stats.carriage_type = 2u; /* Schlitten A (kompensiert) */
+                                } else {
+                                    s_scatter_stats.carriage_type = 1u; /* Schlitten B (Leichtgaengig) */
+                                }
+                            }
+                        }
+                    }
                     int32_t delta = touch_pos - s_scatter_stats.z_ref_pos;
                     s_scatter_stats.last_delta = delta;
                     if (touch_pos < s_scatter_stats.z_min_pos) s_scatter_stats.z_min_pos = touch_pos;

@@ -1033,6 +1033,49 @@ namespace MnpControl
             {
                 summaryLines.Add($"Spitzen-Beschl.:     +{aMax} g | Bremsen: -{aBrake} g");
             }
+
+            if (values.TryGetValue("ns_type", out string? nsTypeStr))
+            {
+                int.TryParse(nsTypeStr, out int nsType);
+                values.TryGetValue("ns_stall", out string? nsStall);
+                values.TryGetValue("ns_time", out string? nsTime);
+                values.TryGetValue("ns_auto", out string? nsAuto);
+                values.TryGetValue("ns_id", out string? nsId);
+                values.TryGetValue("ns_lz", out string? nsLz);
+                values.TryGetValue("ns_ls", out string? nsLs);
+
+                summaryLines.Add("----------------------------------------------");
+                summaryLines.Add("Nadelschlitten-Diagnose (Auto-Erkennung):");
+                if (nsType == 2)
+                {
+                    summaryLines.Add("Erkannter Typ:       Schlitten A (Haftreibung)");
+                    summaryLines.Add($"Stiction-Verzug:     {nsStall ?? "0"} ms | Landedauer: {nsTime ?? "0"} ms");
+                    if (nsAuto == "1")
+                    {
+                        summaryLines.Add($"Auto-Adaption:       AKTIV -> LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"}");
+                        if (!string.IsNullOrEmpty(nsLz)) TxtCfgLandingMargin.Text = nsLz;
+                        if (int.TryParse(nsLs, out int lsVal) && lsVal >= 1 && lsVal <= CmbCfgLandingSpeed.Items.Count)
+                        {
+                            CmbCfgLandingSpeed.SelectedIndex = lsVal - 1;
+                        }
+                        TxtCfgFlashStatus.Text = "Auto-adaptiert (ungespeichert)";
+                    }
+                    else
+                    {
+                        summaryLines.Add("Empfehlung:          Profil SCHLITTEN-A waehlen (LZ=60 inc, Stufe 4)");
+                    }
+                }
+                else if (nsType == 1)
+                {
+                    summaryLines.Add("Erkannter Typ:       Schlitten B / Standard (Leichtgaengig)");
+                    summaryLines.Add($"Stiction-Verzug:     0 ms (optimal) | Landedauer: {nsTime ?? "0"} ms");
+                }
+                else
+                {
+                    summaryLines.Add($"Lauf-Verhalten:      Landedauer {nsTime ?? "0"} ms | Verzug: {nsStall ?? "0"} ms");
+                }
+                summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
+            }
             summaryLines.Add(sep);
 
             _cachedTestBSummaryBlock = string.Join(Environment.NewLine, summaryLines);

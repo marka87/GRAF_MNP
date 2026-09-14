@@ -71,4 +71,34 @@ $profileB = @{ ID = "SCHLITTEN-B"; LZ = 150; LS = 3 }
 Assert-Equal ($profileA.LZ -lt $profileB.LZ) $true "Schlitten A Landebahn muss kuerzer sein als Schlitten B (60 < 150)"
 Assert-Equal ($profileA.LS -gt $profileB.LS) $true "Schlitten A Landegeschwindigkeit muss hoeher sein als Schlitten B (4 > 3 gegen Stiction)"
 
-Write-Host "`nALL 10 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
+# 5. Variante A: Auto-Erkennung Kriterien
+function Classify-Carriage($stallMs, $landingTimeMs) {
+    if ($stallMs -gt 10 -or $landingTimeMs -gt 80) {
+        return 2 # Schlitten A
+    } else {
+        return 1 # Schlitten B
+    }
+}
+
+Assert-Equal (Classify-Carriage 178 215) 2 "Stall 178 ms & Landedauer 215 ms muss als Schlitten A klassifiziert werden"
+Assert-Equal (Classify-Carriage 0 38) 1 "Stall 0 ms & Landedauer 38 ms muss als Schlitten B klassifiziert werden"
+
+# 6. TEST_B_SUMMARY Telegramm mit Nadelschlitten-Diagnose-Feldern
+$summaryMsg = "TEST_B_SUMMARY:status=OK,cycles=10,done=10,z_ref=495,z_min=495,z_max=499,delta_min=0,delta_max=4,range=4,mean=498.4,baseline_v=0.021,trig_v=1.520,time_ms=1450,v_max=508.0,a_max=4.7,a_brake=4.3,no_sensor_pos=3204,contact_travel=6,peak_v=4.282,ns_type=2,ns_stall=178,ns_time=215,ns_lag=24,ns_auto=1,ns_id=DEFAULT,ns_lz=60,ns_ls=4"
+$sPayload = $summaryMsg.Substring("TEST_B_SUMMARY:".Length).Trim()
+$sPairs = $sPayload.Split(',')
+$sDict = @{}
+foreach ($pair in $sPairs) {
+    $p = $pair.Split('=')
+    if ($p.Length -eq 2) {
+        $sDict[$p[0].Trim()] = $p[1].Trim()
+    }
+}
+
+Assert-Equal ([int]$sDict["ns_type"]) 2 "Summary muss ns_type=2 enthalten"
+Assert-Equal ([int]$sDict["ns_stall"]) 178 "Summary muss ns_stall=178 enthalten"
+Assert-Equal ([int]$sDict["ns_auto"]) 1 "Summary muss ns_auto=1 enthalten"
+Assert-Equal ([int]$sDict["ns_lz"]) 60 "Summary muss ns_lz=60 enthalten"
+Assert-Equal ([int]$sDict["ns_ls"]) 4 "Summary muss ns_ls=4 enthalten"
+
+Write-Host "`nALL 17 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green

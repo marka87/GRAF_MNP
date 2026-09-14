@@ -562,21 +562,22 @@ void Process_UART_Command(const char *command) {
 				for (char *c = key; *c; c++) {
 					if (*c >= 'a' && *c <= 'z') *c -= ('a' - 'A');
 				}
+				float f_val = 0.0f;
 				if (strcmp(key, "ID") == 0) {
 					strncpy(cfg->carriage_id, val, sizeof(cfg->carriage_id) - 1);
 					cfg->carriage_id[sizeof(cfg->carriage_id) - 1] = '\0';
-				} else if (strcmp(key, "PKP") == 0) {
-					parse_positive_decimal(val, &cfg->pos_kp);
-				} else if (strcmp(key, "PKI") == 0) {
-					parse_positive_decimal(val, &cfg->pos_ki);
-				} else if (strcmp(key, "PKD") == 0) {
-					parse_positive_decimal(val, &cfg->pos_kd);
-				} else if (strcmp(key, "VKP") == 0) {
-					parse_positive_decimal(val, &cfg->vel_kp);
-				} else if (strcmp(key, "VKI") == 0) {
-					parse_positive_decimal(val, &cfg->vel_ki);
-				} else if (strcmp(key, "VKD") == 0) {
-					parse_positive_decimal(val, &cfg->vel_kd);
+				} else if (strcmp(key, "PKP") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->pos_kp = f_val;
+				} else if (strcmp(key, "PKI") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->pos_ki = f_val;
+				} else if (strcmp(key, "PKD") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->pos_kd = f_val;
+				} else if (strcmp(key, "VKP") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->vel_kp = f_val;
+				} else if (strcmp(key, "VKI") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->vel_ki = f_val;
+				} else if (strcmp(key, "VKD") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->vel_kd = f_val;
 				} else if (strcmp(key, "LZ") == 0) {
 					cfg->landing_zone_margin = (uint16_t)strtoul(val, NULL, 10);
 				} else if (strcmp(key, "LS") == 0) {
@@ -587,8 +588,8 @@ void Process_UART_Command(const char *command) {
 					cfg->z_ax_no_pos = (int32_t)strtol(val, NULL, 10);
 				} else if (strcmp(key, "TMV") == 0) {
 					cfg->ds_trigger_delta_mv = (uint16_t)strtoul(val, NULL, 10);
-				} else if (strcmp(key, "DMOT") == 0) {
-					parse_positive_decimal(val, &cfg->d_mot_voltage);
+				} else if (strcmp(key, "DMOT") == 0 && parse_positive_decimal(val, &f_val)) {
+					cfg->d_mot_voltage = f_val;
 				}
 			}
 			tok = strtok(NULL, ";,");
@@ -857,9 +858,9 @@ int main(void)
 				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
 					TestBScatterStats_t b_stats;
 					TestRun_GetScatterStats(&b_stats);
-					char stats_msg[512];
+					char stats_msg[640];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f,ns_type=%u,ns_stall=%u,ns_time=%u,ns_lag=%u,ns_auto=%u,ns_id=%s,ns_lz=%u,ns_ls=%u\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -873,7 +874,15 @@ int main(void)
 						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
 						(long)z_ax_no_pos,
 						(unsigned long)b_stats.contact_travel_inc,
-						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)));
+						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)),
+						(unsigned)b_stats.carriage_type,
+						(unsigned)b_stats.stiction_stall_ms,
+						(unsigned)b_stats.landing_time_ms,
+						(unsigned)b_stats.max_landing_lag,
+						(unsigned)(b_stats.auto_adapted ? 1 : 0),
+						ConfigFlash_GetActive()->carriage_id,
+						(unsigned)ConfigFlash_GetActive()->landing_zone_margin,
+						(unsigned)ConfigFlash_GetActive()->landing_speed_level);
 
 					/* Zuerst alle Einzelzyklen senden, damit die Summary-Auswertung
 					 * im Terminal/GUI chronologisch ganz unten (am Ende) steht */

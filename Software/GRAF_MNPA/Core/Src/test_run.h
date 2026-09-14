@@ -73,6 +73,11 @@ typedef struct {
     float    max_velocity_mms;   /* Max. Ist-Geschwindigkeit in mm/s          */
     float    max_accel_g;        /* Max. Beschleunigung in g                  */
     float    max_decel_g;        /* Max. Verzögerung / Bremsung in g          */
+    uint8_t  carriage_type;      /* 0: Unbekannt, 1: Schlitten B (Leichtgaengig), 2: Schlitten A (Haftreibung) */
+    uint16_t landing_time_ms;    /* Gemessene Landebahn-Dauer bis Kontakt */
+    uint16_t stiction_stall_ms;  /* Gemessene Stillstandszeit durch Haftreibung */
+    uint16_t max_landing_lag;    /* Max. Schleppfehler auf der Landebahn in inc */
+    bool     auto_adapted;       /* True wenn Parameter fuer Folgewege automatisch angepasst wurden */
 } TestBScatterStats_t;
 
 typedef struct {
