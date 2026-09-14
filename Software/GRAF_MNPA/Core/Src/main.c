@@ -701,7 +701,6 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI4_Init();
   MX_ADC1_Init();
-  HAL_ADC_Start(&hadc1); /* Continuous sampling runs autonomously in hardware at 1.0 us */
   /* USER CODE BEGIN 2 */
 
 	/* GPIO Enables Voltages */
@@ -1136,8 +1135,8 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
