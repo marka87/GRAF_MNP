@@ -67,16 +67,10 @@ void uart_send_text(const char *text, uint32_t timeout);
 #define SPI4_DAC_SCK_GPIO_Port GPIOE
 #define DISP_A0_Pin GPIO_PIN_8
 #define DISP_A0_GPIO_Port GPIOB
-#define TIM3CH1_Pin GPIO_PIN_5
-#define TIM3CH1_GPIO_Port GPIOB
 #define SPI4_DAC_MISO_Pin GPIO_PIN_5
 #define SPI4_DAC_MISO_GPIO_Port GPIOE
 #define SPI4_DAC_MOSI_Pin GPIO_PIN_6
 #define SPI4_DAC_MOSI_GPIO_Port GPIOE
-#define TIM4CH2_Pin GPIO_PIN_7
-#define TIM4CH2_GPIO_Port GPIOB
-#define TIM4CH1_Pin GPIO_PIN_6
-#define TIM4CH1_GPIO_Port GPIOB
 #define RST_DISPLAY_Pin GPIO_PIN_15
 #define RST_DISPLAY_GPIO_Port GPIOG
 #define SPI2_DISP_MOSI_Pin GPIO_PIN_3
@@ -87,8 +81,6 @@ void uart_send_text(const char *text, uint32_t timeout);
 #define SPI2_DISP_NSS_GPIO_Port GPIOI
 #define EN_12V_Pin GPIO_PIN_7
 #define EN_12V_GPIO_Port GPIOC
-#define TIM3CH2_Pin GPIO_PIN_6
-#define TIM3CH2_GPIO_Port GPIOC
 #define EN_5V_Pin GPIO_PIN_7
 #define EN_5V_GPIO_Port GPIOF
 #define EN_G_Pin GPIO_PIN_10
