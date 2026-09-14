@@ -78,6 +78,10 @@ typedef struct {
     uint16_t stiction_stall_ms;  /* Gemessene Stillstandszeit durch Haftreibung */
     uint16_t max_landing_lag;    /* Max. Schleppfehler auf der Landebahn in inc */
     bool     auto_adapted;       /* True wenn Parameter fuer Folgewege automatisch angepasst wurden */
+    uint16_t stick_slip_delta_u_mv; /* Maximaler Spannungsanstieg gegen Haftreibung auf der Landebahn (in mV) */
+    uint16_t glide_friction_mv;     /* Mittlere kompensierte Motorspannung bei Freiflug-Konstantfahrt (in mV) */
+    uint8_t  bounce_count;          /* Erkannte Hebelprell-Einbrüche nach Erstkontakt */
+    uint8_t  mech_health_grade;     /* Mechanik-Gesundheitsampel: 1 = GRUEN, 2 = GELB, 3 = ROT */
 } TestBScatterStats_t;
 
 typedef struct {

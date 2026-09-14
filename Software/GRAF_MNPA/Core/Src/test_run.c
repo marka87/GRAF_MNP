@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <math.h>
 
 /* Extern-Deklarationen */
 extern ad5684_dac_t    dac;
@@ -147,6 +148,15 @@ static int32_t                s_landing_last_z = 0;
 static uint16_t               s_auto_override_lz = 0;
 static uint8_t                s_auto_override_ls = 0;
 
+/* Condition Monitoring (Phase 2): Stick-Slip, Gleitreibung, Hebelprellen */
+#define TEST_NEUTRAL_VOLTAGE          2.50f
+static uint32_t                       s_stick_slip_max_du_mv = 0;
+static uint32_t                       s_glide_u_sum_mv = 0;
+static uint32_t                       s_glide_u_count = 0;
+static uint8_t                        s_bounce_count = 0;
+static uint32_t                       s_contact_tick = 0;
+static bool                           s_contact_monitoring = false;
+
 /* RAM-Puffer fuer Zyklus-Deltas (Streuungs-Diagramm): waehrend der schnellen
  * Zyklen wird pro Kontakt nur der Delta-Wert (2 Byte) gespeichert - KEIN
  * UART-Call im Zeit-kritischen Regelkreis (das kostete zuvor reale ms pro
@@ -188,6 +198,7 @@ uint32_t TestRun_GetTriggerDeltaMv(void) {
 }
 
 void TestRun_RestoreSpeedLevel(void) {
+    Trace_Freeze();
     Trace_Stop();
     if (s_fast_speed_level >= 1u && s_fast_speed_level <= 16u) {
         Z_PID_SetSpeedLevel(s_fast_speed_level);
@@ -272,6 +283,12 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_landing_last_z      = 0;
     s_auto_override_lz    = 0;
     s_auto_override_ls    = 0;
+    s_stick_slip_max_du_mv = 0;
+    s_glide_u_sum_mv      = 0;
+    s_glide_u_count       = 0;
+    s_bounce_count        = 0;
+    s_contact_tick        = 0;
+    s_contact_monitoring  = false;
 
     memset(&s_stats, 0, sizeof(s_stats));
     s_stats.total_cycles      = num_cycles;
@@ -358,6 +375,18 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     int32_t z_pos = Encoder_GetPosition_Z_AXIS();
     int32_t z_target = (int32_t)Z_Target_GetRequested();
     uint16_t ds_value = read_filtered_ds();
+
+    /* Hebelprellen-Ueberwachung in den ersten 20 ms nach Kontakt */
+    if (s_contact_monitoring) {
+        if (HAL_GetTick() - s_contact_tick <= 20u) {
+            if (ds_value + 400u < s_ds_trigger_threshold) {
+                s_bounce_count++;
+                s_contact_monitoring = false; /* Ein Prell-Ereignis pro Kontakt erfassen */
+            }
+        } else {
+            s_contact_monitoring = false;
+        }
+    }
 
     /* High-Speed 1-ms RAM-Trace aufzeichnen */
     if (Trace_IsActive()) {
@@ -627,6 +656,13 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             update_target_range(down_target);
             Z_Target_SetRequestedDirect((uint32_t)down_target);
 
+            /* Freiflug-Gleitreibung erfassen (z_pos zwischen 1400 und 2600 Inc) */
+            if (z_pos >= 1400 && z_pos <= 2600) {
+                float du = fabsf(voltage - TEST_NEUTRAL_VOLTAGE);
+                s_glide_u_sum_mv += (uint32_t)(du * 1000.0f);
+                s_glide_u_count++;
+            }
+
             /* Landebahn-Diagnose: Erfasst Stillstand (Haftreibung) und Schleppfehler auf der Landebahn */
             if (z_pos <= landing_zone && z_pos > contact_zone) {
                 if (!s_landing_diag_active) {
@@ -638,6 +674,11 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 } else {
                     if (z_pos == s_landing_last_z) {
                         s_landing_stall_ticks++;
+                        float du = fabsf(voltage - TEST_NEUTRAL_VOLTAGE);
+                        uint32_t du_mv = (uint32_t)(du * 1000.0f);
+                        if (du_mv > s_stick_slip_max_du_mv) {
+                            s_stick_slip_max_du_mv = du_mv;
+                        }
                     } else {
                         s_landing_last_z = z_pos;
                     }
@@ -676,6 +717,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 s_ds_accel_fault_debounce = 0;
                 if (ds_value >= s_ds_trigger_threshold) {
                     int32_t touch_pos = z_pos;
+                    s_contact_monitoring = true;
+                    s_contact_tick = HAL_GetTick();
 
                     /* Landebahn-Diagnose & Selbsteinmessung in Zyklus 1 abschliessen */
                     if (s_landing_diag_active) {
@@ -891,8 +934,28 @@ void TestRun_GetStats(TestRunStats_t *out) {
     }
 }
 
+static void evaluate_condition_monitoring(void) {
+    s_scatter_stats.stick_slip_delta_u_mv = (uint16_t)s_stick_slip_max_du_mv;
+    uint16_t avg_glide = (s_glide_u_count > 0) ? (uint16_t)(s_glide_u_sum_mv / s_glide_u_count) : 0;
+    s_scatter_stats.glide_friction_mv = avg_glide;
+    s_scatter_stats.bounce_count = s_bounce_count;
+
+    /* Ampel-Klassifizierung:
+     * 1 = GRUEN (Optimal / Leichtgaengig)
+     * 2 = GELB  (Wartung / erhoehte Reibung / Schmierung empfohlen)
+     * 3 = ROT   (Kritisch / Schwergaengig / Klemmer / Prellen) */
+    if (s_scatter_stats.stiction_stall_ms > 30u || avg_glide > 800u || s_bounce_count >= 2u) {
+        s_scatter_stats.mech_health_grade = 3u; /* ROT */
+    } else if (s_scatter_stats.stiction_stall_ms > 5u || s_stick_slip_max_du_mv > 120u || avg_glide > 450u) {
+        s_scatter_stats.mech_health_grade = 2u; /* GELB */
+    } else {
+        s_scatter_stats.mech_health_grade = 1u; /* GRUEN */
+    }
+}
+
 void TestRun_GetScatterStats(TestBScatterStats_t *out) {
     if (out != NULL) {
+        evaluate_condition_monitoring();
         s_scatter_stats.max_velocity_mms = Z_PID_GetMaxVelocity_mm_s();
         s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();
         s_scatter_stats.max_decel_g = Z_PID_GetMaxDecel_g();

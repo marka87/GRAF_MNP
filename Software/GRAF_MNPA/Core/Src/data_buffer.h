@@ -26,11 +26,21 @@ typedef struct {
     uint8_t  flags;          /* Bit 0: Bremszone, Bit 1: Kontakt getriggert, Bit 2: Sättigung */
 } TraceSample_t;
 
-void Trace_Reset(void);
-void Trace_Start(void);
-void Trace_Stop(void);
-bool Trace_IsActive(void);
-uint16_t Trace_GetCount(void);
+typedef enum {
+    TRACE_MODE_START = 0,  /* Zeichnet erste 2000 ms ab Start auf und stoppt */
+    TRACE_MODE_RING  = 1   /* Kontinuierlicher Pre-Trigger Ringspeicher */
+} TraceMode_t;
+
+void        Trace_Reset(void);
+void        Trace_Start(void);
+void        Trace_Stop(void);
+void        Trace_Freeze(void);
+void        Trace_TriggerFreeze(uint16_t post_trigger_samples);
+bool        Trace_IsFrozen(void);
+bool        Trace_IsActive(void);
+uint16_t    Trace_GetCount(void);
+void        Trace_SetMode(TraceMode_t mode);
+TraceMode_t Trace_GetMode(void);
 
 void Trace_RecordSample(int32_t z_ist, int32_t z_soll, int16_t v_ist, int16_t v_soll,
                         float u_mot_v, uint16_t ds_adc, uint8_t phase, uint8_t flags);

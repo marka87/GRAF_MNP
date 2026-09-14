@@ -83,8 +83,8 @@ function Classify-Carriage($stallMs, $landingTimeMs) {
 Assert-Equal (Classify-Carriage 178 215) 2 "Stall 178 ms & Landedauer 215 ms muss als Schlitten A klassifiziert werden"
 Assert-Equal (Classify-Carriage 0 38) 1 "Stall 0 ms & Landedauer 38 ms muss als Schlitten B klassifiziert werden"
 
-# 6. TEST_B_SUMMARY Telegramm mit Nadelschlitten-Diagnose-Feldern
-$summaryMsg = "TEST_B_SUMMARY:status=OK,cycles=10,done=10,z_ref=495,z_min=495,z_max=499,delta_min=0,delta_max=4,range=4,mean=498.4,baseline_v=0.021,trig_v=1.520,time_ms=1450,v_max=508.0,a_max=4.7,a_brake=4.3,no_sensor_pos=3204,contact_travel=6,peak_v=4.282,ns_type=2,ns_stall=178,ns_time=215,ns_lag=24,ns_auto=1,ns_id=DEFAULT,ns_lz=60,ns_ls=4"
+# 6. TEST_B_SUMMARY Telegramm mit Nadelschlitten-Diagnose-Feldern (Phase 1 & Phase 2)
+$summaryMsg = "TEST_B_SUMMARY:status=OK,cycles=10,done=10,z_ref=495,z_min=495,z_max=499,delta_min=0,delta_max=4,range=4,mean=498.4,baseline_v=0.021,trig_v=1.520,time_ms=1450,v_max=508.0,a_max=4.7,a_brake=4.3,no_sensor_pos=3204,contact_travel=6,peak_v=4.282,ns_type=2,ns_stall=178,ns_time=215,ns_lag=24,ns_auto=1,ns_id=DEFAULT,ns_lz=60,ns_ls=4,ss_u=170,glide_u=342,bounce=0,health=2"
 $sPayload = $summaryMsg.Substring("TEST_B_SUMMARY:".Length).Trim()
 $sPairs = $sPayload.Split(',')
 $sDict = @{}
@@ -100,5 +100,58 @@ Assert-Equal ([int]$sDict["ns_stall"]) 178 "Summary muss ns_stall=178 enthalten"
 Assert-Equal ([int]$sDict["ns_auto"]) 1 "Summary muss ns_auto=1 enthalten"
 Assert-Equal ([int]$sDict["ns_lz"]) 60 "Summary muss ns_lz=60 enthalten"
 Assert-Equal ([int]$sDict["ns_ls"]) 4 "Summary muss ns_ls=4 enthalten"
+Assert-Equal ([int]$sDict["ss_u"]) 170 "Summary muss ss_u=170 mV enthalten"
+Assert-Equal ([int]$sDict["glide_u"]) 342 "Summary muss glide_u=342 mV enthalten"
+Assert-Equal ([int]$sDict["bounce"]) 0 "Summary muss bounce=0 enthalten"
+Assert-Equal ([int]$sDict["health"]) 2 "Summary muss health=2 (GELB) enthalten"
 
-Write-Host "`nALL 17 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
+# 7. Phase 2: Ringpuffer-Chronologie & Wrapping
+function Test-RingBufferChronology($maxSamples, $writtenSamples) {
+    $buffer = New-Object int[] $maxSamples
+    $head = 0
+    $isFull = $false
+
+    for ($i = 0; $i -lt $writtenSamples; $i++) {
+        $buffer[$head] = 1000 + $i # Monotoner Tick
+        $head++
+        if ($head -ge $maxSamples) {
+            $head = 0
+            $isFull = $true
+        }
+    }
+
+    $total = if ($isFull) { $maxSamples } else { $head }
+    $startIdx = if ($isFull) { $head } else { 0 }
+    $tZero = $buffer[$startIdx]
+
+    $output = @()
+    for ($i = 0; $i -lt $total; $i++) {
+        $idx = if ($isFull) { ($startIdx + $i) % $maxSamples } else { $i }
+        $output += ($buffer[$idx] - $tZero)
+    }
+    return $output
+}
+
+$ringOut = Test-RingBufferChronology 2000 3500
+Assert-Equal $ringOut.Count 2000 "Ringpuffer muss bei 3500 Schreibvorgängen exakt 2000 Samples halten"
+Assert-Equal $ringOut[0] 0 "Erster relativer Timestamp muss exakt 0 ms sein"
+Assert-Equal $ringOut[1999] 1999 "Letzter relativer Timestamp muss exakt 1999 ms sein"
+Assert-Equal ($ringOut[100] -lt $ringOut[200]) $true "Ringpuffer-Ausgabe muss streng monoton steigend sein"
+
+# 8. Phase 2: Condition Monitoring Ampel-Klassifizierung
+function Classify-Health($stallMs, $deltaUMv, $glideUMv, $bounceCount) {
+    if ($stallMs -gt 30 -or $glideUMv -gt 800 -or $bounceCount -ge 2) {
+        return 3 # ROT
+    } elseif ($stallMs -gt 5 -or $deltaUMv -gt 120 -or $glideUMv -gt 450) {
+        return 2 # GELB
+    } else {
+        return 1 # GRUEN
+    }
+}
+
+Assert-Equal (Classify-Health 0 30 320 0) 1 "Gesunder Schlitten B muss GRUEN (1) erhalten"
+Assert-Equal (Classify-Health 15 140 380 0) 2 "Leichte Haftreibung muss GELB (2) erhalten"
+Assert-Equal (Classify-Health 188 170 340 0) 3 "Schwerer Klemmer (188 ms Stall) muss ROT (3) erhalten"
+Assert-Equal (Classify-Health 0 40 400 2) 3 "Hebelprellen (>=2) muss ROT (3) erhalten"
+
+Write-Host "`nALL 25 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green

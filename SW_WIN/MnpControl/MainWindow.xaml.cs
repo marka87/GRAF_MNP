@@ -1083,6 +1083,35 @@ namespace MnpControl
                 }
                 summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
             }
+
+            if (values.TryGetValue("health", out string? healthStr) && int.TryParse(healthStr, out int healthVal))
+            {
+                values.TryGetValue("ss_u", out string? ssUStr);
+                values.TryGetValue("glide_u", out string? glideUStr);
+                values.TryGetValue("bounce", out string? bounceStr);
+
+                summaryLines.Add("----------------------------------------------");
+                summaryLines.Add("Mechanik-Zustand (Condition Monitoring):");
+                string badge = healthVal switch
+                {
+                    1 => "[GRÜN] OPTIMAL (Leichtgaengig)",
+                    2 => "[GELB] WARTUNG EMPFOHLEN (Erhoehte Reibung)",
+                    3 => "[ROT] KRITISCHE SCHWERGAENGIGKEIT / KLEMMUNG",
+                    _ => "[?] UNBEKANNT"
+                };
+                summaryLines.Add($"Gesundheits-Ampel:   {badge}");
+                summaryLines.Add($"Losbrech-Spannung:   {ssUStr ?? "0"} mV delta (Stick-Slip)");
+                summaryLines.Add($"Freiflug-Reibung:    {glideUStr ?? "0"} mV Gegenkraft");
+                summaryLines.Add($"Hebel-Prellen:       {bounceStr ?? "0"} Einbrueche nach Kontakt");
+                if (healthVal == 2)
+                {
+                    summaryLines.Add("Wartungshinweis:     Fuehrungsschiene reinigen / schmieren!");
+                }
+                else if (healthVal == 3)
+                {
+                    summaryLines.Add("Wartungshinweis:     Mechanik pruefen! Moeglicher Klemmer oder Schwergang.");
+                }
+            }
             summaryLines.Add(sep);
 
             _cachedTestBSummaryBlock = string.Join(Environment.NewLine, summaryLines);
