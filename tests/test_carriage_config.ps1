@@ -154,53 +154,11 @@ Assert-Equal (Classify-Health 15 140 380 0) 2 "Leichte Haftreibung muss GELB (2)
 Assert-Equal (Classify-Health 188 170 340 0) 3 "Schwerer Klemmer (188 ms Stall) muss ROT (3) erhalten"
 Assert-Equal (Classify-Health 0 40 400 2) 3 "Hebelprellen (>=2) muss ROT (3) erhalten"
 
-# 9. Phase 3: Bootloader Flash Partitioning & Vector Offset
-$bootloaderLd = Get-Content (Join-Path $PSScriptRoot "..\Software\GRAF_Bootloader\STM32F746NGHX_BOOTLOADER.ld") -Raw
+# 9. Linker-Schutz fuer Flash Sektor 7 & Direkt-Boot
 $appLd = Get-Content (Join-Path $PSScriptRoot "..\Software\GRAF_MNPA\STM32F746NGHX_FLASH.ld") -Raw
-
-$bootOriginMatch = [regex]::Match($bootloaderLd, 'FLASH\s*\(rx\)\s*:\s*ORIGIN\s*=\s*(0x[0-9a-fA-F]+),\s*LENGTH\s*=\s*(\d+K)')
-Assert-Equal $bootOriginMatch.Success $true "Bootloader Linker-Skript Flash-Definition gefunden"
-Assert-Equal ([uint32]$bootOriginMatch.Groups[1].Value) 0x08000000 "Bootloader Origin muss 0x08000000 (Sektor 0) sein"
-Assert-Equal $bootOriginMatch.Groups[2].Value.ToUpper() "32K" "Bootloader Sektor 0 Groesse muss 32 KB betragen"
-
 $appOriginMatch = [regex]::Match($appLd, 'FLASH\s*\(rx\)\s*:\s*ORIGIN\s*=\s*(0x[0-9a-fA-F]+),\s*LENGTH\s*=\s*(\d+K)')
 Assert-Equal $appOriginMatch.Success $true "Applikation Linker-Skript Flash-Definition gefunden"
 Assert-Equal ([uint32]$appOriginMatch.Groups[1].Value) 0x08000000 "Applikation Origin muss 0x08000000 (Direkt-Boot) sein"
 Assert-Equal $appOriginMatch.Groups[2].Value.ToUpper() "768K" "Applikation Flash-Laenge muss 768 KB betragen (Sektor 7 geschuetzt)"
 
-# 10. Phase 3: Factory Image Integritaet
-$factoryBinPath = Join-Path $PSScriptRoot "..\Software\GRAF_FACTORY_ALL.bin"
-$factoryExists = Test-Path $factoryBinPath
-Assert-Equal $factoryExists $true "Factory-Image GRAF_FACTORY_ALL.bin muss existieren"
-
-if ($factoryExists) {
-    $factoryBytes = [System.IO.File]::ReadAllBytes($factoryBinPath)
-    Assert-Equal ($factoryBytes.Length -ge 32768) $true "Factory-Image muss mindestens 32 KB (Bootloader + Offset) umfassen"
-    # Pruefen, dass Initial Stack Pointer an 0x0 (Bootloader) und 0x8000 (App) ein gueltiger RAM-Pointer im DTCM/SRAM1 ist (0x2000xxxx)
-    $bootMsp = [System.BitConverter]::ToUInt32($factoryBytes, 0)
-    $appMsp = [System.BitConverter]::ToUInt32($factoryBytes, 32768)
-    Assert-Equal (($bootMsp -band 0xFF000000) -eq 0x20000000) $true "Bootloader Initial Stack Pointer muss im SRAM liegen (0x20xxxxxx)"
-    Assert-Equal (($appMsp -band 0xFF000000) -eq 0x20000000) $true "Applikation Initial Stack Pointer muss im SRAM liegen (0x20xxxxxx)"
-}
-
-# 11. Phase 3: CRC16 Testvektor fuer UART Bootloader Chunks ("123456789" -> 0xBB3D)
-function Compute-CRC16([byte[]]$bytes) {
-    $crc = [uint16]0xFFFF
-    foreach ($b in $bytes) {
-        $crc = $crc -bxor [uint16]$b
-        for ($i = 0; $i -lt 8; $i++) {
-            if (($crc -band 1) -ne 0) {
-                $crc = [uint16](($crc -shr 1) -bxor 0xA001)
-            } else {
-                $crc = [uint16]($crc -shr 1)
-            }
-        }
-    }
-    return $crc
-}
-
-$crc16Result = Compute-CRC16 $testBytes
-$expectedCrc16 = [uint16]"0x4B37"
-Assert-Equal ('0x{0:X4}' -f $crc16Result) ('0x{0:X4}' -f $expectedCrc16) "CRC-16 (Init 0xFFFF, Poly 0xA001) Checksumme auf Standard-Testvektor '123456789'"
-
-Write-Host "`nALL 34 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "`nALL 28 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
