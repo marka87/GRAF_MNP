@@ -27,12 +27,11 @@ namespace MnpControl
     private const string PreferredPortName = "COM9";
     private static SerialPort? _devConnection;
 
-        private static bool _continue = true;
-        private StreamWriter _currentLogFile; // Logfile für den aktuellen Ablauf
-        private StreamWriter _filteredLogFile; // Gefilterte Log-Datei
+        private StreamWriter? _currentLogFile; // Logfile für den aktuellen Ablauf
         private string _lastLiveLogLine = string.Empty;
 
-        private StringBuilder _serialBuffer = new StringBuilder(); // Buffer for incoming serial data
+        private readonly StringBuilder _serialBuffer = new StringBuilder(); // Buffer for incoming serial data
+        private readonly object _serialLock = new(); // Lock für Thread-sicheren seriellen Empfang
         private bool _isLoggingSession = false;
         private DateTime _loggingStartTime = DateTime.MinValue;
         private const int LoggingTimeoutSeconds = 120;
@@ -61,11 +60,33 @@ namespace MnpControl
         private static readonly SolidColorBrush BrushDsWarn = CreateFrozenBrush(Color.FromRgb(217, 119, 6));   // #D97706 Orange (0.06V - 0.08V)
         private static readonly SolidColorBrush BrushDsErr = CreateFrozenBrush(Color.FromRgb(220, 38, 38));    // #DC2626 Rot (> 0.08V)
 
+        // Gefrorene Brushes & Striche für performantes, GC-freies Scatter-Rendering
+        private static readonly SolidColorBrush BrushZeroLine = CreateFrozenBrush(Color.FromRgb(56, 189, 248));
+        private static readonly SolidColorBrush BrushGridLine = CreateFrozenBrush(Color.FromRgb(51, 65, 85));
+        private static readonly SolidColorBrush BrushGridText = CreateFrozenBrush(Color.FromRgb(148, 163, 184));
+        private static readonly SolidColorBrush BrushConnectLine = CreateFrozenBrush(Color.FromArgb(180, 56, 189, 248));
+        private static readonly SolidColorBrush BrushDotStroke = CreateFrozenBrush(Color.FromRgb(15, 23, 42));
+
+        private static readonly SolidColorBrush BrushDotGreen = CreateFrozenBrush(Color.FromRgb(34, 197, 94));
+        private static readonly SolidColorBrush BrushDotBlue = CreateFrozenBrush(Color.FromRgb(56, 189, 248));
+        private static readonly SolidColorBrush BrushDotAmber = CreateFrozenBrush(Color.FromRgb(245, 158, 11));
+        private static readonly SolidColorBrush BrushDotRed = CreateFrozenBrush(Color.FromRgb(239, 68, 68));
+
+        private static readonly DoubleCollection DashZeroLine = CreateFrozenDashes(4, 3);
+        private static readonly DoubleCollection DashGridLine = CreateFrozenDashes(2, 2);
+
         private static SolidColorBrush CreateFrozenBrush(Color color)
         {
             var brush = new SolidColorBrush(color);
             brush.Freeze();
             return brush;
+        }
+
+        private static DoubleCollection CreateFrozenDashes(params double[] values)
+        {
+            var dc = new DoubleCollection(values);
+            dc.Freeze();
+            return dc;
         }
 
         private sealed class ScatterPoint
@@ -116,26 +137,25 @@ namespace MnpControl
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-        _continue = true;
-        UpdateButtonStates(string.Empty); // all disabled until connected + state received
-        InitializePidPresets();
+            UpdateButtonStates(string.Empty); // all disabled until connected + state received
+            InitializePidPresets();
 
-        if (!TryOpenDeviceConnection())
-        {
-            MessageBox.Show("No accessible serial port found.\nPlease close other apps using the port and restart.",
-                "Serial connection failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            return;
-        }
+            if (!TryOpenDeviceConnection() || _devConnection == null)
+            {
+                MessageBox.Show("No accessible serial port found.\nPlease close other apps using the port and restart.",
+                    "Serial connection failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
 
-        // Subscribe to DataReceived event for instant data processing
-        _devConnection.DataReceived += DevConnection_DataReceived;
-        SendCommand("PP?");
-        SendCommand("L?");
-        SendCommand("PV?");
-        SendCommand("V?");
-        SendCommand("CFG?");
+            // Subscribe to DataReceived event for instant data processing
+            _devConnection.DataReceived += DevConnection_DataReceived;
+            SendCommand("PP?");
+            SendCommand("L?");
+            SendCommand("PV?");
+            SendCommand("V?");
+            SendCommand("CFG?");
         }
 
     private bool TryOpenDeviceConnection()
@@ -1190,9 +1210,9 @@ namespace MnpControl
                 Y1 = centerY,
                 X2 = left + plotW,
                 Y2 = centerY,
-                Stroke = new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                Stroke = BrushZeroLine,
                 StrokeThickness = 1.0,
-                StrokeDashArray = new DoubleCollection { 4, 3 }
+                StrokeDashArray = DashZeroLine
             };
             CanvasScatter.Children.Add(zeroLine);
 
@@ -1201,7 +1221,7 @@ namespace MnpControl
                 Text = " 0",
                 FontSize = 9.5,
                 FontFamily = new FontFamily("Consolas, monospace"),
-                Foreground = new SolidColorBrush(Color.FromRgb(56, 189, 248))
+                Foreground = BrushZeroLine
             };
             Canvas.SetLeft(zeroText, 6);
             Canvas.SetTop(zeroText, centerY - 7);
@@ -1214,9 +1234,9 @@ namespace MnpControl
                 Y1 = top,
                 X2 = left + plotW,
                 Y2 = top,
-                Stroke = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                Stroke = BrushGridLine,
                 StrokeThickness = 0.8,
-                StrokeDashArray = new DoubleCollection { 2, 2 }
+                StrokeDashArray = DashGridLine
             };
             CanvasScatter.Children.Add(topLine);
 
@@ -1225,7 +1245,7 @@ namespace MnpControl
                 Text = $"+{yRange}",
                 FontSize = 8.5,
                 FontFamily = new FontFamily("Consolas, monospace"),
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+                Foreground = BrushGridText
             };
             Canvas.SetLeft(topText, 2);
             Canvas.SetTop(topText, top - 6);
@@ -1237,9 +1257,9 @@ namespace MnpControl
                 Y1 = top + plotH,
                 X2 = left + plotW,
                 Y2 = top + plotH,
-                Stroke = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                Stroke = BrushGridLine,
                 StrokeThickness = 0.8,
-                StrokeDashArray = new DoubleCollection { 2, 2 }
+                StrokeDashArray = DashGridLine
             };
             CanvasScatter.Children.Add(botLine);
 
@@ -1248,7 +1268,7 @@ namespace MnpControl
                 Text = $"-{yRange}",
                 FontSize = 8.5,
                 FontFamily = new FontFamily("Consolas, monospace"),
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+                Foreground = BrushGridText
             };
             Canvas.SetLeft(botText, 2);
             Canvas.SetTop(botText, top + plotH - 6);
@@ -1277,25 +1297,25 @@ namespace MnpControl
                         Y1 = prevPoint.Value.Y,
                         X2 = curPoint.X,
                         Y2 = curPoint.Y,
-                        Stroke = new SolidColorBrush(Color.FromArgb(180, 56, 189, 248)),
+                        Stroke = BrushConnectLine,
                         StrokeThickness = 1.5
                     };
                     CanvasScatter.Children.Add(seg);
                 }
                 prevPoint = curPoint;
 
-                // Punkt (Farbcodiert nach Abweichung)
-                Color dotColor = Math.Abs(p.Delta) <= 5 ? Color.FromRgb(34, 197, 94) :
-                                 Math.Abs(p.Delta) <= 15 ? Color.FromRgb(56, 189, 248) :
-                                 Math.Abs(p.Delta) <= 30 ? Color.FromRgb(245, 158, 11) :
-                                                           Color.FromRgb(239, 68, 68);
+                // Punkt (Farbcodiert nach Abweichung, gefrorene Brushes)
+                SolidColorBrush dotBrush = Math.Abs(p.Delta) <= 5 ? BrushDotGreen :
+                                           Math.Abs(p.Delta) <= 15 ? BrushDotBlue :
+                                           Math.Abs(p.Delta) <= 30 ? BrushDotAmber :
+                                                                     BrushDotRed;
 
                 var dot = new System.Windows.Shapes.Ellipse
                 {
                     Width = 7,
                     Height = 7,
-                    Fill = new SolidColorBrush(dotColor),
-                    Stroke = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+                    Fill = dotBrush,
+                    Stroke = BrushDotStroke,
                     StrokeThickness = 1.0,
                     ToolTip = $"Zyklus {p.Cycle}: {p.TouchPos} inc (Δ {(p.Delta >= 0 ? "+" : "")}{p.Delta} inc)"
                 };
@@ -1489,30 +1509,55 @@ namespace MnpControl
         {
             try
             {
-                // Read all available data from the serial port
-                while (_devConnection != null && _devConnection.BytesToRead > 0)
+                var batch = new List<string>();
+
+                lock (_serialLock)
                 {
-                    string data = _devConnection.ReadExisting();
-                    _serialBuffer.Append(data);
+                    // Read all available data from the serial port
+                    while (_devConnection != null && _devConnection.BytesToRead > 0)
+                    {
+                        string data = _devConnection.ReadExisting();
+                        _serialBuffer.Append(data);
+                    }
 
                     // Process complete lines (terminated by newline)
                     string bufferContent = _serialBuffer.ToString();
-                    int newlineIndex = bufferContent.IndexOf('\n');
+                    int lastProcessedIndex = -1;
+                    int startIndex = 0;
 
-                    while (newlineIndex >= 0)
+                    while (true)
                     {
-                        string message = bufferContent.Substring(0, newlineIndex).TrimEnd('\r');
-                        if (!string.IsNullOrEmpty(message))
+                        int newlineIndex = bufferContent.IndexOf('\n', startIndex);
+                        if (newlineIndex < 0)
                         {
-                            // Update UI on the main thread asynchronously (non-blocking)
-                            Application.Current.Dispatcher.BeginInvoke(new Action(() => { UpdateStatus(message); }), System.Windows.Threading.DispatcherPriority.Normal);
+                            break;
                         }
 
-                        // Remove processed message from buffer
-                        _serialBuffer.Remove(0, newlineIndex + 1);
-                        bufferContent = _serialBuffer.ToString();
-                        newlineIndex = bufferContent.IndexOf('\n');
+                        string message = bufferContent.Substring(startIndex, newlineIndex - startIndex).TrimEnd('\r');
+                        if (!string.IsNullOrEmpty(message))
+                        {
+                            batch.Add(message);
+                        }
+                        startIndex = newlineIndex + 1;
+                        lastProcessedIndex = newlineIndex;
                     }
+
+                    if (lastProcessedIndex >= 0)
+                    {
+                        _serialBuffer.Remove(0, lastProcessedIndex + 1);
+                    }
+                }
+
+                if (batch.Count > 0 && Application.Current != null)
+                {
+                    // Update UI on the main thread asynchronously in a single batch (non-blocking)
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        foreach (string msg in batch)
+                        {
+                            UpdateStatus(msg);
+                        }
+                    }), System.Windows.Threading.DispatcherPriority.Normal);
                 }
             }
             catch (Exception ex)
@@ -1523,8 +1568,6 @@ namespace MnpControl
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _continue = false;
-
             if (_devConnection != null)
             {
                 // Unsubscribe from event
