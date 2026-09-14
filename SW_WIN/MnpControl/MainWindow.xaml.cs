@@ -1081,7 +1081,14 @@ namespace MnpControl
                 {
                     summaryLines.Add($"Lauf-Verhalten:      Landedauer {nsTime ?? "0"} ms | Verzug: {nsStall ?? "0"} ms");
                 }
-                summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
+                if (nsAuto == "1")
+                {
+                    summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (adaptiert auf LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"})");
+                }
+                else
+                {
+                    summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
+                }
             }
 
             if (values.TryGetValue("health", out string? healthStr) && int.TryParse(healthStr, out int healthVal))

@@ -956,6 +956,9 @@ static void evaluate_condition_monitoring(void) {
 void TestRun_GetScatterStats(TestBScatterStats_t *out) {
     if (out != NULL) {
         evaluate_condition_monitoring();
+        const CarriageConfig_t *cfg = ConfigFlash_GetActive();
+        s_scatter_stats.active_landing_zone = (s_auto_override_lz > 0) ? s_auto_override_lz : ((cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u);
+        s_scatter_stats.active_landing_speed = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
         s_scatter_stats.max_velocity_mms = Z_PID_GetMaxVelocity_mm_s();
         s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();
         s_scatter_stats.max_decel_g = Z_PID_GetMaxDecel_g();

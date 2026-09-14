@@ -82,6 +82,8 @@ typedef struct {
     uint16_t glide_friction_mv;     /* Mittlere kompensierte Motorspannung bei Freiflug-Konstantfahrt (in mV) */
     uint8_t  bounce_count;          /* Erkannte Hebelprell-Einbrüche nach Erstkontakt */
     uint8_t  mech_health_grade;     /* Mechanik-Gesundheitsampel: 1 = GRUEN, 2 = GELB, 3 = ROT */
+    uint16_t active_landing_zone;   /* Tatsaechlich gefahrene Landebahn in inc */
+    uint8_t  active_landing_speed;  /* Tatsaechlich gefahrene Kriechstufe */
 } TestBScatterStats_t;
 
 typedef struct {
