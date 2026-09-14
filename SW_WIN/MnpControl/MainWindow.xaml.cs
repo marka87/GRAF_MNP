@@ -109,6 +109,8 @@ namespace MnpControl
         };
         private readonly List<PidPreset> _pidPresets = new List<PidPreset>();
 
+        public event Action<string>? OnSerialLineReceived;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -1504,6 +1506,8 @@ namespace MnpControl
                         string message = bufferContent.Substring(0, newlineIndex).TrimEnd('\r');
                         if (!string.IsNullOrEmpty(message))
                         {
+                            OnSerialLineReceived?.Invoke(message);
+
                             // Update UI on the main thread asynchronously (non-blocking)
                             Application.Current.Dispatcher.BeginInvoke(new Action(() => { UpdateStatus(message); }), System.Windows.Threading.DispatcherPriority.Normal);
                         }
@@ -1542,7 +1546,7 @@ namespace MnpControl
             CloseLogFile(); // Sicherstellen, dass das aktuelle Logfile geschlossen wird
         }
 
-    private void SendCommand(string command)
+    public void SendCommand(string command)
     {
         if (_devConnection == null || !_devConnection.IsOpen)
         {
@@ -2404,6 +2408,15 @@ namespace MnpControl
             {
                 _profileDialog = null;
             }
+        }
+
+        private void BtnFirmwareUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            var fwWin = new FirmwareUpdateWindow(this)
+            {
+                Owner = this
+            };
+            fwWin.ShowDialog();
         }
 
         internal void SyncProfileDialog()

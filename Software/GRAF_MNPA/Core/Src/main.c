@@ -643,6 +643,13 @@ void Process_UART_Command(const char *command) {
 			(unsigned)b_stats.mech_health_grade, (unsigned)b_stats.stick_slip_delta_u_mv,
 			(unsigned)b_stats.glide_friction_mv, (unsigned)b_stats.bounce_count,
 			(unsigned)b_stats.stiction_stall_ms);
+	} else if (strcmp(command, "CMD:ENTER_BOOTLOADER") == 0 || strcmp(command, "BOOTLOADER") == 0) {
+		uart_send_text("OK:BOOTLOADER_RESTART\r\n", 50);
+		HAL_Delay(50);
+		__HAL_RCC_PWR_CLK_ENABLE();
+		HAL_PWR_EnableBkUpAccess();
+		RTC->BKP0R = 0x55AA55AAU;
+		NVIC_SystemReset();
 	} else if (strcmp(command, "p") == 0) { // Performance measurement
 		perform_encoder_perf_test = true;
 		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
@@ -683,7 +690,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  /* Relocate Vector Table to Sector 1 (0x08008000) for Custom Bootloader compatibility */
+  SCB->VTOR = 0x08008000U;
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/

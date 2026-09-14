@@ -545,6 +545,18 @@
                         FontWeight="SemiBold"
                         Click="BtnClearAll_Click"
                         ToolTip="Leert das Live-Log sowie die Test-Summary und das Streuungsdiagramm gleichzeitig"/>
+
+                <Button x:Name="BtnFirmwareUpdate"
+                        Content="Firmware-Update..."
+                        Width="160"
+                        Height="36"
+                        Margin="10,0,0,0"
+                        Background="#EFF6FF"
+                        BorderBrush="#93C5FD"
+                        Foreground="#1D4ED8"
+                        FontWeight="SemiBold"
+                        Click="BtnFirmwareUpdate_Click"
+                        ToolTip="Öffnet das In-Field Firmware-Update Dialogfenster"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
