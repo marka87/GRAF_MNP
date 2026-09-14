@@ -30,6 +30,7 @@ bool Z_PID_IsSchedulerEnabled(void);
 
 void Z_PID_SetSpeedLevel(uint8_t level);
 uint8_t Z_PID_GetSpeedLevel(void);
+uint32_t Z_PID_GetMaxVelocityForLevel(uint8_t level);
 
 /* Äußerer Regler: Position -> Soll-Geschwindigkeit */
 void Z_PID_SetPositionParameters(float kp, float ki, float kd);

@@ -431,8 +431,10 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
     int32_t contact_zone = s_scatter_stats.z_ref_pos + 35;
     int32_t landing_zone = s_scatter_stats.z_ref_pos + (int32_t)landing_margin;
-    int32_t braking_dist = (int32_t)(s_fast_speed_level * brake_factor);
-    if (braking_dist < 300) braking_dist = 300;
+    uint32_t v_max = Z_PID_GetMaxVelocityForLevel(s_fast_speed_level);
+    int32_t kinetic_dist = (int32_t)((v_max * v_max * (uint32_t)brake_factor) / 1000u);
+    int32_t braking_dist = kinetic_dist + (int32_t)landing_margin + 50;
+    if (braking_dist < 200) braking_dist = 200;
     int32_t braking_zone = s_scatter_stats.z_ref_pos + braking_dist;
     int32_t takeoff_zone = s_scatter_stats.z_ref_pos + 1300;
 
@@ -644,7 +646,10 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             if (z_pos > braking_zone) {
                 Z_PID_SetSpeedLevel(s_fast_speed_level);
             } else if (z_pos > landing_zone) {
-                uint8_t mid_speed = (s_fast_speed_level > 6u) ? 6u : s_fast_speed_level;
+                uint8_t mid_speed = s_fast_speed_level / 2u;
+                if (mid_speed < 4u) mid_speed = 4u;
+                if (mid_speed > 8u) mid_speed = 8u;
+                if (mid_speed > s_fast_speed_level) mid_speed = s_fast_speed_level;
                 Z_PID_SetSpeedLevel(mid_speed);
             } else {
                 uint8_t landing_speed = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
