@@ -23,6 +23,7 @@ A:\GRAF_MNP\Software\GRAF_MNPA\.settings\language.settings.xml
 C:\GRAF_MNP\Software\GRAF_MNPA\.settings\language.settings.xml
 
 
-/SW_WIN/MnpControl/.vs
+.vs/
+**/.vs/
 /SW_WIN/MnpControl/obj
 /SW_WIN/MnpControl/bin
