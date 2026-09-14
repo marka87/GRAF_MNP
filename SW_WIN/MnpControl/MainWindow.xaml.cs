@@ -566,6 +566,7 @@ namespace MnpControl
                     CmbCfgLandingSpeed.SelectedIndex = ls - 1;
                 }
                 TxtCfgFlashStatus.Text = $"Zyklus #{cnt} (im Flash)";
+                SyncProfileDialog();
                 TxtStatus.Text = $"Profil geladen: {id} (#{cnt})";
                 AppendLiveLog($"Flash-Profil: ID={id}, LZ={lz} inc, Stufe {ls}, Flash-Zyklen={cnt}");
                 return;
@@ -575,6 +576,7 @@ namespace MnpControl
             {
                 string payload = msg.Substring(10).Trim();
                 TxtCfgFlashStatus.Text = "Erfolgreich gespeichert!";
+                SyncProfileDialog();
                 TxtStatus.Text = "Flash gespeichert: " + payload;
                 AppendLiveLog("Flash gespeichert: " + payload);
                 return;
@@ -583,6 +585,7 @@ namespace MnpControl
             if (msg.StartsWith("CFG_SAVE_ERR", StringComparison.Ordinal))
             {
                 TxtCfgFlashStatus.Text = "Fehler beim Speichern!";
+                SyncProfileDialog();
                 TxtStatus.Text = "Flash-Speichern fehlgeschlagen!";
                 AppendLiveLog("Flash-Speicherfehler!");
                 return;
@@ -604,6 +607,7 @@ namespace MnpControl
                     CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (Standard)
                 }
                 TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
+                SyncProfileDialog();
                 TxtStatus.Text = "DEFAULT-Profil aktiv (Auto-Erkennung)";
                 AppendLiveLog("DEFAULT-Profil im STM32 aktiviert (Auto-Erkennung aktiv)");
                 SendCommand("CFG?");
@@ -1066,6 +1070,7 @@ namespace MnpControl
                             CmbCfgLandingSpeed.SelectedIndex = lsVal - 1;
                         }
                         TxtCfgFlashStatus.Text = "Auto-adaptiert (ungespeichert)";
+                        SyncProfileDialog();
                     }
                     else
                     {
@@ -2383,7 +2388,34 @@ namespace MnpControl
             AppendLiveLog("Preset " + preset.Name);
         }
 
-        private void BtnProfileDefault_Click(object sender, RoutedEventArgs e)
+        private CarriageProfileWindow? _profileDialog;
+
+        private void BtnCarriageProfile_Click(object sender, RoutedEventArgs e)
+        {
+            _profileDialog = new CarriageProfileWindow(this)
+            {
+                Owner = this
+            };
+            try
+            {
+                _profileDialog.ShowDialog();
+            }
+            finally
+            {
+                _profileDialog = null;
+            }
+        }
+
+        internal void SyncProfileDialog()
+        {
+            _profileDialog?.SyncFromMain(
+                TxtCfgCarriageId.Text,
+                TxtCfgLandingMargin.Text,
+                CmbCfgLandingSpeed.SelectedIndex,
+                TxtCfgFlashStatus.Text);
+        }
+
+        internal void BtnProfileDefault_Click(object sender, RoutedEventArgs e)
         {
             TxtCfgCarriageId.Text = "DEFAULT";
             TxtCfgLandingMargin.Text = "150";
@@ -2394,16 +2426,17 @@ namespace MnpControl
             SendCommand("CMD:LOAD_DEFAULT");
             TxtStatus.Text = "Lade DEFAULT-Profil...";
             TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
+            SyncProfileDialog();
             AppendLiveLog("[PROFIL] DEFAULT-Profil geladen (Auto-Erkennung fuer Test B aktiv)");
         }
 
-        private void BtnCfgRead_Click(object sender, RoutedEventArgs e)
+        internal void BtnCfgRead_Click(object sender, RoutedEventArgs e)
         {
             SendCommand("CMD:GET_CONFIG");
             TxtStatus.Text = "Lese Flash-Konfiguration...";
         }
 
-        private void BtnCfgApply_Click(object sender, RoutedEventArgs e)
+        internal void BtnCfgApply_Click(object sender, RoutedEventArgs e)
         {
             string id = TxtCfgCarriageId.Text.Trim();
             if (string.IsNullOrEmpty(id)) id = "CUSTOM";
@@ -2419,14 +2452,16 @@ namespace MnpControl
             SendCommand(cmd);
             TxtStatus.Text = $"Profil angewendet: {id} (LZ={lz}, LS={ls})";
             TxtCfgFlashStatus.Text = "Im RAM angewendet (ungespeichert)";
+            SyncProfileDialog();
         }
 
-        private void BtnCfgSave_Click(object sender, RoutedEventArgs e)
+        internal void BtnCfgSave_Click(object sender, RoutedEventArgs e)
         {
             BtnCfgApply_Click(sender, e);
             SendCommand("CMD:SAVE_CONFIG");
             TxtStatus.Text = "Speichere in Flash Sektor 7...";
             TxtCfgFlashStatus.Text = "Speichere in Flash...";
+            SyncProfileDialog();
         }
     }
 }

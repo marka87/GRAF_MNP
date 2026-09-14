@@ -477,41 +477,21 @@
                 </GroupBox>
 
                 <!-- Schlitten-Profil Card (Flash Sektor 7) -->
+                <!-- Schlitten-Profil Card (Flash Sektor 7) -->
                 <GroupBox Header="Nadelschlitten-Profil (Flash Sektor 7)">
                     <StackPanel Margin="2">
-                        <!-- Profil-Schnellauswahl: DEFAULT mit Auto-Erkennung -->
-                        <Button x:Name="BtnProfileDefault" Content="DEFAULT (Auto-Erkennung)" Height="28" FontSize="11.5" FontWeight="Bold"
-                                Background="#F0FDF4" BorderBrush="#16A34A" Foreground="#15803D" Margin="0,0,0,6"
-                                ToolTip="Standard-Profil laden: Aktiviert die automatische Schlittenerkennung (LZ: 150 inc, Stufe 3)" Click="BtnProfileDefault_Click"/>
+                        <Button x:Name="BtnCarriageProfile"
+                                Content="Nadelschlitten-Profil &#xF6;ffnen..."
+                                Height="34"
+                                Background="#F8FAFC"
+                                Click="BtnCarriageProfile_Click"/>
 
-                        <!-- Parameter-Grid -->
-                        <Grid Margin="0,2,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="95"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="26"/>
-                                <RowDefinition Height="26"/>
-                                <RowDefinition Height="26"/>
-                                <RowDefinition Height="26"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Profil-ID:" VerticalAlignment="Center" FontSize="11.5"/>
-                            <TextBox x:Name="TxtCfgCarriageId" Grid.Row="0" Grid.Column="1" Text="DEFAULT" Height="22" FontSize="11" VerticalContentAlignment="Center" Margin="2,1"/>
-
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Landebahn:" VerticalAlignment="Center" FontSize="11.5" ToolTip="Inkremente vor Kontakt, ab denen Kriechstufe gilt"/>
-                            <Grid Grid.Row="1" Grid.Column="1" Margin="2,1">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TxtCfgLandingMargin" Grid.Column="0" Text="150" Height="22" FontSize="11" VerticalContentAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text=" inc" VerticalAlignment="Center" FontSize="10.5" Foreground="#64748B" Margin="3,0,0,0"/>
-                            </Grid>
-
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Kriech-Stufe:" VerticalAlignment="Center" FontSize="11.5" ToolTip="Geschwindigkeitsstufe auf der Landebahn (1-16)"/>
-                            <ComboBox x:Name="CmbCfgLandingSpeed" Grid.Row="2" Grid.Column="1" Height="22" FontSize="11" VerticalContentAlignment="Center" Margin="2,1">
+                        <!-- Collapsed legacy/binding elements preserved for compatibility -->
+                        <Grid Visibility="Collapsed">
+                            <Button x:Name="BtnProfileDefault" Click="BtnProfileDefault_Click"/>
+                            <TextBox x:Name="TxtCfgCarriageId" Text="DEFAULT"/>
+                            <TextBox x:Name="TxtCfgLandingMargin" Text="150"/>
+                            <ComboBox x:Name="CmbCfgLandingSpeed">
                                 <ComboBoxItem Content="1 (1 Inc/ms)"/>
                                 <ComboBoxItem Content="2 (2 Inc/ms)"/>
                                 <ComboBoxItem Content="3 (4 Inc/ms) - Standard" IsSelected="True"/>
@@ -519,27 +499,10 @@
                                 <ComboBoxItem Content="5 (14 Inc/ms)"/>
                                 <ComboBoxItem Content="6 (22 Inc/ms)"/>
                             </ComboBox>
-
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Flash-Zyklen:" VerticalAlignment="Center" FontSize="11.5"/>
-                            <TextBlock x:Name="TxtCfgFlashStatus" Grid.Row="3" Grid.Column="1" Text="Nicht geladen" VerticalAlignment="Center" FontSize="11" Foreground="#64748B" Margin="4,0,0,0"/>
-                        </Grid>
-
-                        <!-- Actions -->
-                        <Grid Margin="0,4,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="BtnCfgRead" Grid.Column="0" Content="Laden" Height="26" FontSize="11"
-                                    ToolTip="Aktuelle Konfiguration aus dem STM32 Flash lesen" Click="BtnCfgRead_Click"/>
-                            <Button x:Name="BtnCfgApply" Grid.Column="2" Content="Anwenden" Height="26" FontSize="11"
-                                    ToolTip="Werte temporaer im RAM anwenden" Click="BtnCfgApply_Click"/>
-                            <Button x:Name="BtnCfgSave" Grid.Column="4" Content="Speichern" Height="26" FontSize="11" FontWeight="SemiBold"
-                                    Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8"
-                                    ToolTip="Permanent in Flash Sektor 7 (Rolling Slot) brennen" Click="BtnCfgSave_Click"/>
+                            <TextBlock x:Name="TxtCfgFlashStatus" Text="Nicht geladen"/>
+                            <Button x:Name="BtnCfgRead" Click="BtnCfgRead_Click"/>
+                            <Button x:Name="BtnCfgApply" Click="BtnCfgApply_Click"/>
+                            <Button x:Name="BtnCfgSave" Click="BtnCfgSave_Click"/>
                         </Grid>
                     </StackPanel>
                 </GroupBox>

@@ -1,0 +1,118 @@
+<Window x:Class="MnpControl.CarriageProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nadelschlitten-Profil (Flash Sektor 7)"
+        Width="460"
+        Height="310"
+        MinWidth="420"
+        MinHeight="280"
+        Background="#F4F6F9"
+        FontFamily="Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif"
+        FontSize="12.5"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <Style TargetType="GroupBox">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontFamily" Value="Segoe UI, sans-serif"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+        <GroupBox Header="Nadelschlitten-Profil (Flash Sektor 7)">
+            <DockPanel>
+                <!-- Actions unten: Laden | Anwenden | Speichern | Schließen -->
+                <Grid DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="1.1*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="0.9*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BtnDialogRead" Grid.Column="0" Content="Laden" Height="30" FontSize="12"
+                            Background="#F8FAFC" BorderBrush="#CBD5E1"
+                            ToolTip="Aktuelle Konfiguration aus dem STM32 Flash lesen"
+                            Click="BtnDialogRead_Click"/>
+                    <Button x:Name="BtnDialogApply" Grid.Column="2" Content="Anwenden" Height="30" FontSize="12"
+                            Background="#F8FAFC" BorderBrush="#CBD5E1"
+                            ToolTip="Werte temporaer im RAM anwenden"
+                            Click="BtnDialogApply_Click"/>
+                    <Button x:Name="BtnDialogSave" Grid.Column="4" Content="Speichern" Height="30" FontSize="12" FontWeight="SemiBold"
+                            Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8"
+                            ToolTip="Permanent in Flash Sektor 7 (Rolling Slot) brennen"
+                            Click="BtnDialogSave_Click"/>
+                    <Button x:Name="BtnDialogClose" Grid.Column="6" Content="Schließen" Height="30" FontSize="12" IsCancel="True"
+                            Background="#FFFFFF" BorderBrush="#CBD5E1"
+                            Click="BtnDialogClose_Click"/>
+                </Grid>
+
+                <StackPanel Margin="0,4,0,0">
+                    <!-- Profil-Schnellauswahl: DEFAULT mit Auto-Erkennung -->
+                    <Button x:Name="BtnDialogDefault" Content="DEFAULT (Auto-Erkennung)" Height="30" FontSize="12" FontWeight="Bold"
+                            Background="#F0FDF4" BorderBrush="#16A34A" Foreground="#15803D" Margin="0,0,0,10"
+                            ToolTip="Standard-Profil laden: Aktiviert die automatische Schlittenerkennung (LZ: 150 inc, Stufe 3)"
+                            Click="BtnDialogDefault_Click"/>
+
+                    <!-- Parameter-Grid -->
+                    <Grid Margin="0,2,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="105"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28"/>
+                            <RowDefinition Height="28"/>
+                            <RowDefinition Height="28"/>
+                            <RowDefinition Height="26"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Profil-ID:" VerticalAlignment="Center" FontSize="12"/>
+                        <TextBox x:Name="TxtDialogCarriageId" Grid.Row="0" Grid.Column="1" Text="DEFAULT" Height="24" FontSize="11.5" VerticalContentAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Landebahn:" VerticalAlignment="Center" FontSize="12" ToolTip="Inkremente vor Kontakt, ab denen Kriechstufe gilt"/>
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtDialogLandingMargin" Grid.Column="0" Text="150" Height="24" FontSize="11.5" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text=" inc" VerticalAlignment="Center" FontSize="11" Foreground="#64748B" Margin="4,0,0,0"/>
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Kriech-Stufe:" VerticalAlignment="Center" FontSize="12" ToolTip="Geschwindigkeitsstufe auf der Landebahn (1-16)"/>
+                        <ComboBox x:Name="CmbDialogLandingSpeed" Grid.Row="2" Grid.Column="1" Height="24" FontSize="11.5" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="1 (1 Inc/ms)"/>
+                            <ComboBoxItem Content="2 (2 Inc/ms)"/>
+                            <ComboBoxItem Content="3 (4 Inc/ms) - Standard"/>
+                            <ComboBoxItem Content="4 (8 Inc/ms) - Schlitten A"/>
+                            <ComboBoxItem Content="5 (14 Inc/ms)"/>
+                            <ComboBoxItem Content="6 (22 Inc/ms)"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Flash-Zyklen:" VerticalAlignment="Center" FontSize="12"/>
+                        <TextBlock x:Name="TxtDialogFlashStatus" Grid.Row="3" Grid.Column="1" Text="Nicht geladen" VerticalAlignment="Center" FontSize="11.5" Foreground="#64748B" Margin="2,0,0,0"/>
+                    </Grid>
+                </StackPanel>
+            </DockPanel>
+        </GroupBox>
+    </DockPanel>
+</Window>
