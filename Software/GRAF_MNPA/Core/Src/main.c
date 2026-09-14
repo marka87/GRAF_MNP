@@ -32,7 +32,6 @@
 #include "AD5684RARUZ.h"
 #include "ADC_read.h"
 #include "encoder.h"
-#include "encoder_performance.h"
 #include "Reference_Run.h"
 #include "PID_Control.h"
 #include "Z_PID_Control.h"
@@ -112,8 +111,6 @@ uint32_t next_100ms_tick = 0;
 uint32_t next_10ms_tick = 0;
 uint32_t next_1ms_tick = 0;
 uint32_t next_uart_status_tick = 0;
-
-volatile bool perform_encoder_perf_test = false;  // Flag to trigger performance measurement
 
 volatile bool ds_was_activated = false;
 bool z_axis_success = false;
@@ -643,9 +640,6 @@ void Process_UART_Command(const char *command) {
 			(unsigned)b_stats.mech_health_grade, (unsigned)b_stats.stick_slip_delta_u_mv,
 			(unsigned)b_stats.glide_friction_mv, (unsigned)b_stats.bounce_count,
 			(unsigned)b_stats.stiction_stall_ms);
-	} else if (strcmp(command, "p") == 0) { // Performance measurement
-		perform_encoder_perf_test = true;
-		snprintf(response, sizeof(response), "Performance measurement initiated...\r\n");
 	}
 	// Rückmeldung senden
 	uart_send_status();
@@ -732,7 +726,6 @@ int main(void)
 	display_jazz_init(&display1);
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
-	encoder_perf_measure_init(); // Initialize cycle counter for performance measurement
 	ConfigFlash_Init();
 	ConfigFlash_ApplyActive();
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
@@ -986,11 +979,6 @@ int main(void)
 			} else {
 				uart_line_len = 0; // overflow: discard
 			}
-		}
-		// Trigger performance measurement if requested via 'p' command
-		if (perform_encoder_perf_test) {
-			perform_encoder_perf_test = false;
-			encoder_perf_print_results();
 		}
 		if (HAL_GetTick() >= next_100ms_tick) {
 			next_100ms_tick = HAL_GetTick() + 100;
@@ -1329,7 +1317,7 @@ static void MX_TIM2_Init(void)
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -1476,7 +1464,7 @@ static void MX_TIM5_Init(void)
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
   htim5.Init.Prescaler = 0;
-  htim5.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 4294967295;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -1484,11 +1472,11 @@ static void MX_TIM5_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 15;
+  sConfig.IC1Filter = 3;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 15;
+  sConfig.IC2Filter = 3;
   if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -1500,9 +1488,7 @@ static void MX_TIM5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM5_Init 2 */
-  __HAL_TIM_ENABLE_IT(&htim5, TIM_IT_UPDATE);
-      HAL_NVIC_SetPriority(TIM5_IRQn, 0, 0);
-      HAL_NVIC_EnableIRQ(TIM5_IRQn);
+
   /* USER CODE END TIM5_Init 2 */
 
 }
