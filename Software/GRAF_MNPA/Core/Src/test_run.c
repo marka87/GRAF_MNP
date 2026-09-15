@@ -378,12 +378,16 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     int32_t z_target = (int32_t)Z_Target_GetRequested();
     uint16_t ds_value = read_filtered_ds();
 
-    /* Hebelprellen-Ueberwachung in den ersten 20 ms nach Kontakt */
+    /* Hebelprellen-Ueberwachung: Nur solange die Achse noch unten am Messobjekt steht */
     if (s_contact_monitoring) {
-        if (HAL_GetTick() - s_contact_tick <= 20u) {
+        int32_t c_zone = s_scatter_stats.z_ref_pos + 35;
+        if (z_pos > c_zone) {
+            /* Achse hat nach Kontakt bereits regulär nach oben abgehoben -> kein Prellen */
+            s_contact_monitoring = false;
+        } else if (HAL_GetTick() - s_contact_tick <= 20u) {
             if (ds_value + 400u < s_ds_trigger_threshold) {
                 s_bounce_count++;
-                s_contact_monitoring = false; /* Ein Prell-Ereignis pro Kontakt erfassen */
+                s_contact_monitoring = false; /* Echtes Prellen bei aufliegender Achse erkannt */
             }
         } else {
             s_contact_monitoring = false;
