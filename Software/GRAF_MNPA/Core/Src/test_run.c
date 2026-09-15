@@ -139,15 +139,13 @@ static uint32_t               s_ds_filter_acc = 0;
 static uint32_t               s_fast_cycles_start_tick = 0;
 static bool                   s_no_sen_tripped_in_cycle = false;
 
-/* Landebahn-Diagnose & Auto-Adaption */
+/* Landebahn-Diagnose */
 static bool                   s_landing_diag_active = false;
 static uint32_t               s_landing_start_tick = 0;
 static uint32_t               s_landing_last_move_tick = 0;
 static uint32_t               s_landing_stall_ms = 0;
 static int32_t                s_landing_max_lag = 0;
 static int32_t                s_landing_last_z = 0;
-static uint16_t               s_auto_override_lz = 0;
-static uint8_t                s_auto_override_ls = 0;
 
 /* RAM-Puffer fuer Zyklus-Deltas (Streuungs-Diagramm): waehrend der schnellen
  * Zyklen wird pro Kontakt nur der Delta-Wert (2 Byte) gespeichert - KEIN
@@ -274,8 +272,6 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     s_landing_stall_ms       = 0;
     s_landing_max_lag        = 0;
     s_landing_last_z         = 0;
-    s_auto_override_lz       = 0;
-    s_auto_override_ls       = 0;
 
     memset(&s_stats, 0, sizeof(s_stats));
     s_stats.total_cycles      = num_cycles;
@@ -331,8 +327,6 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
 
     s_ds_trigger_debounce = 0;
     s_ds_accel_fault_debounce = 0;
-    s_auto_override_lz = 0;
-    s_auto_override_ls = 0;
 
     /* Geschwindigkeit: Direkte Übernahme ohne Level-1-Verfälschung */
     s_fast_speed_level = Z_PID_GetSpeedLevel();
@@ -398,7 +392,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
     }
 
     const CarriageConfig_t *cfg = ConfigFlash_GetActive();
-    uint16_t landing_margin = (s_auto_override_lz > 0) ? s_auto_override_lz : ((cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u);
+    uint16_t landing_margin = (cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 120u;
     uint8_t  brake_factor   = (cfg->braking_dist_factor > 0) ? cfg->braking_dist_factor : 80u;
 
     int32_t top_zone     = (int32_t)z_ax_no_pos - get_reversal_blanking_margin(s_fast_speed_level);
@@ -617,20 +611,17 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             }
         }
         else if (s_phase == PHASE_B_FAST_DOWN) {
-            /* 2-Stufen-Bremsung mit Landebahn (Ansatz 2):
-             * 1. Freiflug oberhalb braking_zone: Volle Reisegeschwindigkeit
-             * 2. Bremszone (braking_zone bis landing_zone): Stufe 6 (22 Inc/ms) baut Hauptenergie ab
-             * 3. Landebahn (letzte 1.5 mm / 150 Inc): Kriechstufe 3 (4 Inc/ms) gleitet stabil zum Kontakt */
+            /* Universelle 2-Stufen-Bremsung:
+             * Oberhalb braking_zone: Reisegeschwindigkeit s_fast_speed_level
+             * Ab braking_zone: Sanfte lineare Bremsrampe direkt auf Kriechstufe landing_speed
+             * (gesteuert durch den 12 Inc/ms² Decel-Slew-Rate-Limiter).
+             * Durch die quadratische kinetische Bremswegberechnung (kinetic_dist ~ v²)
+             * erreicht der Schlitten die Kriechgeschwindigkeit immer pünktlich vor der Landebahn,
+             * vollkommen unabhängig von der gewählten Geschwindigkeitsstufe! */
             if (z_pos > braking_zone) {
                 Z_PID_SetSpeedLevel(s_fast_speed_level);
-            } else if (z_pos > landing_zone) {
-                uint8_t mid_speed = s_fast_speed_level / 2u;
-                if (mid_speed < 4u) mid_speed = 4u;
-                if (mid_speed > 8u) mid_speed = 8u;
-                if (mid_speed > s_fast_speed_level) mid_speed = s_fast_speed_level;
-                Z_PID_SetSpeedLevel(mid_speed);
             } else {
-                uint8_t landing_speed = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
+                uint8_t landing_speed = (cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED;
                 Z_PID_SetSpeedLevel(landing_speed);
             }
 
@@ -711,7 +702,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
 
                             /* Dynamische, geschwindigkeitsbewusste Diagnose:
                              * Erwartete Landedauer berechnen basierend auf Landeweg und Kriechstufe */
-                            uint8_t cur_ls = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
+                            uint8_t cur_ls = (cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED;
                             uint32_t v_ls = Z_PID_GetMaxVelocityForLevel(cur_ls);
                             if (v_ls == 0) v_ls = 4u;
                             uint32_t l_dist = (landing_margin > 35u) ? (landing_margin - 35u) : 20u;
@@ -725,13 +716,6 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
 
                             if (has_stiction) {
                                 s_scatter_stats.carriage_type = 2u; /* Schlitten A (Haftreibung) */
-
-                                /* Wenn DEFAULT-Profil aktiv und unverändert (150 inc): Automatisch auf Stufe 4 / LZ 60 adaptieren */
-                                if (strcmp(cfg->carriage_id, "DEFAULT") == 0 && cfg->landing_zone_margin == 150u) {
-                                    s_auto_override_lz = 60u;
-                                    s_auto_override_ls = 4u;
-                                    s_scatter_stats.auto_adapted = true;
-                                }
                             } else {
                                 if (strcmp(cfg->carriage_id, "SCHLITTEN-A") == 0 || cfg->landing_zone_margin <= 80u) {
                                     s_scatter_stats.carriage_type = 2u; /* Schlitten A (kompensiert) */
@@ -928,8 +912,8 @@ void TestRun_GetStats(TestRunStats_t *out) {
 void TestRun_GetScatterStats(TestBScatterStats_t *out) {
     if (out != NULL) {
         const CarriageConfig_t *cfg = ConfigFlash_GetActive();
-        s_scatter_stats.active_landing_zone = (s_auto_override_lz > 0) ? s_auto_override_lz : ((cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 150u);
-        s_scatter_stats.active_landing_speed = (s_auto_override_ls > 0) ? s_auto_override_ls : ((cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED);
+        s_scatter_stats.active_landing_zone = (cfg->landing_zone_margin > 0) ? cfg->landing_zone_margin : 120u;
+        s_scatter_stats.active_landing_speed = (cfg->landing_speed_level >= 1 && cfg->landing_speed_level <= 16) ? cfg->landing_speed_level : TEST_B_SETUP_PROBE_SPEED;
         s_scatter_stats.fast_speed_level = s_fast_speed_level;
         s_scatter_stats.max_velocity_mms = Z_PID_GetMaxVelocity_mm_s();
         s_scatter_stats.max_accel_g = Z_PID_GetMaxAccel_g();

@@ -1091,22 +1091,18 @@ namespace MnpControl
                 string activeId = string.IsNullOrEmpty(nsId) ? "DEFAULT" : nsId;
 
                 summaryLines.Add("----------------------------------------------");
-                summaryLines.Add("Nadelschlitten-Diagnose (Auto-Erkennung):");
+                summaryLines.Add("Nadelschlitten-Diagnose:");
                 if (nsType == 2 && stallMs >= 15)
                 {
                     summaryLines.Add("Erkannter Typ:       Schlitten A (Haftreibung)");
                     summaryLines.Add($"Lauf-Verhalten:      {stallMs} ms Stillstand auf Landebahn (Landedauer: {nsTime ?? "0"} ms)");
-                    if (nsAuto == "1")
+                    if (activeId != "SCHLITTEN-A")
                     {
-                        summaryLines.Add($"Auto-Adaption:       AKTIV -> LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"} (nur für diesen Lauf)");
-                    }
-                    else if (activeId != "SCHLITTEN-A" && lzVal > 80)
-                    {
-                        summaryLines.Add("Empfehlung:          Profil SCHLITTEN-A waehlen (LZ=60 inc, Stufe 4)");
+                        summaryLines.Add("Empfehlung:          Profil SCHLITTEN-A waehlen (LZ=100..120 inc, Stufe 4)");
                     }
                     else
                     {
-                        summaryLines.Add("Empfehlung:          Kriechstufe LS erhoehen oder Fuehrung schmieren");
+                        summaryLines.Add("Empfehlung:          Kriechstufe LS auf 4 erhoehen oder Fuehrung schmieren");
                     }
                 }
                 else
@@ -1122,14 +1118,7 @@ namespace MnpControl
                     summaryLines.Add($"Lauf-Verhalten:      Optimal (Landedauer: {nsTime ?? "0"} ms, kein Stillstand)");
                 }
 
-                if (nsAuto == "1")
-                {
-                    summaryLines.Add($"Aktives Profil:      {activeId} (adaptiert auf LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"})");
-                }
-                else
-                {
-                    summaryLines.Add($"Aktives Profil:      {activeId} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
-                }
+                summaryLines.Add($"Aktives Profil:      {activeId} (LZ={nsLz ?? "120"} inc, Stufe {nsLs ?? "3"})");
             }
             summaryLines.Add(sep);
 

@@ -898,7 +898,7 @@ int main(void)
 						(unsigned)b_stats.stiction_stall_ms,
 						(unsigned)b_stats.landing_time_ms,
 						(unsigned)b_stats.max_landing_lag,
-						(unsigned)(b_stats.auto_adapted ? 1 : 0),
+						0u, /* ns_auto deaktiviert (Profil-gesteuert) */
 						ConfigFlash_GetActive()->carriage_id,
 						(unsigned)b_stats.active_landing_zone,
 						(unsigned)b_stats.active_landing_speed);

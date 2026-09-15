@@ -77,7 +77,6 @@ typedef struct {
     uint16_t landing_time_ms;    /* Gemessene Landebahn-Dauer bis Kontakt */
     uint16_t stiction_stall_ms;  /* Gemessene Stillstandszeit durch Haftreibung */
     uint16_t max_landing_lag;    /* Max. Schleppfehler auf der Landebahn in inc */
-    bool     auto_adapted;       /* True wenn Parameter fuer Folgewege automatisch angepasst wurden */
     uint16_t active_landing_zone;   /* Tatsaechlich gefahrene Landebahn in inc */
     uint8_t  active_landing_speed;  /* Tatsaechlich gefahrene Kriechstufe */
     uint8_t  fast_speed_level;      /* Getestete Geschwindigkeitsstufe (1-16) */
