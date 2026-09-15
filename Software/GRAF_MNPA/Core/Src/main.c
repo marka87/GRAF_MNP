@@ -651,13 +651,6 @@ void Process_UART_Command(const char *command) {
 	} else if (strcmp(command, "CMD:TRACE_FREEZE") == 0) {
 		Trace_Freeze();
 		snprintf(response, sizeof(response), "TRACE_FREEZE:OK\r\n");
-	} else if (strcmp(command, "CMD:GET_HEALTH") == 0) {
-		TestBScatterStats_t b_stats;
-		TestRun_GetScatterStats(&b_stats);
-		snprintf(response, sizeof(response), "HEALTH:grade=%u,ss_u=%u,glide_u=%u,bounce=%u,stall_ms=%u\r\n",
-			(unsigned)b_stats.mech_health_grade, (unsigned)b_stats.stick_slip_delta_u_mv,
-			(unsigned)b_stats.glide_friction_mv, (unsigned)b_stats.bounce_count,
-			(unsigned)b_stats.stiction_stall_ms);
 	}
 	// Rückmeldung senden
 	uart_send_status();
@@ -885,7 +878,7 @@ int main(void)
 					TestRun_GetScatterStats(&b_stats);
 					char stats_msg[750];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f,ns_type=%u,ns_stall=%u,ns_time=%u,ns_lag=%u,ns_auto=%u,ns_id=%s,ns_lz=%u,ns_ls=%u,ss_u=%u,glide_u=%u,bounce=%u,health=%u\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,speed_level=%u,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f,ns_type=%u,ns_stall=%u,ns_time=%u,ns_lag=%u,ns_auto=%u,ns_id=%s,ns_lz=%u,ns_ls=%u\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -896,6 +889,7 @@ int main(void)
 						(double)((float)b_stats.baseline_adc * (5.0f / 4095.0f)),
 						(double)((float)b_stats.trigger_adc * (5.0f / 4095.0f)),
 						(unsigned long)stats.test_time_ms,
+						(unsigned)b_stats.fast_speed_level,
 						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
 						(long)z_ax_no_pos,
 						(unsigned long)b_stats.contact_travel_inc,
@@ -907,11 +901,7 @@ int main(void)
 						(unsigned)(b_stats.auto_adapted ? 1 : 0),
 						ConfigFlash_GetActive()->carriage_id,
 						(unsigned)b_stats.active_landing_zone,
-						(unsigned)b_stats.active_landing_speed,
-						(unsigned)b_stats.stick_slip_delta_u_mv,
-						(unsigned)b_stats.glide_friction_mv,
-						(unsigned)b_stats.bounce_count,
-						(unsigned)b_stats.mech_health_grade);
+						(unsigned)b_stats.active_landing_speed);
 
 					/* Zuerst alle Einzelzyklen senden, damit die Summary-Auswertung
 					 * im Terminal/GUI chronologisch ganz unten (am Ende) steht */

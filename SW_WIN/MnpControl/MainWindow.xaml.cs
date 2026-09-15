@@ -1034,6 +1034,17 @@ namespace MnpControl
             summaryLines.Add(sep);
             summaryLines.Add("=== TEST B: MESSOBJEKT-ANTASTUNG & STREUUNG ===");
             summaryLines.Add($"Zyklen:              {done} / {cycles}");
+            int speedLvl = 13;
+            if (values.TryGetValue("speed_level", out string? spdLvlStr) && int.TryParse(spdLvlStr, out int sl))
+            {
+                speedLvl = sl;
+            }
+            else
+            {
+                speedLvl = (int)Math.Round(SldSpeedLevel.Value);
+            }
+            int sollMms = GetSpeedLevelMms(speedLvl);
+            summaryLines.Add($"Geschwindigkeit:     Stufe {speedLvl}/16 ({GetSpeedDescription(speedLvl)} | Soll: {sollMms} mm/s)");
             if (!string.IsNullOrEmpty(timeMsStr) && float.TryParse(timeMsStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float timeMs) && timeMs > 0)
             {
                 float timeSec = timeMs / 1000.0f;
@@ -1042,7 +1053,7 @@ namespace MnpControl
                 summaryLines.Add($"Gesamtdauer:         {timeSec:F2} s ({timeMs:F0} ms)");
                 if (freq > 0.0f)
                 {
-                    summaryLines.Add($"Geschwindigkeit:     {freq:F1} Takte/s (ca. {msPerCycle:F0} ms/Takt)");
+                    summaryLines.Add($"Takt-Frequenz:       {freq:F1} Takte/s (ca. {msPerCycle:F0} ms/Takt)");
                 }
             }
             summaryLines.Add($"Start-Referenz (Z0): {zRef} inc");
@@ -1075,66 +1086,49 @@ namespace MnpControl
                 values.TryGetValue("ns_lz", out string? nsLz);
                 values.TryGetValue("ns_ls", out string? nsLs);
 
+                int.TryParse(nsStall, out int stallMs);
+                int.TryParse(nsLz, out int lzVal);
+                string activeId = string.IsNullOrEmpty(nsId) ? "DEFAULT" : nsId;
+
                 summaryLines.Add("----------------------------------------------");
                 summaryLines.Add("Nadelschlitten-Diagnose (Auto-Erkennung):");
-                if (nsType == 2)
+                if (nsType == 2 && stallMs >= 15)
                 {
                     summaryLines.Add("Erkannter Typ:       Schlitten A (Haftreibung)");
-                    summaryLines.Add($"Stiction-Verzug:     {nsStall ?? "0"} ms | Landedauer: {nsTime ?? "0"} ms");
+                    summaryLines.Add($"Lauf-Verhalten:      {stallMs} ms Stillstand auf Landebahn (Landedauer: {nsTime ?? "0"} ms)");
                     if (nsAuto == "1")
                     {
                         summaryLines.Add($"Auto-Adaption:       AKTIV -> LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"} (nur für diesen Lauf)");
                     }
-                    else
+                    else if (activeId != "SCHLITTEN-A" && lzVal > 80)
                     {
                         summaryLines.Add("Empfehlung:          Profil SCHLITTEN-A waehlen (LZ=60 inc, Stufe 4)");
                     }
-                }
-                else if (nsType == 1)
-                {
-                    summaryLines.Add("Erkannter Typ:       Schlitten B / Standard (Leichtgaengig)");
-                    summaryLines.Add($"Stiction-Verzug:     0 ms (optimal) | Landedauer: {nsTime ?? "0"} ms");
+                    else
+                    {
+                        summaryLines.Add("Empfehlung:          Kriechstufe LS erhoehen oder Fuehrung schmieren");
+                    }
                 }
                 else
                 {
-                    summaryLines.Add($"Lauf-Verhalten:      Landedauer {nsTime ?? "0"} ms | Verzug: {nsStall ?? "0"} ms");
+                    if (activeId == "SCHLITTEN-A" || lzVal <= 80)
+                    {
+                        summaryLines.Add("Erkannter Typ:       Schlitten A (kompensiert / einwandfrei)");
+                    }
+                    else
+                    {
+                        summaryLines.Add("Erkannter Typ:       Schlitten B / Standard (Leichtgaengig)");
+                    }
+                    summaryLines.Add($"Lauf-Verhalten:      Optimal (Landedauer: {nsTime ?? "0"} ms, kein Stillstand)");
                 }
+
                 if (nsAuto == "1")
                 {
-                    summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (adaptiert auf LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"})");
+                    summaryLines.Add($"Aktives Profil:      {activeId} (adaptiert auf LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"})");
                 }
                 else
                 {
-                    summaryLines.Add($"Aktives Profil:      {nsId ?? "DEFAULT"} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
-                }
-            }
-
-            if (values.TryGetValue("health", out string? healthStr) && int.TryParse(healthStr, out int healthVal))
-            {
-                values.TryGetValue("ss_u", out string? ssUStr);
-                values.TryGetValue("glide_u", out string? glideUStr);
-                values.TryGetValue("bounce", out string? bounceStr);
-
-                summaryLines.Add("----------------------------------------------");
-                summaryLines.Add("Mechanik-Zustand (Condition Monitoring):");
-                string badge = healthVal switch
-                {
-                    1 => "[GRÜN] OPTIMAL (Leichtgaengig)",
-                    2 => "[GELB] WARTUNG EMPFOHLEN (Erhoehte Reibung)",
-                    3 => "[ROT] KRITISCHE SCHWERGAENGIGKEIT / KLEMMUNG",
-                    _ => "[?] UNBEKANNT"
-                };
-                summaryLines.Add($"Gesundheits-Ampel:   {badge}");
-                summaryLines.Add($"Losbrech-Spannung:   {ssUStr ?? "0"} mV delta (Stick-Slip)");
-                summaryLines.Add($"Freiflug-Reibung:    {glideUStr ?? "0"} mV Gegenkraft");
-                summaryLines.Add($"Hebel-Prellen:       {bounceStr ?? "0"} Einbrueche nach Kontakt");
-                if (healthVal == 2)
-                {
-                    summaryLines.Add("Wartungshinweis:     Fuehrungsschiene reinigen / schmieren!");
-                }
-                else if (healthVal == 3)
-                {
-                    summaryLines.Add("Wartungshinweis:     Mechanik pruefen! Moeglicher Klemmer oder Schwergang.");
+                    summaryLines.Add($"Aktives Profil:      {activeId} (LZ={nsLz ?? "150"} inc, Stufe {nsLs ?? "3"})");
                 }
             }
             summaryLines.Add(sep);
@@ -1645,6 +1639,27 @@ namespace MnpControl
             15 => "Extrem-Stress",
             16 => "Max-Speed",
             _ => ""
+        };
+
+        private static int GetSpeedLevelMms(int level) => level switch
+        {
+            1 => 10,
+            2 => 20,
+            3 => 40,
+            4 => 80,
+            5 => 140,
+            6 => 220,
+            7 => 320,
+            8 => 440,
+            9 => 550,
+            10 => 650,
+            11 => 760,
+            12 => 880,
+            13 => 1000,
+            14 => 1120,
+            15 => 1240,
+            16 => 1360,
+            _ => 0
         };
 
         private void SendBoundedStep(uint steps, bool isUp)

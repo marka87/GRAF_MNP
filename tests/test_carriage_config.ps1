@@ -71,9 +71,10 @@ $profileB = @{ ID = "SCHLITTEN-B"; LZ = 150; LS = 3 }
 Assert-Equal ($profileA.LZ -lt $profileB.LZ) $true "Schlitten A Landebahn muss kuerzer sein als Schlitten B (60 < 150)"
 Assert-Equal ($profileA.LS -gt $profileB.LS) $true "Schlitten A Landegeschwindigkeit muss hoeher sein als Schlitten B (4 > 3 gegen Stiction)"
 
-# 5. Variante A: Auto-Erkennung Kriterien
-function Classify-Carriage($stallMs, $landingTimeMs) {
-    if ($stallMs -gt 10 -or $landingTimeMs -gt 80) {
+# 5. Variante A: Geschwindigkeitsbewusste Auto-Erkennung Kriterien
+function Classify-Carriage($stallMs, $landingTimeMs, $expectedTimeMs = 30) {
+    $maxNormal = ($expectedTimeMs * 2) + 50
+    if ($stallMs -ge 15 -or $landingTimeMs -gt $maxNormal) {
         return 2 # Schlitten A
     } else {
         return 1 # Schlitten B
@@ -81,10 +82,11 @@ function Classify-Carriage($stallMs, $landingTimeMs) {
 }
 
 Assert-Equal (Classify-Carriage 178 215) 2 "Stall 178 ms & Landedauer 215 ms muss als Schlitten A klassifiziert werden"
+Assert-Equal (Classify-Carriage 0 14) 1 "Stall 0 ms & Landedauer 14 ms muss als Schlitten B klassifiziert werden"
 Assert-Equal (Classify-Carriage 0 38) 1 "Stall 0 ms & Landedauer 38 ms muss als Schlitten B klassifiziert werden"
 
-# 6. TEST_B_SUMMARY Telegramm mit Nadelschlitten-Diagnose-Feldern (Phase 1 & Phase 2)
-$summaryMsg = "TEST_B_SUMMARY:status=OK,cycles=10,done=10,z_ref=495,z_min=495,z_max=499,delta_min=0,delta_max=4,range=4,mean=498.4,baseline_v=0.021,trig_v=1.520,time_ms=1450,v_max=508.0,a_max=4.7,a_brake=4.3,no_sensor_pos=3204,contact_travel=6,peak_v=4.282,ns_type=2,ns_stall=178,ns_time=215,ns_lag=24,ns_auto=1,ns_id=DEFAULT,ns_lz=60,ns_ls=4,ss_u=170,glide_u=342,bounce=0,health=2"
+# 6. TEST_B_SUMMARY Telegramm mit Nadelschlitten-Diagnose-Feldern
+$summaryMsg = "TEST_B_SUMMARY:status=OK,cycles=10,done=10,z_ref=495,z_min=495,z_max=499,delta_min=0,delta_max=4,range=4,mean=498.4,baseline_v=0.021,trig_v=1.520,time_ms=1450,speed_level=6,v_max=508.0,a_max=4.7,a_brake=4.3,no_sensor_pos=3204,contact_travel=6,peak_v=4.282,ns_type=2,ns_stall=178,ns_time=215,ns_lag=24,ns_auto=1,ns_id=DEFAULT,ns_lz=60,ns_ls=4"
 $sPayload = $summaryMsg.Substring("TEST_B_SUMMARY:".Length).Trim()
 $sPairs = $sPayload.Split(',')
 $sDict = @{}
@@ -95,15 +97,12 @@ foreach ($pair in $sPairs) {
     }
 }
 
+Assert-Equal ([int]$sDict["speed_level"]) 6 "Summary muss speed_level=6 enthalten"
 Assert-Equal ([int]$sDict["ns_type"]) 2 "Summary muss ns_type=2 enthalten"
 Assert-Equal ([int]$sDict["ns_stall"]) 178 "Summary muss ns_stall=178 enthalten"
 Assert-Equal ([int]$sDict["ns_auto"]) 1 "Summary muss ns_auto=1 enthalten"
 Assert-Equal ([int]$sDict["ns_lz"]) 60 "Summary muss ns_lz=60 enthalten"
 Assert-Equal ([int]$sDict["ns_ls"]) 4 "Summary muss ns_ls=4 enthalten"
-Assert-Equal ([int]$sDict["ss_u"]) 170 "Summary muss ss_u=170 mV enthalten"
-Assert-Equal ([int]$sDict["glide_u"]) 342 "Summary muss glide_u=342 mV enthalten"
-Assert-Equal ([int]$sDict["bounce"]) 0 "Summary muss bounce=0 enthalten"
-Assert-Equal ([int]$sDict["health"]) 2 "Summary muss health=2 (GELB) enthalten"
 
 # 7. Phase 2: Ringpuffer-Chronologie & Wrapping
 function Test-RingBufferChronology($maxSamples, $writtenSamples) {
@@ -138,27 +137,11 @@ Assert-Equal $ringOut[0] 0 "Erster relativer Timestamp muss exakt 0 ms sein"
 Assert-Equal $ringOut[1999] 1999 "Letzter relativer Timestamp muss exakt 1999 ms sein"
 Assert-Equal ($ringOut[100] -lt $ringOut[200]) $true "Ringpuffer-Ausgabe muss streng monoton steigend sein"
 
-# 8. Phase 2: Condition Monitoring Ampel-Klassifizierung
-function Classify-Health($stallMs, $deltaUMv, $glideUMv, $bounceCount) {
-    if ($stallMs -gt 30 -or $glideUMv -gt 800 -or $bounceCount -ge 2) {
-        return 3 # ROT
-    } elseif ($stallMs -gt 5 -or $deltaUMv -gt 120 -or $glideUMv -gt 450) {
-        return 2 # GELB
-    } else {
-        return 1 # GRUEN
-    }
-}
-
-Assert-Equal (Classify-Health 0 30 320 0) 1 "Gesunder Schlitten B muss GRUEN (1) erhalten"
-Assert-Equal (Classify-Health 15 140 380 0) 2 "Leichte Haftreibung muss GELB (2) erhalten"
-Assert-Equal (Classify-Health 188 170 340 0) 3 "Schwerer Klemmer (188 ms Stall) muss ROT (3) erhalten"
-Assert-Equal (Classify-Health 0 40 400 2) 3 "Hebelprellen (>=2) muss ROT (3) erhalten"
-
-# 9. Linker-Schutz fuer Flash Sektor 7 & Direkt-Boot
+# 8. Linker-Schutz fuer Flash Sektor 7 & Direkt-Boot
 $appLd = Get-Content (Join-Path $PSScriptRoot "..\Software\GRAF_MNPA\STM32F746NGHX_FLASH.ld") -Raw
 $appOriginMatch = [regex]::Match($appLd, 'FLASH\s*\(rx\)\s*:\s*ORIGIN\s*=\s*(0x[0-9a-fA-F]+),\s*LENGTH\s*=\s*(\d+K)')
 Assert-Equal $appOriginMatch.Success $true "Applikation Linker-Skript Flash-Definition gefunden"
 Assert-Equal ([uint32]$appOriginMatch.Groups[1].Value) 0x08000000 "Applikation Origin muss 0x08000000 (Direkt-Boot) sein"
 Assert-Equal $appOriginMatch.Groups[2].Value.ToUpper() "768K" "Applikation Flash-Laenge muss 768 KB betragen (Sektor 7 geschuetzt)"
 
-Write-Host "`nALL 28 CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "`nALL CHECKS PASSED SUCCESSFULLY!" -ForegroundColor Green
