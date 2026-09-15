@@ -60,6 +60,7 @@ static int32_t get_test_a_up_overshoot(uint8_t speed) {
 /* Test B Parameter */
 #define TEST_B_FAST_SPEED_LEVEL      8u    /* Schnelle Verfahrfahrt (wie Naehmaschine) */
 #define TEST_B_SETUP_PROBE_SPEED     3u    /* Sanfte Suchfahrt ueber die gesamte Hoehe (egal ob 2mm oder 10mm Bauteil) */
+#define TEST_B_LANDING_SPEED         4u    /* Landebahn vor Kontakt: Stufe 4 (8 inc/ms = 0.20V P-Kraft) verhindert Reibungshaenger */
 #define TEST_B_TRIGGER_DELTA_MV_DEF  1500u /* TTL-Logik: 1.5V Schaltschwelle ueber Ruhe-Baseline */
 
 /* 1+N+1 Prinzip: Ersttastung (Kalibrierung) und Abschluss-Bremsfahrt.
@@ -603,7 +604,7 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                 uint8_t mid_speed = (s_fast_speed_level > 6u) ? 6u : s_fast_speed_level;
                 Z_PID_SetSpeedLevel(mid_speed);
             } else {
-                Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
+                Z_PID_SetSpeedLevel(TEST_B_LANDING_SPEED);
             }
 
             int32_t down_target = s_scatter_stats.z_ref_pos - 25;
