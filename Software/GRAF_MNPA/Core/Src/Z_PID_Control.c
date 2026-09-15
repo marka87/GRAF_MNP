@@ -46,11 +46,10 @@ static const uint32_t speed_level_max_velocity[SPEED_LEVEL_MAX_COUNT] = {
 #define MAX_SAFE_VELOCITY 175.0f
 #define SAFETY_POSITION_MARGIN 400
 
-/* Ruckbegrenzung (asymmetrisch):
- * - Beschleunigen: max. 5.0 Inc/ms² (~5g) sanfter Anlauf
- * - Bremsen: max. 12.0 Inc/ms² (~12g) geführte, sportliche Verzögerung statt schlagartigem 1-ms-Absturz */
-#define VELOCITY_ACCEL_SLEW_RATE_INC_MS2 5.0f
-#define VELOCITY_DECEL_SLEW_RATE_INC_MS2 12.0f
+/* Ruckbegrenzung (Schritt 1 Glättung): max. Änderung der Soll-Geschwindigkeit pro 1ms-Zyklus.
+ * Verhindert den bisherigen Sprung 0 -> Stufenmaximum bei Zielsprüngen/Richtungswechsel.
+ * ponytail: einfache lineare Rampe (kein Trapezprofil), bei Bedarf pro Phase parametrierbar machen. */
+#define VELOCITY_SLEW_RATE_INC_MS2 5.0f
 
 /* Spannungsgrenzen und Neutralspannung */
 #define VOLTAGE_MIN     0.0f
@@ -254,43 +253,28 @@ bool Z_Axis_PIDControl(ad5684_dac_t *dac, uint32_t Z_Axis_TargetPosition) {
 	if (desired_velocity > (float)max_velocity) desired_velocity = (float)max_velocity;
 	if (desired_velocity < -(float)max_velocity) desired_velocity = -(float)max_velocity;
 
-	/* Ruckbegrenzung (asymmetrisch):
-	 * - BESCHLEUNIGEN: max. VELOCITY_ACCEL_SLEW_RATE_INC_MS2 (5.0 Inc/ms² ~ 5g)
-	 * - BREMSEN: max. VELOCITY_DECEL_SLEW_RATE_INC_MS2 (12.0 Inc/ms² ~ 12g)
-	 * Verhindert schlagartige Drehmomentsprünge und Hebelprellen beim Umschalten
-	 * auf die Bremszone, während gleichzeitig volle Bremsautorität erhalten bleibt. */
+	/* Ruckbegrenzung (asymmetrisch): Nur das BESCHLEUNIGEN (Betrag steigt, gleiche Richtung)
+	 * wird auf max. VELOCITY_SLEW_RATE_INC_MS2 pro dt_ms begrenzt. Das BREMSEN (Betrag sinkt
+	 * oder Richtungswechsel, z.B. bei Stufen-Reduktion durch die Bremszonen-Logik vor Kontakt)
+	 * bleibt IMMER sofort verfügbar - Bremsautoritaet darf nie gedrosselt werden, sonst fährt
+	 * die Achse mit zu hoher Restgeschwindigkeit auf das Messobjekt auf (Klopfen/Übertravel). */
+	float max_delta = VELOCITY_SLEW_RATE_INC_MS2 * (float)dt_ms;
 	float prev_velocity = s_last_desired_velocity;
 	bool same_direction = (prev_velocity >= 0.0f) == (desired_velocity >= 0.0f);
 	bool is_braking = same_direction && (fabsf(desired_velocity) <= fabsf(prev_velocity));
 
 	if (is_braking) {
-		/* Bremsen (Betrag sinkt, gleiche Richtung) */
-		float max_decel = VELOCITY_DECEL_SLEW_RATE_INC_MS2 * (float)dt_ms;
-		float velocity_delta = desired_velocity - prev_velocity;
-		if (velocity_delta > max_decel) velocity_delta = max_decel;
-		if (velocity_delta < -max_decel) velocity_delta = -max_decel;
-		desired_velocity = prev_velocity + velocity_delta;
+		/* Bremsen bzw. Stillstand: sofort erlaubt, keine Rampe. */
 	} else if (!same_direction && prev_velocity != 0.0f) {
-		/* Richtungswechsel: Erst mit Decel-Rampe bis 0 abbremsen, dann mit Accel-Rampe beschleunigen */
-		float max_decel = VELOCITY_DECEL_SLEW_RATE_INC_MS2 * (float)dt_ms;
-		float to_zero = prev_velocity;
-		if (to_zero > max_decel) to_zero -= max_decel;
-		else if (to_zero < -max_decel) to_zero += max_decel;
-		else to_zero = 0.0f;
-		if (to_zero != 0.0f) {
-			desired_velocity = to_zero;
-		} else {
-			float max_accel = VELOCITY_ACCEL_SLEW_RATE_INC_MS2 * (float)dt_ms;
-			float beyond_zero = fabsf(desired_velocity);
-			if (beyond_zero > max_accel) beyond_zero = max_accel;
-			desired_velocity = (desired_velocity >= 0.0f) ? beyond_zero : -beyond_zero;
-		}
+		/* Richtungswechsel: Abbremsen bis 0 sofort, danach Rampe ab 0 in neue Richtung. */
+		float beyond_zero = fabsf(desired_velocity);
+		if (beyond_zero > max_delta) beyond_zero = max_delta;
+		desired_velocity = (desired_velocity >= 0.0f) ? beyond_zero : -beyond_zero;
 	} else {
-		/* Beschleunigen (Betrag steigt, gleiche Richtung oder Start aus dem Stillstand) */
-		float max_accel = VELOCITY_ACCEL_SLEW_RATE_INC_MS2 * (float)dt_ms;
+		/* Beschleunigen (Betrag steigt, gleiche Richtung oder Start aus dem Stillstand). */
 		float velocity_delta = desired_velocity - prev_velocity;
-		if (velocity_delta > max_accel) velocity_delta = max_accel;
-		if (velocity_delta < -max_accel) velocity_delta = -max_accel;
+		if (velocity_delta > max_delta) velocity_delta = max_delta;
+		if (velocity_delta < -max_delta) velocity_delta = -max_delta;
 		desired_velocity = prev_velocity + velocity_delta;
 	}
 	s_last_desired_velocity = desired_velocity;

@@ -39,7 +39,6 @@
 #include "d_mot_control.h"
 #include "data_buffer.h"
 #include "test_run.h"
-#include "config_flash.h"
 
 /* USER CODE END Includes */
 
@@ -461,9 +460,6 @@ void Process_UART_Command(const char *command) {
 		if (dmot > 20.0f) dmot = dmot / 1000.0f; /* falls in mV übergeben */
 		TestRun_SetDruckmotorVoltage(dmot);
 		if (delta > 0) TestRun_SetTriggerDeltaMv((uint32_t)delta);
-		CarriageConfig_t *active_cfg = ConfigFlash_GetActive();
-		active_cfg->d_mot_voltage = dmot;
-		if (delta > 0) active_cfg->ds_trigger_delta_mv = (uint16_t)delta;
 		snprintf(response, sizeof(response), "CFG_TB_OK:dmot=%.2f,delta=%lu\r\n", dmot, (unsigned long)TestRun_GetTriggerDeltaMv());
 	} else if (strcmp(command, "CFG_TB?") == 0) {
 		snprintf(response, sizeof(response), "CFG_TB:%.2f;%lu\r\n", TestRun_GetDruckmotorVoltage(), (unsigned long)TestRun_GetTriggerDeltaMv());
@@ -501,8 +497,6 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
 			Z_PID_SetPositionParameters(kp, ki, kd);
-			CarriageConfig_t *cfg = ConfigFlash_GetActive();
-			cfg->pos_kp = kp; cfg->pos_ki = ki; cfg->pos_kd = kd;
 			snprintf(response, sizeof(response), "PIDZP_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZP_ERR:Format PP=kp,ki,kd\r\n");
@@ -511,8 +505,6 @@ void Process_UART_Command(const char *command) {
 		float kp = 0.0f, ki = 0.0f, kd = 0.0f;
 		if (parse_pid_triplet(command + 3, &kp, &ki, &kd)) {
 			Z_PID_SetVelocityParameters(kp, ki, kd);
-			CarriageConfig_t *cfg = ConfigFlash_GetActive();
-			cfg->vel_kp = kp; cfg->vel_ki = ki; cfg->vel_kd = kd;
 			snprintf(response, sizeof(response), "PIDZV_SET:%.7f;%.9f;%.7f\r\n", kp, ki, kd);
 		} else {
 			snprintf(response, sizeof(response), "PIDZV_ERR:Format PV=kp,ki,kd\r\n");
@@ -525,105 +517,6 @@ void Process_UART_Command(const char *command) {
 		} else {
 			snprintf(response, sizeof(response), "ZV_ERR:Format V=1..16\r\n");
 		}
-	} else if (strcmp(command, "CMD:GET_CONFIG") == 0 || strcmp(command, "CFG?") == 0) {
-		CarriageConfig_t *cfg = ConfigFlash_GetActive();
-		snprintf(response, sizeof(response),
-			"CFG:ID=%s;PKP=%.4f;PKI=%.6f;PKD=%.4f;VKP=%.4f;VKI=%.6f;VKD=%.4f;LZ=%u;LS=%u;BF=%u;SNO=%ld;TMV=%u;DMOT=%.2f;CNT=%lu\r\n",
-			cfg->carriage_id, cfg->pos_kp, cfg->pos_ki, cfg->pos_kd,
-			cfg->vel_kp, cfg->vel_ki, cfg->vel_kd,
-			(unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level,
-			(unsigned)cfg->braking_dist_factor, (long)cfg->z_ax_no_pos,
-			(unsigned)cfg->ds_trigger_delta_mv, cfg->d_mot_voltage,
-			(unsigned long)cfg->write_count);
-	} else if (strncmp(command, "CMD:SET_CONFIG:", 15) == 0 || strncmp(command, "CFG_SET:", 8) == 0) {
-		const char *p = (command[1] == 'M') ? (command + 15) : (command + 8);
-		CarriageConfig_t *cfg = ConfigFlash_GetActive();
-		char buf[128];
-		strncpy(buf, p, sizeof(buf) - 1);
-		buf[sizeof(buf) - 1] = '\0';
-		char *tok = strtok(buf, ";,");
-		while (tok != NULL) {
-			char *eq = strchr(tok, '=');
-			if (eq != NULL) {
-				*eq = '\0';
-				char *key = tok;
-				char *val = eq + 1;
-				while (*key == ' ') key++;
-				while (*val == ' ') val++;
-				for (char *c = key; *c; c++) {
-					if (*c >= 'a' && *c <= 'z') *c -= ('a' - 'A');
-				}
-				float f_val = 0.0f;
-				if (strcmp(key, "ID") == 0) {
-					strncpy(cfg->carriage_id, val, sizeof(cfg->carriage_id) - 1);
-					cfg->carriage_id[sizeof(cfg->carriage_id) - 1] = '\0';
-				} else if (strcmp(key, "PKP") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->pos_kp = f_val;
-				} else if (strcmp(key, "PKI") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->pos_ki = f_val;
-				} else if (strcmp(key, "PKD") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->pos_kd = f_val;
-				} else if (strcmp(key, "VKP") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->vel_kp = f_val;
-				} else if (strcmp(key, "VKI") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->vel_ki = f_val;
-				} else if (strcmp(key, "VKD") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->vel_kd = f_val;
-				} else if (strcmp(key, "LZ") == 0) {
-					cfg->landing_zone_margin = (uint16_t)strtoul(val, NULL, 10);
-				} else if (strcmp(key, "LS") == 0) {
-					cfg->landing_speed_level = (uint8_t)strtoul(val, NULL, 10);
-				} else if (strcmp(key, "BF") == 0) {
-					cfg->braking_dist_factor = (uint8_t)strtoul(val, NULL, 10);
-				} else if (strcmp(key, "SNO") == 0) {
-					cfg->z_ax_no_pos = (int32_t)strtol(val, NULL, 10);
-				} else if (strcmp(key, "TMV") == 0) {
-					cfg->ds_trigger_delta_mv = (uint16_t)strtoul(val, NULL, 10);
-				} else if (strcmp(key, "DMOT") == 0 && parse_positive_decimal(val, &f_val)) {
-					cfg->d_mot_voltage = f_val;
-				}
-			}
-			tok = strtok(NULL, ";,");
-		}
-		ConfigFlash_ApplyActive();
-		snprintf(response, sizeof(response), "CFG_SET:OK (ID=%s,LZ=%u,LS=%u)\r\n",
-			cfg->carriage_id, (unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level);
-	} else if (strcmp(command, "CMD:SAVE_CONFIG") == 0 || strcmp(command, "CFG_SAVE") == 0) {
-		CarriageConfig_t *cfg = ConfigFlash_GetActive();
-		if (ConfigFlash_Save(cfg)) {
-			snprintf(response, sizeof(response), "CFG_SAVED:cnt=%lu,id=%s\r\n",
-				(unsigned long)cfg->write_count, cfg->carriage_id);
-		} else {
-			snprintf(response, sizeof(response), "CFG_SAVE_ERR\r\n");
-		}
-	} else if (strcmp(command, "CMD:LOAD_DEFAULT") == 0 || strcmp(command, "CFG_DEFAULT") == 0) {
-		ConfigFlash_LoadDefaults(ConfigFlash_GetActive());
-		ConfigFlash_ApplyActive();
-		snprintf(response, sizeof(response), "CFG_DEFAULT:OK\r\n");
-	} else if (strncmp(command, "CMD:LOAD_CONFIG:", 16) == 0 || strncmp(command, "CFG_LOAD:", 9) == 0) {
-		const char *id = (command[1] == 'M') ? (command + 16) : (command + 9);
-		if (strncmp(id, "ID=", 3) == 0) id += 3;
-		if (ConfigFlash_LoadById(id)) {
-			CarriageConfig_t *cfg = ConfigFlash_GetActive();
-			snprintf(response, sizeof(response),
-				"CFG:ID=%s;PKP=%.4f;PKI=%.6f;PKD=%.4f;VKP=%.4f;VKI=%.6f;VKD=%.4f;LZ=%u;LS=%u;BF=%u;SNO=%ld;TMV=%u;DMOT=%.2f;CNT=%lu\r\n",
-				cfg->carriage_id, cfg->pos_kp, cfg->pos_ki, cfg->pos_kd,
-				cfg->vel_kp, cfg->vel_ki, cfg->vel_kd,
-				(unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level,
-				(unsigned)cfg->braking_dist_factor, (long)cfg->z_ax_no_pos,
-				(unsigned)cfg->ds_trigger_delta_mv, cfg->d_mot_voltage,
-				(unsigned long)cfg->write_count);
-		} else {
-			snprintf(response, sizeof(response), "CFG_LOAD_ERR:ID=%s\r\n", id);
-		}
-	} else if (strcmp(command, "CMD:LIST_PROFILES") == 0 || strcmp(command, "CFG_LIST") == 0) {
-		char p_list[16][16];
-		size_t n = ConfigFlash_GetProfileList(p_list, 16);
-		int len = snprintf(response, sizeof(response), "CFG_LIST:");
-		for (size_t i = 0; i < n && len < (int)(sizeof(response) - 20); i++) {
-			len += snprintf(response + len, sizeof(response) - len, "%s%s", (i > 0 ? "," : ""), p_list[i]);
-		}
-		snprintf(response + len, sizeof(response) - len, "\r\n");
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
 		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));
@@ -734,8 +627,6 @@ int main(void)
 	display_jazz_init(&display1);
 	HAL_GPIO_WritePin(GPIOD, EN_G_Pin | EN_B_Pin | EN_R_Pin, GPIO_PIN_SET); //Display background ON
 	Encoder_Init();
-	ConfigFlash_Init();
-	ConfigFlash_ApplyActive();
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) UART1_rxBuffer, 1);
 	Z_Axis_TargetPosition = clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS());
 	Z_Target_SetRequestedDirect(Z_Axis_TargetPosition);
@@ -876,9 +767,9 @@ int main(void)
 				if (TestRun_GetMode() == TESTRUN_MODE_B_PROBE_SCATTER) {
 					TestBScatterStats_t b_stats;
 					TestRun_GetScatterStats(&b_stats);
-					char stats_msg[750];
+					char stats_msg[500];
 					snprintf(stats_msg, sizeof(stats_msg),
-						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,speed_level=%u,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f,ns_type=%u,ns_stall=%u,ns_time=%u,ns_lag=%u,ns_auto=%u,ns_id=%s,ns_lz=%u,ns_ls=%u\r\n\r\n",
+						"TEST_B_SUMMARY:status=OK,cycles=%lu,done=%lu,z_ref=%ld,z_min=%ld,z_max=%ld,delta_min=%ld,delta_max=%ld,range=%ld,mean=%.1f,baseline_v=%.3f,trig_v=%.3f,time_ms=%lu,speed_level=%u,v_max=%.1f,a_max=%.1f,a_brake=%.1f,no_sensor_pos=%ld,contact_travel=%lu,peak_v=%.3f\r\n\r\n",
 						stats.total_cycles, stats.completed_cycles,
 						(long)b_stats.z_ref_pos,
 						(long)b_stats.z_min_pos, (long)b_stats.z_max_pos,
@@ -893,15 +784,7 @@ int main(void)
 						(double)b_stats.max_velocity_mms, (double)b_stats.max_accel_g, (double)b_stats.max_decel_g,
 						(long)z_ax_no_pos,
 						(unsigned long)b_stats.contact_travel_inc,
-						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)),
-						(unsigned)b_stats.carriage_type,
-						(unsigned)b_stats.stiction_stall_ms,
-						(unsigned)b_stats.landing_time_ms,
-						(unsigned)b_stats.max_landing_lag,
-						0u, /* ns_auto deaktiviert (Profil-gesteuert) */
-						ConfigFlash_GetActive()->carriage_id,
-						(unsigned)b_stats.active_landing_zone,
-						(unsigned)b_stats.active_landing_speed);
+						(double)((float)b_stats.peak_ds_adc * (5.0f / 4095.0f)));
 
 					/* Zuerst alle Einzelzyklen senden, damit die Summary-Auswertung
 					 * im Terminal/GUI chronologisch ganz unten (am Ende) steht */

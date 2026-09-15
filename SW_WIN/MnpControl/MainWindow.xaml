@@ -475,37 +475,6 @@
                         </Grid>
                     </StackPanel>
                 </GroupBox>
-
-                <!-- Schlitten-Profil Card (Flash Sektor 7) -->
-                <!-- Schlitten-Profil Card (Flash Sektor 7) -->
-                <GroupBox Header="Nadelschlitten-Profil (Flash Sektor 7)">
-                    <StackPanel Margin="2">
-                        <Button x:Name="BtnCarriageProfile"
-                                Content="Nadelschlitten-Profil &#xF6;ffnen..."
-                                Height="34"
-                                Background="#F8FAFC"
-                                Click="BtnCarriageProfile_Click"/>
-
-                        <!-- Collapsed legacy/binding elements preserved for compatibility -->
-                        <Grid Visibility="Collapsed">
-                            <Button x:Name="BtnProfileDefault" Click="BtnProfileDefault_Click"/>
-                            <TextBox x:Name="TxtCfgCarriageId" Text="DEFAULT"/>
-                            <TextBox x:Name="TxtCfgLandingMargin" Text="150"/>
-                            <ComboBox x:Name="CmbCfgLandingSpeed">
-                                <ComboBoxItem Content="1 (1 Inc/ms)"/>
-                                <ComboBoxItem Content="2 (2 Inc/ms)"/>
-                                <ComboBoxItem Content="3 (4 Inc/ms) - Standard" IsSelected="True"/>
-                                <ComboBoxItem Content="4 (8 Inc/ms) - Schlitten A"/>
-                                <ComboBoxItem Content="5 (14 Inc/ms)"/>
-                                <ComboBoxItem Content="6 (22 Inc/ms)"/>
-                            </ComboBox>
-                            <TextBlock x:Name="TxtCfgFlashStatus" Text="Nicht geladen"/>
-                            <Button x:Name="BtnCfgRead" Click="BtnCfgRead_Click"/>
-                            <Button x:Name="BtnCfgApply" Click="BtnCfgApply_Click"/>
-                            <Button x:Name="BtnCfgSave" Click="BtnCfgSave_Click"/>
-                        </Grid>
-                    </StackPanel>
-                </GroupBox>
             </StackPanel>
         </ScrollViewer>
 

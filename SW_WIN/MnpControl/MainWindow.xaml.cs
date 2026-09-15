@@ -528,111 +528,7 @@ namespace MnpControl
                 return;
             }
 
-            if (msg.StartsWith("CFG:", StringComparison.Ordinal))
-            {
-                string payload = msg.Substring(4).Trim();
-                string[] pairs = payload.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                string id = "DEFAULT";
-                string lz = "150";
-                int ls = 3;
-                string cnt = "0";
 
-                foreach (string pair in pairs)
-                {
-                    int eqIdx = pair.IndexOf('=');
-                    if (eqIdx <= 0) continue;
-                    string key = pair.Substring(0, eqIdx).Trim().ToUpperInvariant();
-                    string val = pair.Substring(eqIdx + 1).Trim();
-
-                    switch (key)
-                    {
-                        case "ID":
-                            id = val;
-                            break;
-                        case "LZ":
-                            lz = val;
-                            break;
-                        case "LS":
-                            int.TryParse(val, out ls);
-                            break;
-                        case "CNT":
-                            cnt = val;
-                            break;
-                        case "PKP":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkp)) _hybridConfig.PosKp = pkp;
-                            break;
-                        case "PKI":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pki)) _hybridConfig.PosKi = pki;
-                            break;
-                        case "PKD":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float pkd)) _hybridConfig.PosKd = pkd;
-                            break;
-                        case "VKP":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkp)) _hybridConfig.VelKp = vkp;
-                            break;
-                        case "VKI":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vki)) _hybridConfig.VelKi = vki;
-                            break;
-                        case "VKD":
-                            if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float vkd)) _hybridConfig.VelKd = vkd;
-                            break;
-                    }
-                }
-
-                TxtCfgCarriageId.Text = id;
-                TxtCfgLandingMargin.Text = lz;
-                if (ls >= 1 && ls <= CmbCfgLandingSpeed.Items.Count)
-                {
-                    CmbCfgLandingSpeed.SelectedIndex = ls - 1;
-                }
-                TxtCfgFlashStatus.Text = $"Zyklus #{cnt} (im Flash)";
-                SyncProfileDialog();
-                TxtStatus.Text = $"Profil geladen: {id} (#{cnt})";
-                AppendLiveLog($"Flash-Profil: ID={id}, LZ={lz} inc, Stufe {ls}, Flash-Zyklen={cnt}");
-                return;
-            }
-
-            if (msg.StartsWith("CFG_SAVED:", StringComparison.Ordinal))
-            {
-                string payload = msg.Substring(10).Trim();
-                TxtCfgFlashStatus.Text = "Erfolgreich gespeichert!";
-                SyncProfileDialog();
-                TxtStatus.Text = "Flash gespeichert: " + payload;
-                AppendLiveLog("Flash gespeichert: " + payload);
-                return;
-            }
-
-            if (msg.StartsWith("CFG_SAVE_ERR", StringComparison.Ordinal))
-            {
-                TxtCfgFlashStatus.Text = "Fehler beim Speichern!";
-                SyncProfileDialog();
-                TxtStatus.Text = "Flash-Speichern fehlgeschlagen!";
-                AppendLiveLog("Flash-Speicherfehler!");
-                return;
-            }
-
-            if (msg.StartsWith("CFG_SET:", StringComparison.Ordinal))
-            {
-                TxtStatus.Text = "Profil im RAM aktiviert";
-                AppendLiveLog("RX " + msg);
-                return;
-            }
-
-            if (msg.StartsWith("CFG_DEFAULT:", StringComparison.Ordinal))
-            {
-                TxtCfgCarriageId.Text = "DEFAULT";
-                TxtCfgLandingMargin.Text = "150";
-                if (CmbCfgLandingSpeed.Items.Count >= 3)
-                {
-                    CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (Standard)
-                }
-                TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
-                SyncProfileDialog();
-                TxtStatus.Text = "DEFAULT-Profil aktiv (Auto-Erkennung)";
-                AppendLiveLog("DEFAULT-Profil im STM32 aktiviert (Auto-Erkennung aktiv)");
-                SendCommand("CFG?");
-                return;
-            }
 
 
             if (msg.StartsWith("TEST_B_REF:", StringComparison.Ordinal))
@@ -1341,10 +1237,6 @@ namespace MnpControl
             BtnPidLoad.IsEnabled           = true;
             BtnHybridTuning.IsEnabled      = isConnected;
             BtnExportTrace.IsEnabled       = isConnected && !isRunning;
-            BtnCfgRead.IsEnabled           = isConnected;
-            BtnCfgApply.IsEnabled          = isConnected;
-            BtnCfgSave.IsEnabled           = isConnected && !isRunning;
-            BtnProfileDefault.IsEnabled    = isConnected;
         }
 
         private static string NormalizeDecimalText(string value)
@@ -2427,81 +2319,6 @@ namespace MnpControl
             TxtStatus.Text = $"Preset geladen: {preset.Name}";
             AppendLiveLog("Preset " + preset.Name);
         }
-
-        private CarriageProfileWindow? _profileDialog;
-
-        private void BtnCarriageProfile_Click(object sender, RoutedEventArgs e)
-        {
-            _profileDialog = new CarriageProfileWindow(this)
-            {
-                Owner = this
-            };
-            try
-            {
-                _profileDialog.ShowDialog();
-            }
-            finally
-            {
-                _profileDialog = null;
-            }
-        }
-
-        internal void SyncProfileDialog()
-        {
-            _profileDialog?.SyncFromMain(
-                TxtCfgCarriageId.Text,
-                TxtCfgLandingMargin.Text,
-                CmbCfgLandingSpeed.SelectedIndex,
-                TxtCfgFlashStatus.Text);
-        }
-
-        internal void BtnProfileDefault_Click(object sender, RoutedEventArgs e)
-        {
-            TxtCfgCarriageId.Text = "DEFAULT";
-            TxtCfgLandingMargin.Text = "150";
-            if (CmbCfgLandingSpeed.Items.Count >= 3)
-            {
-                CmbCfgLandingSpeed.SelectedIndex = 2; // Stufe 3 (Standard)
-            }
-            SendCommand("CMD:LOAD_DEFAULT");
-            TxtStatus.Text = "Lade DEFAULT-Profil...";
-            TxtCfgFlashStatus.Text = "DEFAULT im RAM aktiv";
-            SyncProfileDialog();
-            AppendLiveLog("[PROFIL] DEFAULT-Profil geladen (Auto-Erkennung fuer Test B aktiv)");
-        }
-
-        internal void BtnCfgRead_Click(object sender, RoutedEventArgs e)
-        {
-            SendCommand("CMD:GET_CONFIG");
-            TxtStatus.Text = "Lese Flash-Konfiguration...";
-        }
-
-        internal void BtnCfgApply_Click(object sender, RoutedEventArgs e)
-        {
-            string id = TxtCfgCarriageId.Text.Trim();
-            if (string.IsNullOrEmpty(id)) id = "CUSTOM";
-            if (!int.TryParse(TxtCfgLandingMargin.Text.Trim(), out int lz) || lz < 10 || lz > 1000)
-            {
-                MessageBox.Show("Landebahn-Puffer muss zwischen 10 und 1000 Inkrementen liegen.", "Eingabefehler", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            int ls = CmbCfgLandingSpeed.SelectedIndex + 1;
-            if (ls < 1 || ls > 16) ls = 3;
-
-            string cmd = $"CMD:SET_CONFIG:ID={id};LZ={lz};LS={ls};BF=120";
-            SendCommand(cmd);
-            TxtStatus.Text = $"Profil angewendet: {id} (LZ={lz}, LS={ls})";
-            TxtCfgFlashStatus.Text = "Im RAM angewendet (ungespeichert)";
-            SyncProfileDialog();
-        }
-
-        internal void BtnCfgSave_Click(object sender, RoutedEventArgs e)
-        {
-            BtnCfgApply_Click(sender, e);
-            SendCommand("CMD:SAVE_CONFIG");
-            TxtStatus.Text = "Speichere in Flash Sektor 7...";
-            TxtCfgFlashStatus.Text = "Speichere in Flash...";
-            SyncProfileDialog();
-        }
     }
 }
+
