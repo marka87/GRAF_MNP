@@ -59,6 +59,12 @@ bool              ConfigFlash_Save(const CarriageConfig_t *cfg);
 /* Wendet die aktuelle Konfiguration auf PID-Regler und Kinematik an */
 void              ConfigFlash_ApplyActive(void);
 
+/* Lädt ein Profil anhand der ID (aus Flash oder eingebaute Presets) */
+bool              ConfigFlash_LoadById(const char *id);
+
+/* Gibt eine Liste aller im Flash und als Preset vorhandenen Profil-IDs zurück */
+size_t            ConfigFlash_GetProfileList(char list[][16], size_t max_count);
+
 /* Berechnet IEEE 802.3 CRC-32 */
 uint32_t          ConfigFlash_CalculateCRC32(const uint8_t *data, size_t length);
 

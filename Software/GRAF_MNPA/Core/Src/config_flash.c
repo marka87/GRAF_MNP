@@ -216,3 +216,107 @@ void ConfigFlash_ApplyActive(void)
     TestRun_SetTriggerDeltaMv(cfg->ds_trigger_delta_mv);
     TestRun_SetDruckmotorVoltage(cfg->d_mot_voltage);
 }
+
+/* =========================================================================
+ * Profil anhand der ID laden (Flash oder Preset)
+ * ========================================================================= */
+bool ConfigFlash_LoadById(const char *id)
+{
+    if (!s_is_initialized) {
+        ConfigFlash_Init();
+    }
+    if (id == NULL || id[0] == '\0') {
+        return false;
+    }
+
+    int32_t  best_slot_index = -1;
+    uint32_t max_write_count = 0;
+
+    /* 1. Neuesten passenden Slot in Flash Sektor 7 suchen */
+    for (uint32_t i = 0; i < CONFIG_FLASH_MAX_SLOTS; i++) {
+        const CarriageConfig_t *slot = (const CarriageConfig_t *)(CONFIG_FLASH_SECTOR_ADDR + (i * CONFIG_FLASH_SLOT_SIZE));
+        if (slot->magic == CONFIG_FLASH_MAGIC &&
+            slot->version == CONFIG_FLASH_VERSION &&
+            slot->struct_size == sizeof(CarriageConfig_t)) {
+            uint32_t calc_crc = ConfigFlash_CalculateCRC32((const uint8_t *)slot, offsetof(CarriageConfig_t, crc32));
+            if (calc_crc == slot->crc32 && strncmp(slot->carriage_id, id, sizeof(slot->carriage_id)) == 0) {
+                if (best_slot_index < 0 || slot->write_count > max_write_count) {
+                    best_slot_index = (int32_t)i;
+                    max_write_count = slot->write_count;
+                }
+            }
+        }
+    }
+
+    if (best_slot_index >= 0) {
+        memcpy(&s_active_config, (const void *)(CONFIG_FLASH_SECTOR_ADDR + (best_slot_index * CONFIG_FLASH_SLOT_SIZE)), sizeof(CarriageConfig_t));
+        ConfigFlash_ApplyActive();
+        return true;
+    }
+
+    /* 2. Nicht im Flash vorhanden -> Vordefinierte Standard-Profile */
+    if (strcmp(id, "SCHLITTEN-A") == 0) {
+        ConfigFlash_LoadDefaults(&s_active_config);
+        strncpy(s_active_config.carriage_id, "SCHLITTEN-A", sizeof(s_active_config.carriage_id) - 1);
+        s_active_config.landing_zone_margin = 100u;
+        s_active_config.landing_speed_level = 4u;
+        s_active_config.braking_dist_factor = 120u;
+        ConfigFlash_ApplyActive();
+        return true;
+    }
+    if (strcmp(id, "SCHLITTEN-B") == 0) {
+        ConfigFlash_LoadDefaults(&s_active_config);
+        strncpy(s_active_config.carriage_id, "SCHLITTEN-B", sizeof(s_active_config.carriage_id) - 1);
+        s_active_config.landing_zone_margin = 150u;
+        s_active_config.landing_speed_level = 3u;
+        s_active_config.braking_dist_factor = 120u;
+        ConfigFlash_ApplyActive();
+        return true;
+    }
+    if (strcmp(id, "DEFAULT") == 0) {
+        ConfigFlash_LoadDefaults(&s_active_config);
+        ConfigFlash_ApplyActive();
+        return true;
+    }
+
+    return false;
+}
+
+/* =========================================================================
+ * Liste aller im Flash vorhandenen Profil-IDs ermitteln
+ * ========================================================================= */
+size_t ConfigFlash_GetProfileList(char list[][16], size_t max_count)
+{
+    if (list == NULL || max_count == 0) return 0;
+    if (!s_is_initialized) ConfigFlash_Init();
+
+    size_t count = 0;
+    strncpy(list[count++], "DEFAULT", 15);
+    if (count < max_count) strncpy(list[count++], "SCHLITTEN-A", 15);
+    if (count < max_count) strncpy(list[count++], "SCHLITTEN-B", 15);
+
+    for (uint32_t i = 0; i < CONFIG_FLASH_MAX_SLOTS && count < max_count; i++) {
+        const CarriageConfig_t *slot = (const CarriageConfig_t *)(CONFIG_FLASH_SECTOR_ADDR + (i * CONFIG_FLASH_SLOT_SIZE));
+        if (slot->magic == CONFIG_FLASH_MAGIC &&
+            slot->version == CONFIG_FLASH_VERSION &&
+            slot->struct_size == sizeof(CarriageConfig_t)) {
+            uint32_t calc_crc = ConfigFlash_CalculateCRC32((const uint8_t *)slot, offsetof(CarriageConfig_t, crc32));
+            if (calc_crc == slot->crc32 && slot->carriage_id[0] != '\0') {
+                bool exists = false;
+                for (size_t k = 0; k < count; k++) {
+                    if (strncmp(list[k], slot->carriage_id, 15) == 0) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists && count < max_count) {
+                    strncpy(list[count], slot->carriage_id, 15);
+                    list[count][15] = '\0';
+                    count++;
+                }
+            }
+        }
+    }
+    return count;
+}
+

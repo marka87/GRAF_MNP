@@ -344,8 +344,10 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
 
     s_ds_trigger_debounce = 0;
     s_ds_accel_fault_debounce = 0;
+    s_auto_override_lz = 0;
+    s_auto_override_ls = 0;
 
-    /* Geschwindigkeit: Direkte Ãœbernahme ohne Level-1-VerfÃ¤lschung */
+    /* Geschwindigkeit: Direkte Übernahme ohne Level-1-Verfälschung */
     s_fast_speed_level = Z_PID_GetSpeedLevel();
     if (s_fast_speed_level < 1u) s_fast_speed_level = 1u;
     if (s_fast_speed_level > 16u) s_fast_speed_level = 16u;
@@ -740,8 +742,8 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
                             if (s_landing_stall_ticks > 10u || landing_time > 80u) {
                                 s_scatter_stats.carriage_type = 2u; /* Schlitten A (Haftreibung) */
 
-                                /* Wenn DEFAULT-Profil aktiv: Automatisch auf Stufe 4 / LZ 60 adaptieren */
-                                if (strcmp(cfg->carriage_id, "DEFAULT") == 0) {
+                                /* Wenn DEFAULT-Profil aktiv und unverändert (150 inc): Automatisch auf Stufe 4 / LZ 60 adaptieren */
+                                if (strcmp(cfg->carriage_id, "DEFAULT") == 0 && cfg->landing_zone_margin == 150u) {
                                     s_auto_override_lz = 60u;
                                     s_auto_override_ls = 4u;
                                     s_scatter_stats.auto_adapted = true;

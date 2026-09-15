@@ -600,6 +600,30 @@ void Process_UART_Command(const char *command) {
 		ConfigFlash_LoadDefaults(ConfigFlash_GetActive());
 		ConfigFlash_ApplyActive();
 		snprintf(response, sizeof(response), "CFG_DEFAULT:OK\r\n");
+	} else if (strncmp(command, "CMD:LOAD_CONFIG:", 16) == 0 || strncmp(command, "CFG_LOAD:", 9) == 0) {
+		const char *id = (command[1] == 'M') ? (command + 16) : (command + 9);
+		if (strncmp(id, "ID=", 3) == 0) id += 3;
+		if (ConfigFlash_LoadById(id)) {
+			CarriageConfig_t *cfg = ConfigFlash_GetActive();
+			snprintf(response, sizeof(response),
+				"CFG:ID=%s;PKP=%.4f;PKI=%.6f;PKD=%.4f;VKP=%.4f;VKI=%.6f;VKD=%.4f;LZ=%u;LS=%u;BF=%u;SNO=%ld;TMV=%u;DMOT=%.2f;CNT=%lu\r\n",
+				cfg->carriage_id, cfg->pos_kp, cfg->pos_ki, cfg->pos_kd,
+				cfg->vel_kp, cfg->vel_ki, cfg->vel_kd,
+				(unsigned)cfg->landing_zone_margin, (unsigned)cfg->landing_speed_level,
+				(unsigned)cfg->braking_dist_factor, (long)cfg->z_ax_no_pos,
+				(unsigned)cfg->ds_trigger_delta_mv, cfg->d_mot_voltage,
+				(unsigned long)cfg->write_count);
+		} else {
+			snprintf(response, sizeof(response), "CFG_LOAD_ERR:ID=%s\r\n", id);
+		}
+	} else if (strcmp(command, "CMD:LIST_PROFILES") == 0 || strcmp(command, "CFG_LIST") == 0) {
+		char p_list[16][16];
+		size_t n = ConfigFlash_GetProfileList(p_list, 16);
+		int len = snprintf(response, sizeof(response), "CFG_LIST:");
+		for (size_t i = 0; i < n && len < (int)(sizeof(response) - 20); i++) {
+			len += snprintf(response + len, sizeof(response) - len, "%s%s", (i > 0 ? "," : ""), p_list[i]);
+		}
+		snprintf(response + len, sizeof(response) - len, "\r\n");
 	} else if (strcmp(command, "N") == 0) {
 		Z_PID_EmergencyNeutral(&dac);
 		Z_Target_SetRequestedDirect(clamp_nonnegative_position(Encoder_GetPosition_Z_AXIS()));

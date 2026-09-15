@@ -800,7 +800,7 @@ namespace MnpControl
             CmbPidPreset.Text = StablePreset.Name;
         }
 
-        private void AppendLiveLog(string line, bool isVerbose = false)
+        internal void AppendLiveLog(string line, bool isVerbose = false)
         {
             if (string.IsNullOrWhiteSpace(line))
                 return;
@@ -1083,14 +1083,7 @@ namespace MnpControl
                     summaryLines.Add($"Stiction-Verzug:     {nsStall ?? "0"} ms | Landedauer: {nsTime ?? "0"} ms");
                     if (nsAuto == "1")
                     {
-                        summaryLines.Add($"Auto-Adaption:       AKTIV -> LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"}");
-                        if (!string.IsNullOrEmpty(nsLz)) TxtCfgLandingMargin.Text = nsLz;
-                        if (int.TryParse(nsLs, out int lsVal) && lsVal >= 1 && lsVal <= CmbCfgLandingSpeed.Items.Count)
-                        {
-                            CmbCfgLandingSpeed.SelectedIndex = lsVal - 1;
-                        }
-                        TxtCfgFlashStatus.Text = "Auto-adaptiert (ungespeichert)";
-                        SyncProfileDialog();
+                        summaryLines.Add($"Auto-Adaption:       AKTIV -> LZ={nsLz ?? "60"} inc, Stufe {nsLs ?? "4"} (nur für diesen Lauf)");
                     }
                     else
                     {
@@ -2491,7 +2484,7 @@ namespace MnpControl
             int ls = CmbCfgLandingSpeed.SelectedIndex + 1;
             if (ls < 1 || ls > 16) ls = 3;
 
-            string cmd = $"CMD:SET_CONFIG:ID={id};LZ={lz};LS={ls}";
+            string cmd = $"CMD:SET_CONFIG:ID={id};LZ={lz};LS={ls};BF=120";
             SendCommand(cmd);
             TxtStatus.Text = $"Profil angewendet: {id} (LZ={lz}, LS={ls})";
             TxtCfgFlashStatus.Text = "Im RAM angewendet (ungespeichert)";

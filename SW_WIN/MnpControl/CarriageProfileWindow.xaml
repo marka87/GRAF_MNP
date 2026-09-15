@@ -66,11 +66,28 @@
                 </Grid>
 
                 <StackPanel Margin="0,4,0,0">
-                    <!-- Profil-Schnellauswahl: DEFAULT mit Auto-Erkennung -->
-                    <Button x:Name="BtnDialogDefault" Content="DEFAULT (Auto-Erkennung)" Height="30" FontSize="12" FontWeight="Bold"
-                            Background="#F0FDF4" BorderBrush="#16A34A" Foreground="#15803D" Margin="0,0,0,10"
-                            ToolTip="Standard-Profil laden: Aktiviert die automatische Schlittenerkennung (LZ: 150 inc, Stufe 3)"
-                            Click="BtnDialogDefault_Click"/>
+                    <!-- Profil-Schnellauswahl: Schlitten A | Schlitten B | Auto-Erkennung -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="1.1*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="BtnProfileA" Grid.Column="0" Content="Schlitten A" Height="30" FontSize="11.5" FontWeight="SemiBold"
+                                Background="#FEF3C7" BorderBrush="#D97706" Foreground="#B45309"
+                                ToolTip="Schlitten A (Haftreibung): LZ=100 inc, Kriechstufe 4"
+                                Click="BtnProfileA_Click"/>
+                        <Button x:Name="BtnProfileB" Grid.Column="2" Content="Schlitten B" Height="30" FontSize="11.5" FontWeight="SemiBold"
+                                Background="#EFF6FF" BorderBrush="#3B82F6" Foreground="#1D4ED8"
+                                ToolTip="Schlitten B / Mimot (Standard): LZ=150 inc, Kriechstufe 3"
+                                Click="BtnProfileB_Click"/>
+                        <Button x:Name="BtnDialogDefault" Grid.Column="4" Content="Auto-Erkennung" Height="30" FontSize="11.5" FontWeight="SemiBold"
+                                Background="#F0FDF4" BorderBrush="#16A34A" Foreground="#15803D"
+                                ToolTip="DEFAULT: Automatische Schlittenerkennung im 1. Zyklus"
+                                Click="BtnDialogDefault_Click"/>
+                    </Grid>
 
                     <!-- Parameter-Grid -->
                     <Grid Margin="0,2,0,4">
