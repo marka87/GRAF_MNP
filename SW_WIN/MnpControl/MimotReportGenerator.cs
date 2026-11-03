@@ -8,7 +8,7 @@ namespace MnpControl
 {
     public static class MimotReportGenerator
     {
-        public const string SoftwareVersion = "V1.2.0";
+        public const string SoftwareVersion = "V1.2.1";
 
         public static (string txtPath, string htmlPath) GenerateAndSave(MimotTestResult result, string? targetDirectory = null)
         {
@@ -176,13 +176,13 @@ namespace MnpControl
                 int snoPos = res.NoSensorPos > 0 ? res.NoSensorPos : snoOben;
 
                 sb.AppendLine(string.Format(formatRow,
-                    "SNO: Schaltschwelle oben", "1500.000 inc", snoOben.ToString("F3", culture) + " inc", "3400.000 inc", passSnoOben ? "Pass" : "Fail"));
+                    "SNO: Schaltschwelle oben", "1500.000 inc", snoOben.ToString("F3", culture) + " inc", "3450.000 inc", passSnoOben ? "Pass" : "Fail"));
                 sb.AppendLine(string.Format(formatRow,
-                    "SNO: Schaltschwelle unten", "1500.000 inc", snoUnten.ToString("F3", culture) + " inc", "3400.000 inc", passSnoUnten ? "Pass" : "Fail"));
+                    "SNO: Schaltschwelle unten", "1500.000 inc", snoUnten.ToString("F3", culture) + " inc", "3450.000 inc", passSnoUnten ? "Pass" : "Fail"));
                 sb.AppendLine(string.Format(formatRow,
                     "SNO: Schalthysterese", "0.000 inc", snoHyst.ToString("F3", culture) + " inc", "30.000 inc", passSnoHyst ? "Pass" : "Fail"));
                 sb.AppendLine(string.Format(formatRow,
-                    "SNO: Position (Nadel-oben)", "1500.000 inc", snoPos.ToString("F3", culture) + " inc", "3400.000 inc", passSnoPos ? "Pass" : "Fail"));
+                    "SNO: Position (Nadel-oben)", "1500.000 inc", snoPos.ToString("F3", culture) + " inc", "3450.000 inc", passSnoPos ? "Pass" : "Fail"));
             }
             sb.AppendLine(headerSep);
             sb.AppendLine();
@@ -339,10 +339,10 @@ namespace MnpControl
                 int snoUnten = res.SnoSchaltschwelleUnten > 0 ? res.SnoSchaltschwelleUnten : (snoOben + snoHyst);
                 int snoPos = res.NoSensorPos > 0 ? res.NoSensorPos : snoOben;
 
-                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoOben:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoOben)}</td></tr>");
-                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle unten</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoUnten:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoUnten)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle oben</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoOben:F3} inc</td><td class='text-right'>3450.000 inc</td><td class='text-center'>{badge(passSnoOben)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Schaltschwelle unten</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoUnten:F3} inc</td><td class='text-right'>3450.000 inc</td><td class='text-center'>{badge(passSnoUnten)}</td></tr>");
                 sb.AppendLine($"      <tr><td>SNO: Schalthysterese</td><td class='text-right'>0.000 inc</td><td class='text-right'>{snoHyst:F3} inc</td><td class='text-right'>30.000 inc</td><td class='text-center'>{badge(passSnoHyst)}</td></tr>");
-                sb.AppendLine($"      <tr><td>SNO: Position (Nadel-oben)</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoPos:F3} inc</td><td class='text-right'>3400.000 inc</td><td class='text-center'>{badge(passSnoPos)}</td></tr>");
+                sb.AppendLine($"      <tr><td>SNO: Position (Nadel-oben)</td><td class='text-right'>1500.000 inc</td><td class='text-right'>{snoPos:F3} inc</td><td class='text-right'>3450.000 inc</td><td class='text-center'>{badge(passSnoPos)}</td></tr>");
             }
             sb.AppendLine("    </table>");
             sb.AppendLine();

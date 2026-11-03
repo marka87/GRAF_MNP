@@ -132,6 +132,7 @@ static uint16_t               s_calib_max_adc = 0;
 static uint32_t               s_calib_plateau_ticks = 0;
 static uint32_t               s_calib_settle_start_tick = 0;
 static uint32_t               s_final_brake_start_tick = 0;
+static uint32_t               s_setup_start_tick = 0;
 static int64_t                s_probe_pos_sum = 0;
 static uint32_t               s_probe_count = 0;
 static uint8_t                s_fast_speed_level = 6u;
@@ -326,6 +327,7 @@ void TestRun_InitEx(TestRunMode_t mode, uint32_t num_cycles) {
     if (s_mode == TESTRUN_MODE_B_PROBE_SCATTER) {
         /* Sanfte Suchfahrt von oben bis zum Bauteil auf Speed 3 */
         s_phase = PHASE_B_SETUP_SLOW_PROBE;
+        s_setup_start_tick = HAL_GetTick();
         Z_PID_SetSpeedLevel(TEST_B_SETUP_PROBE_SPEED);
     } else {
         int32_t init_target_down = (int32_t)z_encoder_start + GO_DOWN_TARGET_OFFS;
@@ -448,6 +450,13 @@ TestRunResult_t TestRun_Tick(bool tick_100ms_elapsed) {
             /* Unteren Anschlag erreicht, aber kein Messobjekt gefunden */
             if (z_pos <= (int32_t)(z_encoder_start + 15)) {
                 snprintf(s_error_msg, sizeof(s_error_msg), "Kein Messobjekt @ %ld", (long)z_pos);
+                TestRun_RestoreSpeedLevel();
+                return TESTRUN_ERROR;
+            }
+
+            /* Antast-Timeout: Achse kommt nicht voran (Encoder/Motor/Endstufe) */
+            if (s_phase == PHASE_B_SETUP_SLOW_PROBE && HAL_GetTick() - s_setup_start_tick > 15000u) {
+                snprintf(s_error_msg, sizeof(s_error_msg), "Antast-Timeout 15s @ %ld", (long)z_pos);
                 TestRun_RestoreSpeedLevel();
                 return TESTRUN_ERROR;
             }
