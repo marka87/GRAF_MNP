@@ -65,12 +65,9 @@
 2. **Minimaler Eingriff ("Ponytail-Prinzip"):**
    - Kürzester funktionierender Diff.
    - Keine unnötigen Refactorings oder Umbenennungen funktionierender Codeblöcke.
-3. **Synchronisations-Pflicht:**
-   - Änderungen müssen immer synchron in beiden Repositories gepflegt werden:
-     - Worktree: `c:\GIT\GRAF_MNP.worktrees\stm32-vscode-build-flash`
-     - Haupt-Repo: `C:\GIT\GRAF_MNP`
-4. **Build-Verifikation:**
+3. **Build-Verifikation:**
    - Firmware Build (`make -C Software/GRAF_MNPA/Debug -j8 all`) muss 0 Fehler und 0 Warnungen liefern.
+     `Debug/` ist nicht im Git: auf frischem Checkout erst per VS-Code-Task "STM32: Build Debug (CubeIDE)" (headless CubeIDE) erzeugen.
    - GUI Build (`dotnet build SW_WIN/MnpControl/MnpControl.csproj -c Release`) muss 0 Fehler liefern.
 
 ---
